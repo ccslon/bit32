@@ -120,7 +120,7 @@ class Data:
     def format_bin(self):
         return ' '.join(self.bin)
     def format_dec(self):
-        return ' '.join(map(str,self.dec)) #map(int,self.dec)))
+        return ' '.join(map(str, map(int,self.dec)))
 
 class Byte(Data):
     pass

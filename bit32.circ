@@ -1339,8 +1339,8 @@
     <comp lib="1" loc="(2700,590)" name="AND Gate">
       <a name="facing" val="west"/>
       <a name="inputs" val="3"/>
+      <a name="negate0" val="true"/>
       <a name="negate1" val="true"/>
-      <a name="negate2" val="true"/>
       <a name="size" val="30"/>
     </comp>
     <comp lib="1" loc="(2770,660)" name="AND Gate">
@@ -2360,12 +2360,12 @@
     <wire from="(2710,320)" to="(2710,330)"/>
     <wire from="(2710,320)" to="(2720,320)"/>
     <wire from="(2710,330)" to="(2720,330)"/>
-    <wire from="(2730,580)" to="(2750,580)"/>
+    <wire from="(2730,600)" to="(2770,600)"/>
     <wire from="(2740,500)" to="(2740,510)"/>
     <wire from="(2740,510)" to="(2740,550)"/>
     <wire from="(2740,510)" to="(2750,510)"/>
+    <wire from="(2740,580)" to="(2750,580)"/>
     <wire from="(2740,590)" to="(2760,590)"/>
-    <wire from="(2740,600)" to="(2770,600)"/>
     <wire from="(2750,570)" to="(2750,580)"/>
     <wire from="(2750,580)" to="(2750,620)"/>
     <wire from="(2750,580)" to="(2830,580)"/>

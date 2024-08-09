@@ -45,11 +45,6 @@ RE = re.compile('|'.join(rf'(?P<{token}>{pattern})' for token, pattern in TOKENS
 def lex(text):
     return [(match.lastgroup, match.group(), match) for match in RE.finditer(text)]
 
-MYRE = re.compile('(?P<op>add)|(?P<flag>(?<=add)s?)', re.I)
-
-def mylex(text):
-    return [(match.lastgroup, match.group(), match) for match in MYRE.finditer(text)]
-
 class Assembler:
     def label(self, label):
         self.labels.append(label)
@@ -387,12 +382,12 @@ class Linker:
 #             file.write('v2.0 raw\n' + ' '.join(bit16))
 
 test = '''
-mov A, 10
-mov B, 0
+mov A, 0
+mov B, 10
 loop:
     cmp A, B
     jge done
-    add B, 1
+    add A, 1
     jmp loop
 done:
     nop
