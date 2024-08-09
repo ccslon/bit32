@@ -86,6 +86,11 @@ class Cond(IntEnum):
     LE = 13
     GT = 14
     AL = 15
+    def display(self):
+        return self.name if self != self.AL else ''
+    def display_jump(self):
+        return self.name if self != self.AL else 'MP'
+    
     
 ESCAPE = {
     '\0': r'\0',
@@ -141,49 +146,76 @@ class Jump(Inst):
     def __init__(self, cond, offset24):
         #assert -256 <= offset24 < 256
         if offset24 < 0:
-            self.str = f'J{cond.name} -0x{-offset24:06X}'
+            self.str = f'J{cond.display_jump()} -0x{-offset24:06X}'
         else:
-            self.str = f'J{cond.name} 0x{offset24:06X}'
+            self.str = f'J{cond.display_jump()} 0x{offset24:06X}'
         self.dec = cond,0,0,offset24
         if offset24 < 0:
             offset24 = negative(offset24, 24)
         self.bin = f'{cond:04b}','0','000',f'{offset24:024b}'
-class Binary(Inst):
-    def __init__(self, cond, flags, size, imm, op, rd, src):
-        if imm:
-            self.str = f'{op.name}{cond.name}{"S" if flags else ""}.{size.name} {rd.name}, {src}'
-        else:
-            self.str = f'{op.name}{cond.name}{"S" if flags else ""}.{size.name} {rd.name}, {src.name}'
-        self.dec = cond,int(flags),1,size,int(imm),op,src,0,rd
-        if imm:
-            if src < 0:
-                src = negative(src, 8)
-            self.bin = f'{cond:04b}',f'{flags:b}','001',f'{size:02b}','1',f'{op:05b}',f'{src:08b}',f'{rd:04b}',f'{rd:04b}'
-        else:
-            self.bin = f'{cond:04b}',f'{flags:b}','001',f'{size:02b}','0',f'{op:05b}','XXXX',f'{src:04b}',f'{rd:04b}',f'{rd:04b}'
         
-
+class Binary(Inst):
+    def __init__(self, cond, flag, size, imm, op, src, rd):
+        if imm:
+            if isinstance(src, str):
+                self.str = f"{op.name}{cond.display()}{'S'*flag}.{size.name} {rd.name}, '{escape(src)}'"
+                self.dec = cond,int(flag),1,size,1,op,ord(src),rd,rd
+                self.bin = f'{cond:04b}',f'{flag:b}','001',f'{size:02b}','1',f'{op:05b}',f'{ord(src):08b}',f'{rd:04b}',f'{rd:04b}'
+            else:
+                self.str = f"{op.name}{cond.display()}{'S'*flag}.{size.name} {rd.name}, {src}"
+                self.dec = cond,int(flag),1,size,1,op,src,rd,rd
+                if src < 0:
+                    src = negative(src, 8)
+                self.bin = f'{cond:04b}',f'{flag:b}','001',f'{size:02b}','1',f'{op:05b}',f'{src:08b}',f'{rd:04b}',f'{rd:04b}'
+        else:
+            self.str = f'{op.name}{cond.display()}{"S"*flag}.{size.name} {rd.name}, {src.name}'
+            self.dec = cond,int(flag),1,size,0,op,0,src,rd,rd
+            self.bin = f'{cond:04b}',f'{flag:b}','001',f'{size:02b}','0',f'{op:05b}','XXXX',f'{src:04b}',f'{rd:04b}',f'{rd:04b}'
+        
 class Unary(Inst):
-    pass
-class Tertiary(Inst):
-    def __init__(self, cond, flags, size, imm, op, rd, rs, src):
+    def __init__(self, cond, flag, size, op, rd):
+        self.str = f'{op.name}{cond.display()}{"S"*flag}.{size.name} {rd.name}'
+        self.dec = cond,int(flag),1,size,0,op,rd,rd,rd
+        self.bin = f'{cond:04b}',f'{flag:b}','001',f'{size:02b}','0',f'{op:05b}','XXXX',f'{rd:04b}',f'{rd:04b}',f'{rd:04b}'
+        
+class Ternary(Inst):
+    def __init__(self, cond, flag, size, imm, op, src, rs, rd):
         if imm:
-            self.str = f'{op.name}{cond.name}{"S" if flags else ""}.{size.name} {rd.name}, {src}'
+            if isinstance(src, str):
+                self.str = f"{op.name}{cond.display()}{'S'*flag}.{size.name} {rd.name}, {rs.name}, '{escape(src)}'"
+                self.dec = cond,int(flag),1,size,1,op,ord(src),rs,rd
+                self.bin = f'{cond:04b}',f'{flag:b}','001',f'{size:02b}','1',f'{op:05b}',f'{ord(src):08b}',f'{rs:04b}',f'{rd:04b}'
+            else:
+                self.str = f'{op.name}{cond.display()}{"S"*flag}.{size.name} {rd.name}, {rs.name}, {src}'
+                self.dec = cond,int(flag),1,size,1,op,src,rs,rd
+                if src < 0:
+                    src = negative(src, 8)
+                self.bin = f'{cond:04b}',f'{flag:b}','001',f'{size:02b}','1',f'{op:05b}',f'{src:08b}',f'{rs:04b}',f'{rd:04b}'
         else:
-            self.str = f'{op.name}{cond.name}{"S" if flags else ""}.{size.name} {rd.name}, {src.name}'
-        self.dec = cond,int(flags),1,size,int(imm),op,src,0,rd
-        if imm:
-            if src < 0:
-                src = negative(src, 8)
-            self.bin = f'{cond:04b}',f'{flags:b}','001',f'{size:02b}','1',f'{op:05b}',f'{src:08b}','XXXX',f'{rd:04b}'
-        else:
-            self.bin = f'{cond:04b}',f'{flags:b}','001',f'{size:02b}','0',f'{op:05b}','XXXX',f'{src:04b}','XXXX',f'{rd:04b}'
+            self.str = f'{op.name}{cond.display()}{"S"*flag}.{size.name} {rd.name}, {rs.name}, {src.name}'
+            self.dec = cond,int(flag),1,size,0,op,src,rs,rd
+            self.bin = f'{cond:04b}',f'{flag:b}','001',f'{size:02b}','0',f'{op:05b}','XXXX',f'{src:04b}',f'{rs:04b}',f'{rd:04b}'
 
 class Load(Inst):
-    pass
+    def __init__(self, cond, flag, size, imm, storing, rd, rb, offset):
+        if storing:
+            self.str = f'LD{cond.display()}{"S"*flag}.{size.name} [{rb.name}, {offset if imm else offset.name}], {rd.name}'
+        else:
+            self.str = f'LD{cond.display()}{"S"*flag}.{size.name} {rd.name}, [{rb.name}, {offset if imm else offset.name}]'
+        self.dec = cond,int(flag),4,size,str(int(imm)),int(storing),0,offset,rb,rd
+        if imm:
+            self.bin = f'{cond:04b}',f'{flag:b}','100',f'{size:02b}','1',str(int(storing)),'XXXXXXXX',f'{offset:04b}',f'{rb:04b}',f'{rd:04b}'
+        else:
+            self.bin = f'{cond:04b}',f'{flag:b}','100',f'{size:02b}','1',str(int(storing)),'XXXX',f'{offset:08b}',f'{rb:04b}',f'{rd:04b}'
 
-class StackOp(Inst):
-    pass
+class PushPop(Inst):
+    def __init__(self, cond, flag, pushing, rd):
+        if pushing:
+            self.str = f'PUSH{cond.display()}{"S"*flag} {rd.name}'
+        else:
+            self.str = f'POP{cond.display()}{"S"*flag} {rd.name}'
+        self.dec = cond,int(flag),5,Size.W,0,int(pushing),0,((-1)**pushing) * 4,0,rd
+        self.bin = f'{cond:04b}',f'{flag:b}','101',f'{Size.W:02b}','0',str(int(pushing)),'XXXX',f'{negative(-4,8) if pushing else 4:0b}','XXXX',f'{rd:04b}'
 
 class Interrupt(Inst):
     pass

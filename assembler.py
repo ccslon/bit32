@@ -6,7 +6,7 @@ Created on Fri Aug 25 10:49:03 2023
 """
 
 import re
-from bit32 import Size, Reg, FReg, Op, Cond, Jump, Binary, Char, unescape
+from bit32 import Size, Reg, FReg, Op, Cond, Jump, Unary, Binary, Ternary, Char, unescape
 
 RE_SIZE = r'|'.join(size.name for size in Size)
 RE_OP = r'|'.join(op.name for op in Op)
@@ -64,10 +64,12 @@ class Assembler:
             self.new_data(0)
     def jump(self, cond, label):
         self.new_inst(Jump, cond, label)
-    def binary(self, op, cond, flag, size, rd, rs):
-        self.new_inst(Binary, cond, flag, size, False, op, rd, rs)
-    def binary_const(self, op, cond, flag, size, rd, rs):
-        self.new_inst(Binary, cond, flag, size, True, op, rd, rs)
+    def unary(self, op, cond, flag, size, rd):
+        self.new_inst(Unary, cond, flag, size, op, rd)
+    def binary(self, op, cond, flag, size, rd, src, imm):
+        self.new_inst(Binary, cond, flag, size, imm, op, src, rd)
+    def ternary(self, op, cond, flag, size, rd, rs, src, imm):
+        self.new_inst(Ternary, cond, flag, size, imm, op, src, rs, rd)
     # def load_reg(self, rd, rb, ro):
     #     self.new_inst(LoadReg, False, rd, rb, ro)
     # def load(self, rd, rb, offset):
@@ -183,27 +185,26 @@ class Assembler:
                 #         self.new_data(*self.values())
                 #     elif self.match('char'):
                 #         self.new_char(*self.values())
+                
+                    elif self.match('op', 'reg'):
+                        self.unary(*self.values())
                         
                     elif self.match('jump', 'id'):
                         self.jump(*self.values())
                     
                     elif self.match('op', 'reg', ',', 'reg'):
-                        self.binary(*self.values())
-                        
+                        self.binary(*self.values(), False)                        
                     elif self.match('op', 'reg', ',', 'const'):
-                        self.binary_const(*self.values())
-                    # elif self.match('op', )
-                        
-                #     elif self.match('op', 'reg'):
-                #         self.op1(*self.values())
-                #     elif self.match('op', 'reg', ',', 'reg'):
-                #         self.op4(*self.values())
-                #     elif self.match('op', 'reg', ',', 'const'):
-                #         self.op_const(*self.values())
-                #     elif self.match('op', 'reg', ',', 'char'):
-                #         self.op_byte(*self.values())
-                #     elif self.match('op', 'reg', ',', 'reg', ',', 'const'):
-                #         self.offset(*self.values())
+                        self.binary(*self.values(), True)                        
+                    elif self.match('op', 'reg', ',', 'char'):
+                        self.binary(*self.values(), True)
+                    
+                    elif self.match('op', 'reg', ',', 'reg', ',', 'reg'):
+                        self.ternary(*self.values(), False)
+                    elif self.match('op', 'reg', ',', 'reg', ',', 'const'):
+                        self.ternary(*self.values(), True)
+                    elif self.match('op', 'reg', ',', 'reg', ',', 'char'):
+                        self.ternary(*self.values(), True)
                             
                 #     elif self.match('ld', 'reg', ',', '[', 'reg', ']'):
                 #         self.load(*self.values(), 0)
@@ -363,7 +364,7 @@ class Linker:
                 args = *args, last
             data = type(*args)
             contents.append(data.little_end())
-            print('>>' if i in indices else '  ', f'{i*4:06x}', f'{data.str: <15}', f'| {data.format_dec(): <13}', f'{data.format_bin(): <22}', data.hex())
+            print('>>' if i in indices else '  ', f'{i*4:06x}', f'{data.str: <20}', f'| {data.format_dec(): <20}', f'{data.format_bin(): <45}', data.hex())
         print('\n', ' '.join(contents))
         print(len(contents))
         return contents
@@ -391,6 +392,12 @@ loop:
     jmp loop
 done:
     nop
+    neg.h A
+    nots A
+    mov C, '\\n'
+    adds.w LR, PC, 2
+    add.b D, C, 't'
+    
 '''
 
 if __name__ == '__main__':
