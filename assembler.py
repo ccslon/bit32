@@ -6,7 +6,7 @@ Created on Fri Aug 25 10:49:03 2023
 """
 
 import re
-from bit32 import Size, Reg, FReg, Op, Cond, Jump, Unary, Binary, Ternary, Char, unescape
+from bit32 import Size, Reg, FReg, Op, Cond, Byte, Char, Half, Word, Jump, Unary, Binary, Ternary, LoadStore, PushPop, Immediate,  unescape
 
 RE_SIZE = r'|'.join(size.name for size in Size)
 RE_OP = r'|'.join(op.name for op in Op)
@@ -16,8 +16,8 @@ TOKENS = {
     'const': r'-?(0x[0-9a-f]+|0b[01]+|\d+)',
     'string': r'"[^"]*"',
     'char': r"'\\?[^']'",
-    'ldm': r'^(ldm)\b',
-    'ld': r'^(ld)\b',
+    # 'ldm': r'^(ldm)\b',
+    'ld': r'^ld(?P<ld_cond>{RE_COND})?(?P<ld_flag>s)?(\.(?P<ld_size>{RE_SIZE}))?\b',
     'nop': r'^(nop)\b',
     'push': r'^(push)\b',
     'pop': r'^(pop)\b',
@@ -26,8 +26,8 @@ TOKENS = {
     'halt': r'^(halt)\b',
     'space': r'\b(space)\b',
     'reg': r'\b('+r'|'.join(reg.name for reg in Reg)+'|'+'|'.join(reg.name for reg in FReg)+r')\b',
-    'op': rf'^(?P<name>{RE_OP})(?P<cond>{RE_COND})?(?P<flags>s)?(\.(?P<size>{RE_SIZE}))?\b',
-    'jump': rf'^j(mp)?(?P<jcond>{RE_COND})?\b',
+    'op': rf'^(?P<op_name>{RE_OP})(?P<op_cond>{RE_COND})?(?P<op_flag>s)?(\.(?P<op_size>{RE_SIZE}))?\b',
+    'jump': rf'^j(mp)?(?P<jump_cond>{RE_COND})?\b',
     'label': r'\.?[a-z_]\w*\s*:',
     'id': r'\.?[a-z_]\w*',
     'equal': r'=',
@@ -70,51 +70,19 @@ class Assembler:
         self.new_inst(Binary, cond, flag, size, imm, op, src, rd)
     def ternary(self, op, cond, flag, size, rd, rs, src, imm):
         self.new_inst(Ternary, cond, flag, size, imm, op, src, rs, rd)
-    # def load_reg(self, rd, rb, ro):
-    #     self.new_inst(LoadReg, False, rd, rb, ro)
-    # def load(self, rd, rb, offset):
-    #     if rb == Reg.FP:
-    #         self.new_inst(LoadFP, False, rd, offset)
-    #     else:
-    #         self.new_inst(Load, False, rd, rb, offset)
-    # def store0(self, rb, rd):
-    #     self.new_inst(Load, True, rd, rb, 0)
-    # def store_reg(self, rb, ro, rd):
-    #     self.new_inst(LoadReg, True, rd, rb, ro)
-    # def store(self, rb, offset, rd):
-    #     if rb == Reg.FP:
-    #         self.new_inst(LoadFP, True, rd, offset)
-    #     else:
-    #         self.new_inst(Load, True, rd, rb, offset)
+    def load(self, rd, rb, offset, imm):
+        self.new_inst(LoadStore, Cond.AL, False, Size.W, imm, False, rd, rb, offset)
+    def store0(self, rd, rb):
+        self.new_inst(LoadStore, Cond.AL, False, Size.W, True, True, rd, rb, 0)
+    def store(self, rd, rb, offset, imm):
+        self.new_inst(LoadStore, Cond.AL, False, Size.W, imm, True, rd, rb, offset)
+    def immediate(self, rd, value):
+        pass
     # def pop(self, rd):
     #     self.new_inst(StackOp, False, rd)
     # def push(self, rd):
     #     self.new_inst(StackOp, True, rd)
-    # def load_word(self, rd, value):
-    #     self.new_inst(Word, rd)
-    #     self.new_imm(value)
-    # def op_byte(self, op, rd, byte):
-    #     assert op in [Op.MOV, Op.ADD, Op.SUB, Op.CMP]
-    #     self.new_inst(OpByte, op, byte, rd)
-    # def op1(self, op, rd):
-    #     self.new_inst(Op4, False, op, rd, rd)
-    # def op4(self, op, rd, rs):
-    #     self.new_inst(Op4, False, op, rd, rs)
-    # def op_const(self, op, rd, const):
-    #     if -16 <= const < 16:
-    #         self.new_inst(Op4, True, op, rd, const)
-    #     elif 0 <= const < 256:
-    #         assert op in [Op.MOV, Op.ADD, Op.SUB, Op.CMP]
-    #         self.op_byte(op, rd, const)
-    #     else:
-    #         assert op == Op.MOV
-    #         self.load_word(rd, const)
-    # def offset(self, op, rd, rs, const):
-    #     assert op in [Op.ADD, Op.SUB]
-    #     if rs == Reg.FP:
-    #         self.new_inst(OffsetFP, op, rd, const)
-    #     else:
-    #         self.new_inst(Offset, op, rd, rs, const)
+    
     def new_inst(self, inst, *args):
         self.inst.append((self.labels, inst, args))
         self.labels = []
@@ -186,11 +154,13 @@ class Assembler:
                 #     elif self.match('char'):
                 #         self.new_char(*self.values())
                 
-                    elif self.match('op', 'reg'):
-                        self.unary(*self.values())
+                    
                         
                     elif self.match('jump', 'id'):
                         self.jump(*self.values())
+                    
+                    elif self.match('op', 'reg'):
+                        self.unary(*self.values())
                     
                     elif self.match('op', 'reg', ',', 'reg'):
                         self.binary(*self.values(), False)                        
@@ -205,25 +175,30 @@ class Assembler:
                         self.ternary(*self.values(), True)
                     elif self.match('op', 'reg', ',', 'reg', ',', 'char'):
                         self.ternary(*self.values(), True)
-                            
-                #     elif self.match('ld', 'reg', ',', '[', 'reg', ']'):
-                #         self.load(*self.values(), 0)
-                #     elif self.match('ld', 'reg', ',', '[', 'reg', ',', 'reg', ']'):
-                #         self.load_reg(*self.values())
-                #     elif self.match('ld', 'reg', ',', '[', 'reg', ',', 'const', ']'):
-                #         self.load(*self.values())
-                                            
-                #     elif self.match('ld', '[', 'reg', ']', ',', 'reg'):
-                #         self.store0(*self.values())
-                #     elif self.match('ld', '[', 'reg', ',', 'reg', ']', ',', 'reg'):
-                #         self.store_w_reg_offset(*self.values())
-                #     elif self.match('ld', '[', 'reg', ',', 'const', ']', ',', 'reg'):
-                #         self.store(*self.values())
                         
-                #     elif self.match('ld', 'reg', ',', 'const'):
-                #         self.load_word(*self.values())
-                #     elif self.match('ld', 'reg', ',', '=', 'id'):
-                #         self.load_word(*self.values())
+                    elif self.match('ld', 'reg', ',', '[', 'reg', ',', 'reg', ']'):
+                        self.load(*self.values(), False)                            
+                    elif self.match('ld', 'reg', ',', '[', 'reg', ']'):
+                        self.load(*self.values(), 0, True)                
+                    elif self.match('ld', 'reg', ',', '[', 'reg', ',', 'const', ']'):
+                        self.load(*self.values(), True)
+                    
+                    elif self.match('ld', '[', 'reg', ',', 'reg', ']', ',', 'reg'):
+                        self.store(*self.values(), False)
+                    elif self.match('ld', '[', 'reg', ']', ',', 'reg'):
+                        self.store0(*self.values())
+                    elif self.match('ld', '[', 'reg', ',', 'const', ']', ',', 'reg'):
+                        self.store(*self.values(), True)
+                        
+                    elif self.match('ld', 'reg', ',', 'const'):
+                        self.immediate(*self.values())
+                    elif self.match('ld', 'reg', ',', '=', 'id'):
+                        self.immediate(*self.values())
+                        
+                    elif self.match('push', 'rd'):
+                        pass
+                    elif self.match('pop', 'rd'):
+                        pass
                         
                 #     elif self.accept('push'):
                 #         args = [self.expect('reg')]
@@ -306,12 +281,16 @@ class Assembler:
             if type in ['const','string','char','reg','label','id']:
                 yield self.trans(type, value)
             elif type == 'op':
-                yield Op[match['name'].upper()]
-                yield Cond[match['cond'].upper()] if match['cond'] else Cond.AL
-                yield bool(match['flags'])
-                yield Size[match['size'].upper()] if match['size'] else Size.W
+                yield Op[match['op_name'].upper()]
+                yield Cond.get(match['op_cond'])
+                yield bool(match['op_flag'])
+                yield Size.get(match['op_size'])
             elif type == 'jump':
-                yield Cond[match['jcond'].upper()] if match['jcond'] else Cond.AL
+                yield Cond.get(match['jump_cond'])
+            elif type == 'ld':
+                yield Cond.get(match['ld_cond'])
+                yield bool(match['ld_flag'])
+                yield Size.get(match['ld_size'])
 
     def match(self, *pattern):
         pattern += ('end',)
@@ -360,7 +339,7 @@ class Linker:
                 if isinstance(last, str):
                     last = targets[last]
                     if type is Jump:
-                        last = 4 * (last-i)
+                        last = type.SIZE * (last-i)
                 args = *args, last
             data = type(*args)
             contents.append(data.little_end())
@@ -385,6 +364,7 @@ class Linker:
 test = '''
 mov A, 0
 mov B, 10
+addge C, 1
 loop:
     cmp A, B
     jge done

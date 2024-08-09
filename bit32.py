@@ -4,6 +4,9 @@ Created on Wed Aug  7 11:50:55 2024
 
 @author: ccslon
 """
+'''
+
+'''
 
 from enum import IntEnum
 
@@ -14,6 +17,9 @@ class Size(IntEnum):
     B = 0
     H = 1
     W = 2
+    @classmethod
+    def get(cls, name):
+        return cls[name.upper()] if name else cls.W
 
 class Reg(IntEnum):
     A = 0
@@ -69,6 +75,7 @@ class Op(IntEnum):
     ROL = 30
     ROR = 31
     
+    
 class Cond(IntEnum):
     NV = 0
     EQ = 1
@@ -86,11 +93,13 @@ class Cond(IntEnum):
     LE = 13
     GT = 14
     AL = 15
+    @classmethod
+    def get(cls, name):
+        return cls[name.upper()] if name else cls.AL
     def display(self):
         return self.name if self != self.AL else ''
     def display_jump(self):
-        return self.name if self != self.AL else 'MP'
-    
+        return self.name if self != self.AL else 'MP'    
     
 ESCAPE = {
     '\0': r'\0',
@@ -115,6 +124,13 @@ def escape(char):
     return ESCAPE.get(char, char)
 
 class Data:
+    SIZE = 4
+    def __init__(self, value):
+        self.str = f'0x{value:08x}'
+        self.dec = value,
+        if value < 0:
+            value = negative(value, 32)
+        self.bin = f'{value:032b}',
     def __int__(self):
         return int(''.join(self.bin).replace('X','0'), base=2)
     def little_end(self):
@@ -128,16 +144,32 @@ class Data:
         return ' '.join(map(str, map(int,self.dec)))
 
 class Byte(Data):
-    pass
-
-class Half(Data):
-    pass
-
-class Word(Data):
-    pass
+    SIZE = 1
+    def __init__(self, byte):
+        self.str = f'0x{byte:02x}'
+        self.dec = byte,
+        self.bin = '{byte:08b}',
 
 class Char(Byte):
-    pass
+    SIZE = 1
+    def __init__(self, char):
+        self.str = f"'{escape(char)}'"
+        assert 0 <= ord(char) < 128
+        self.dec = ord(char),
+        self.bin = '{ord(char):08b}',
+
+class Half(Data):
+    SIZE = 2
+    def __init__(self, half):
+        self.str = f'0x{half:04x}'
+        self.dec = half,
+        self.bin = '{half:016b}',
+
+class Word(Data):
+    def __init__(self, word):
+        self.str = f'0x{word:08x}'
+        self.dec = word,
+        self.bin = '{word:032b}',
 
 class Inst(Word):
     pass
@@ -153,7 +185,13 @@ class Jump(Inst):
         if offset24 < 0:
             offset24 = negative(offset24, 24)
         self.bin = f'{cond:04b}','0','000',f'{offset24:024b}'
-        
+ 
+class Unary(Inst):
+    def __init__(self, cond, flag, size, op, rd):
+        self.str = f'{op.name}{cond.display()}{"S"*flag}.{size.name} {rd.name}'
+        self.dec = cond,int(flag),1,size,0,op,rd,rd,rd
+        self.bin = f'{cond:04b}',f'{flag:b}','001',f'{size:02b}','0',f'{op:05b}','XXXX',f'{rd:04b}',f'{rd:04b}',f'{rd:04b}'       
+ 
 class Binary(Inst):
     def __init__(self, cond, flag, size, imm, op, src, rd):
         if imm:
@@ -171,13 +209,7 @@ class Binary(Inst):
             self.str = f'{op.name}{cond.display()}{"S"*flag}.{size.name} {rd.name}, {src.name}'
             self.dec = cond,int(flag),1,size,0,op,0,src,rd,rd
             self.bin = f'{cond:04b}',f'{flag:b}','001',f'{size:02b}','0',f'{op:05b}','XXXX',f'{src:04b}',f'{rd:04b}',f'{rd:04b}'
-        
-class Unary(Inst):
-    def __init__(self, cond, flag, size, op, rd):
-        self.str = f'{op.name}{cond.display()}{"S"*flag}.{size.name} {rd.name}'
-        self.dec = cond,int(flag),1,size,0,op,rd,rd,rd
-        self.bin = f'{cond:04b}',f'{flag:b}','001',f'{size:02b}','0',f'{op:05b}','XXXX',f'{rd:04b}',f'{rd:04b}',f'{rd:04b}'
-        
+
 class Ternary(Inst):
     def __init__(self, cond, flag, size, imm, op, src, rs, rd):
         if imm:
@@ -196,7 +228,7 @@ class Ternary(Inst):
             self.dec = cond,int(flag),1,size,0,op,src,rs,rd
             self.bin = f'{cond:04b}',f'{flag:b}','001',f'{size:02b}','0',f'{op:05b}','XXXX',f'{src:04b}',f'{rs:04b}',f'{rd:04b}'
 
-class Load(Inst):
+class LoadStore(Inst):
     def __init__(self, cond, flag, size, imm, storing, rd, rb, offset):
         if storing:
             self.str = f'LD{cond.display()}{"S"*flag}.{size.name} [{rb.name}, {offset if imm else offset.name}], {rd.name}'
@@ -221,7 +253,10 @@ class Interrupt(Inst):
     pass
 
 class Immediate(Inst):
-    pass
+    def __init__(self, cond, flag, size, rd):
+        self.str = f'LD{cond.display()}.{size.name} {rd.name}, ...'
+        self.dec = cond,0,7,size,0,rd
+        self.bin = f'{cond:04b}','0','111',f'{Size.W:02b}','XXXXXXXXXXXXXXXXXX',f'{rd:04b}'
     
 '''
 add
