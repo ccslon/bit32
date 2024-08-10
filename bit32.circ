@@ -970,11 +970,6 @@
       <a name="labelfont" val="SansSerif bold 10"/>
       <a name="width" val="5"/>
     </comp>
-    <comp lib="0" loc="(2840,340)" name="Tunnel">
-      <a name="label" val="Data"/>
-      <a name="labelfont" val="SansSerif bold 10"/>
-      <a name="width" val="32"/>
-    </comp>
     <comp lib="0" loc="(2840,360)" name="Tunnel">
       <a name="label" val="Clk"/>
       <a name="labelfont" val="SansSerif bold 10"/>
@@ -983,15 +978,14 @@
       <a name="label" val="ALU"/>
       <a name="labelfont" val="SansSerif bold 10"/>
     </comp>
-    <comp lib="0" loc="(2890,590)" name="Tunnel">
-      <a name="label" val="Cmp"/>
-      <a name="labelfont" val="SansSerif bold 10"/>
-    </comp>
-    <comp lib="0" loc="(2900,490)" name="Tunnel">
-      <a name="facing" val="east"/>
+    <comp lib="0" loc="(2890,340)" name="Tunnel">
       <a name="label" val="Data"/>
       <a name="labelfont" val="SansSerif bold 10"/>
       <a name="width" val="32"/>
+    </comp>
+    <comp lib="0" loc="(2890,590)" name="Tunnel">
+      <a name="label" val="Cmp"/>
+      <a name="labelfont" val="SansSerif bold 10"/>
     </comp>
     <comp lib="0" loc="(2900,510)" name="Constant">
       <a name="value" val="0x0"/>
@@ -2385,7 +2379,7 @@
     <wire from="(2780,570)" to="(2780,610)"/>
     <wire from="(2780,610)" to="(2780,630)"/>
     <wire from="(2780,610)" to="(2840,610)"/>
-    <wire from="(2790,340)" to="(2840,340)"/>
+    <wire from="(2790,340)" to="(2880,340)"/>
     <wire from="(2790,570)" to="(2790,600)"/>
     <wire from="(2790,600)" to="(2790,620)"/>
     <wire from="(2790,600)" to="(2840,600)"/>
@@ -2396,10 +2390,12 @@
     <wire from="(2830,380)" to="(2840,380)"/>
     <wire from="(2830,570)" to="(2840,570)"/>
     <wire from="(2870,590)" to="(2880,590)"/>
+    <wire from="(2880,340)" to="(2880,490)"/>
+    <wire from="(2880,340)" to="(2890,340)"/>
+    <wire from="(2880,490)" to="(2910,490)"/>
     <wire from="(2880,550)" to="(2880,590)"/>
     <wire from="(2880,550)" to="(2960,550)"/>
     <wire from="(2880,590)" to="(2890,590)"/>
-    <wire from="(2900,490)" to="(2910,490)"/>
     <wire from="(2900,510)" to="(2910,510)"/>
     <wire from="(2950,500)" to="(3000,500)"/>
     <wire from="(2950,510)" to="(2990,510)"/>

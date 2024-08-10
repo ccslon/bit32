@@ -19,8 +19,8 @@ TOKENS = {
     # 'ldm': r'^(ldm)\b',
     'ld': r'^ld(?P<ld_cond>{RE_COND})?(?P<ld_flag>s)?(\.(?P<ld_size>{RE_SIZE}))?\b',
     'nop': r'^(nop)\b',
-    'push': r'^(push)\b',
-    'pop': r'^(pop)\b',
+    'push': r'^push(?P<push_cond>{RE_COND})?(?P<push_flag>s)?(\.(?P<push_size>{RE_SIZE}))?\b',
+    'pop': r'^pop(?P<pop_cond>{RE_COND})?(?P<pop_flag>s)?(\.(?P<pop_size>{RE_SIZE}))?\b',
     'call': r'^(call)\b',
     'ret': r'^(ret)\b',
     'halt': r'^(halt)\b',
@@ -78,10 +78,10 @@ class Assembler:
         self.new_inst(LoadStore, Cond.AL, False, Size.W, imm, True, rd, rb, offset)
     def immediate(self, rd, value):
         pass
-    # def pop(self, rd):
-    #     self.new_inst(StackOp, False, rd)
-    # def push(self, rd):
-    #     self.new_inst(StackOp, True, rd)
+    def pop(self, cond, flag, size, rd):
+        self.new_inst(PushPop, cond, flag, size, False, rd)
+    def push(self, cond, flag, size, rd):
+        self.new_inst(PushPop, cond, flag, size, True, rd)
     
     def new_inst(self, inst, *args):
         self.inst.append((self.labels, inst, args))
@@ -153,8 +153,6 @@ class Assembler:
                 #         self.new_data(*self.values())
                 #     elif self.match('char'):
                 #         self.new_char(*self.values())
-                
-                    
                         
                     elif self.match('jump', 'id'):
                         self.jump(*self.values())
@@ -200,61 +198,40 @@ class Assembler:
                     elif self.match('pop', 'rd'):
                         pass
                         
-                #     elif self.accept('push'):
-                #         args = [self.expect('reg')]
-                #         while self.accept(','):
-                #             args.append(self.expect('reg'))
-                #         self.expect('end')
-                #         for reg in args:
-                #             self.push(reg)
+                    elif self.accept('push'):
+                        args = [self.expect('reg')]
+                        while self.accept(','):
+                            args.append(self.expect('reg'))
+                        self.expect('end')
+                        for reg in args:
+                            self.push(Cond.AL, False, Size.W, reg)
                             
-                #     elif self.accept('pop'):
-                #         args = [self.expect('reg')]
-                #         while self.accept(','):
-                #             args.append(self.expect('reg'))
-                #         self.expect('end')
-                #         for reg in reversed(args):
-                #             self.pop(reg)
+                    elif self.accept('pop'):
+                        args = [self.expect('reg')]
+                        while self.accept(','):
+                            args.append(self.expect('reg'))
+                        self.expect('end')
+                        for reg in reversed(args):
+                            self.pop(Cond.AL, False, Size.W, reg)
+                                                
+                    elif self.match('call', 'reg'):
+                        self.ternary(Op.ADD, Cond.AL, False, Size.W, Reg.LR, Reg.PC, 2, True)
+                        self.binary(Op.MOV, Cond.AL, False, Size.W, Reg.PC, *self.values(), False)
                         
-                #     elif self.match('jump', 'id'):
-                #         self.load_word(Reg.PC, *self.values())
+                    elif self.match('call', 'id'):
+                        self.ternary(Op.ADD, Cond.AL, False, Size.W, Reg.LR, Reg.PC, 2, True)
+                        self.jump(Cond.AL, *self.values())
                         
-                #     elif self.match('call','reg'):
-                #         self.offset(Op.ADD, Reg.LR, Reg.PC, 2)
-                #         self.op4(Op.MOV, Reg.PC, *self.values())
+                    elif self.match('ret'):
+                        self.binary(Op.MOV, Cond.AL, False, Size.W, Reg.PC, Reg.LR, False)
                         
-                #     elif self.match('call', 'id'):
-                #         self.offset(Op.ADD, Reg.LR, Reg.PC, 3)
-                #         self.load_word(Reg.PC, *self.values())
+                    elif self.match('halt'):
+                        self.binary(Op.MOV, Cond.AL, False, Size.W, Reg.PC, Reg.PC, False)
+                        self.op4(Op.MOV, Reg.PC, Reg.PC)
                         
-                #     elif self.match('ret'):
-                #         self.op4(Op.MOV, Reg.PC, Reg.LR)
-                    
-                #     elif self.accept('ldm'):
-                #         if self.accept('{'):
-                #             regs = [self.expect('reg')]
-                #             while self.accept(','):
-                #                 regs.append(self.expect('reg'))
-                #             self.expect('}')
-                #             self.expect(',')
-                #             dest = self.expect('reg')
-                #             for i, reg in enumerate(regs):
-                #                 self.load(reg, dest, i)
-                #         else:
-                #             dest = self.expect('reg')
-                #             self.expect(',')
-                #             self.expect('{')
-                #             regs = [self.expect('reg')]
-                #             while self.accept(','):
-                #                 regs.append(self.expect('reg'))
-                #             self.expect('}')
-                #             for i, reg in enumerate(regs):
-                #                 self.store(dest, i, reg)
-                        
-                #     elif self.match('halt'):
-                #         self.op4(Op.MOV, Reg.PC, Reg.PC)
                     else:
                         self.error()
+                        
         return self.inst + self.data
 
     def trans(self, type, value):
@@ -291,6 +268,14 @@ class Assembler:
                 yield Cond.get(match['ld_cond'])
                 yield bool(match['ld_flag'])
                 yield Size.get(match['ld_size'])
+            elif type == 'push':
+                yield Cond.get(match['push_cond'])
+                yield bool(match['push_flag'])
+                yield Size.get(match['push_size'])
+            elif type == 'pop':
+                yield Cond.get(match['pop_cond'])
+                yield bool(match['pop_flag'])
+                yield Size.get(match['pop_size'])
 
     def match(self, *pattern):
         pattern += ('end',)

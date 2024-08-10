@@ -135,9 +135,9 @@ class Data:
         return int(''.join(self.bin).replace('X','0'), base=2)
     def little_end(self):
         bin = int(self)
-        return f'{bin&0xff:02x} {(bin&0xff00) >> 8:02x} {(bin&0xff0000) >> 16:02x} {(bin&0xff000000) >> 24:02x}'
+        return f'{bin & 0xff:02x} {bin>>8 & 0xff:02x} {bin>>16 & 0xff:02x} {bin>>24 & 0xff:02x}'
     def hex(self):
-        return f'{int(self):04x}'
+        return f'{int(self):08x}'
     def format_bin(self):
         return ' '.join(self.bin)
     def format_dec(self):
@@ -176,7 +176,6 @@ class Inst(Word):
 
 class Jump(Inst):
     def __init__(self, cond, offset24):
-        #assert -256 <= offset24 < 256
         if offset24 < 0:
             self.str = f'J{cond.display_jump()} -0x{-offset24:06X}'
         else:
@@ -241,13 +240,13 @@ class LoadStore(Inst):
             self.bin = f'{cond:04b}',f'{flag:b}','100',f'{size:02b}','1',str(int(storing)),'XXXX',f'{offset:08b}',f'{rb:04b}',f'{rd:04b}'
 
 class PushPop(Inst):
-    def __init__(self, cond, flag, pushing, rd):
+    def __init__(self, cond, flag, size, pushing, rd):
         if pushing:
-            self.str = f'PUSH{cond.display()}{"S"*flag} {rd.name}'
+            self.str = f'PUSH{cond.display()}{"S"*flag}.{size.name} {rd.name}'
         else:
-            self.str = f'POP{cond.display()}{"S"*flag} {rd.name}'
-        self.dec = cond,int(flag),5,Size.W,0,int(pushing),0,((-1)**pushing) * 4,0,rd
-        self.bin = f'{cond:04b}',f'{flag:b}','101',f'{Size.W:02b}','0',str(int(pushing)),'XXXX',f'{negative(-4,8) if pushing else 4:0b}','XXXX',f'{rd:04b}'
+            self.str = f'POP{cond.display()}{"S"*flag}.{size.name} {rd.name}'
+        self.dec = cond,int(flag),5,Size.W,0,int(pushing),0,(-1)**pushing * 2**size,0,rd
+        self.bin = f'{cond:04b}',f'{flag:b}','101',f'{size:02b}','0',str(int(pushing)),'XXXX',f'{negative(-2**size,8) if pushing else 2**size:0b}','XXXX',f'{rd:04b}'
 
 class Interrupt(Inst):
     pass
@@ -257,39 +256,3 @@ class Immediate(Inst):
         self.str = f'LD{cond.display()}.{size.name} {rd.name}, ...'
         self.dec = cond,0,7,size,0,rd
         self.bin = f'{cond:04b}','0','111',f'{Size.W:02b}','XXXXXXXXXXXXXXXXXX',f'{rd:04b}'
-    
-'''
-add
-cmn
-sub
-cmp
-and
-tst
-xor
-teq
-or
-bic
-mul
-div
-mod
-cmp
-cmn
-teq
-tst
-and
-or
-xor
-not
-neg
-shr
-shl
-rol
-ror
-addf
-subf
-mulf
-divf
-itf
-fti
-
-'''
