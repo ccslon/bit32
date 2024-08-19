@@ -148,7 +148,13 @@ class Byte(Data):
     def __init__(self, byte):
         self.str = f'0x{byte:02x}'
         self.dec = byte,
-        self.bin = '{byte:08b}',
+        if byte < 0:
+            byte = negative(byte, 8)
+        self.bin = f'{byte:08b}',
+    def little_end(self):
+        return self.hex()
+    def hex(self):
+        return f'{int(self):02x}'
 
 class Char(Byte):
     SIZE = 1
@@ -156,20 +162,29 @@ class Char(Byte):
         self.str = f"'{escape(char)}'"
         assert 0 <= ord(char) < 128
         self.dec = ord(char),
-        self.bin = '{ord(char):08b}',
+        self.bin = f'{ord(char):08b}',
 
 class Half(Data):
     SIZE = 2
     def __init__(self, half):
         self.str = f'0x{half:04x}'
         self.dec = half,
-        self.bin = '{half:016b}',
+        if half < 0:
+            half = negative(half, 16)
+        self.bin = f'{half:016b}',
+    def little_end(self):
+        bin = int(self)
+        return f'{bin & 0xff:02x} {bin>>8 & 0xff:02x}'
+    def hex(self):
+        return f'{int(self):04x}'
 
 class Word(Data):
     def __init__(self, word):
         self.str = f'0x{word:08x}'
         self.dec = word,
-        self.bin = '{word:032b}',
+        if word < 0:
+            word = negative(word, 32)
+        self.bin = f'{word:032b}',
 
 class Inst(Word):
     pass
@@ -201,8 +216,7 @@ class Binary(Inst):
             else:
                 self.str = f"{op.name}{cond.display()}{'S'*flag}.{size.name} {rd.name}, {src}"
                 self.dec = cond,int(flag),1,size,1,op,src,rd,rd
-                if src < 0:
-                    src = negative(src, 8)
+                assert src >= 0
                 self.bin = f'{cond:04b}',f'{flag:b}','001',f'{size:02b}','1',f'{op:05b}',f'{src:08b}',f'{rd:04b}',f'{rd:04b}'
         else:
             self.str = f'{op.name}{cond.display()}{"S"*flag}.{size.name} {rd.name}, {src.name}'
@@ -219,8 +233,7 @@ class Ternary(Inst):
             else:
                 self.str = f'{op.name}{cond.display()}{"S"*flag}.{size.name} {rd.name}, {rs.name}, {src}'
                 self.dec = cond,int(flag),1,size,1,op,src,rs,rd
-                if src < 0:
-                    src = negative(src, 8)
+                assert src >= 0
                 self.bin = f'{cond:04b}',f'{flag:b}','001',f'{size:02b}','1',f'{op:05b}',f'{src:08b}',f'{rs:04b}',f'{rd:04b}'
         else:
             self.str = f'{op.name}{cond.display()}{"S"*flag}.{size.name} {rd.name}, {rs.name}, {src.name}'
@@ -246,7 +259,7 @@ class PushPop(Inst):
         else:
             self.str = f'POP{cond.display()}{"S"*flag}.{size.name} {rd.name}'
         self.dec = cond,int(flag),5,Size.W,0,int(pushing),0,(-1)**pushing * 2**size,0,rd
-        self.bin = f'{cond:04b}',f'{flag:b}','101',f'{size:02b}','0',str(int(pushing)),'XXXX',f'{negative(-2**size,8) if pushing else 2**size:0b}','XXXX',f'{rd:04b}'
+        self.bin = f'{cond:04b}',f'{flag:b}','101',f'{size:02b}','0',str(int(pushing)),'XXXX',f'{negative(-2**size,8) if pushing else 2**size:08b}','XXXX',f'{rd:04b}'
 
 class Interrupt(Inst):
     pass
@@ -255,4 +268,4 @@ class Immediate(Inst):
     def __init__(self, cond, flag, size, rd):
         self.str = f'LD{cond.display()}.{size.name} {rd.name}, ...'
         self.dec = cond,0,7,size,0,rd
-        self.bin = f'{cond:04b}','0','111',f'{Size.W:02b}','XXXXXXXXXXXXXXXXXX',f'{rd:04b}'
+        self.bin = f'{cond:04b}',f'{flag:b}','111',f'{size:02b}','XXXXXXXXXXXXXXXXXX',f'{rd:04b}'

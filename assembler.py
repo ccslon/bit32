@@ -17,13 +17,14 @@ TOKENS = {
     'string': r'"[^"]*"',
     'char': r"'\\?[^']'",
     # 'ldm': r'^(ldm)\b',
-    'ld': r'^ld(?P<ld_cond>{RE_COND})?(?P<ld_flag>s)?(\.(?P<ld_size>{RE_SIZE}))?\b',
+    'ld': rf'^ld(?P<ld_cond>{RE_COND})?(?P<ld_flag>s)?(\.(?P<ld_size>{RE_SIZE}))?\b',
     'nop': r'^(nop)\b',
-    'push': r'^push(?P<push_cond>{RE_COND})?(?P<push_flag>s)?(\.(?P<push_size>{RE_SIZE}))?\b',
-    'pop': r'^pop(?P<pop_cond>{RE_COND})?(?P<pop_flag>s)?(\.(?P<pop_size>{RE_SIZE}))?\b',
+    'push': rf'^push(?P<push_cond>{RE_COND})?(?P<push_flag>s)?(\.(?P<push_size>{RE_SIZE}))?\b',
+    'pop': rf'^pop(?P<pop_cond>{RE_COND})?(?P<pop_flag>s)?(\.(?P<pop_size>{RE_SIZE}))?\b',
     'call': r'^(call)\b',
     'ret': r'^(ret)\b',
     'halt': r'^(halt)\b',
+    'size': r'\b(byte|half|word)\b',
     'space': r'\b(space)\b',
     'reg': r'\b('+r'|'.join(reg.name for reg in Reg)+'|'+'|'.join(reg.name for reg in FReg)+r')\b',
     'op': rf'^(?P<op_name>{RE_OP})(?P<op_cond>{RE_COND})?(?P<op_flag>s)?(\.(?P<op_size>{RE_SIZE}))?\b',
@@ -46,22 +47,31 @@ def lex(text):
     return [(match.lastgroup, match.group(), match) for match in RE.finditer(text)]
 
 class Assembler:
-    def label(self, label):
+    
+    def const(self, label, size, value):
         self.labels.append(label)
-    def const(self, label, value):
-        self.label(label)
-        self.new_data(value)
+        if size == Size.B:
+            self.new_data(Byte, value)
+        elif size == Size.H:
+            self.new_data(Half, value)
+        else:
+            self.new_data(Word, value)
+    def label(self, label, value):
+        self.labels.append(label)
+        self.new_data(Word, value)
     def char(self, label, char):
-        self.label(label)
-        self.new_char(char)
+        self.labels.append(label)
+        self.new_data(Char, char)
     def string(self, label, string):
-        self.label(label)
+        self.labels.append(label)
         for char in string:
-            self.new_char(char)
+            self.new_data(Char, char)
     def space(self, label, size):
-        self.label(label)
-        for _ in range(size):
-            self.new_data(0)
+        self.labels.append(label)
+        for _ in range(size // 4):
+            self.new_data(Word, 0)
+        for _ in range(size % 4):
+            self.new_data(Byte, 0)
     def jump(self, cond, label):
         self.new_inst(Jump, cond, label)
     def unary(self, op, cond, flag, size, rd):
@@ -70,14 +80,15 @@ class Assembler:
         self.new_inst(Binary, cond, flag, size, imm, op, src, rd)
     def ternary(self, op, cond, flag, size, rd, rs, src, imm):
         self.new_inst(Ternary, cond, flag, size, imm, op, src, rs, rd)
-    def load(self, rd, rb, offset, imm):
-        self.new_inst(LoadStore, Cond.AL, False, Size.W, imm, False, rd, rb, offset)
-    def store0(self, rd, rb):
-        self.new_inst(LoadStore, Cond.AL, False, Size.W, True, True, rd, rb, 0)
-    def store(self, rd, rb, offset, imm):
-        self.new_inst(LoadStore, Cond.AL, False, Size.W, imm, True, rd, rb, offset)
-    def immediate(self, rd, value):
-        pass
+    def load(self, cond, flag, size, rd, rb, offset, imm):
+        self.new_inst(LoadStore, cond, flag, size, imm, False, rd, rb, offset)
+    def store0(self, cond, flag, size, rb, rd):
+        self.new_inst(LoadStore, cond, flag, size, True, True, rd, rb, 0)
+    def store(self, cond, flag, size, rb, offset, rd, imm):
+        self.new_inst(LoadStore, cond, flag, size, imm, True, rd, rb, offset)
+    def immediate(self, cond, flag, size, rd, value):
+        self.new_inst(Immediate, cond, flag, size, rd)
+        self.new_inst(Word, value)
     def pop(self, cond, flag, size, rd):
         self.new_inst(PushPop, cond, flag, size, False, rd)
     def push(self, cond, flag, size, rd):
@@ -86,22 +97,14 @@ class Assembler:
     def new_inst(self, inst, *args):
         self.inst.append((self.labels, inst, args))
         self.labels = []
-    # def new_imm(self, value):
-    #     self.inst.append((self.labels, Data, (value,)))
-    #     self.labels = []
-    # def new_data(self, value):
-    #     self.data.append((self.labels, Data, (value,)))
-    #     self.labels = []
-    # def new_char(self, char):
-    #     self.data.append((self.labels, Char, (char,)))
-    #     self.labels = []
-    # def name(self, name, value):
-    #     self.names[name] = value
+    def new_data(self, type, value):
+        self.data.append((self.labels, type, (value,)))
+        self.labels = []
 
     def assemble(self, asm):
         # with open('boot.s') as bios:
         #     base = bios.read()
-        base = ''
+        base = 'nop'
         self.inst = []
         self.data = []
         self.labels = []
@@ -112,7 +115,6 @@ class Assembler:
             if line:
                 self.tokens = lex(line)
                 self.index = 0
-                print(self.tokens)
                 
                 if self.match('id', '=', 'const'):
                     print(f'{self.line_no: >2}|{line}')
@@ -123,24 +125,24 @@ class Assembler:
                     
                     if self.match('label'):
                         self.label(*self.values())
+                    
+                    elif self.match('label', 'size', 'const'):
+                        self.const(*self.values())
                         
-                #     elif self.match('label', 'const'):
-                #         self.const(*self.values())
+                    elif self.match('label', 'id'):
+                        self.label(*self.values())
                         
-                #     elif self.match('label', 'id'):
-                #         self.const(*self.values())
+                    elif self.match('label', 'char'):
+                        self.char(*self.values())
                         
-                #     elif self.match('label', 'char'):
-                #         self.char(*self.values())
+                    elif self.match('label', 'string'):
+                        self.string(*self.values())
                         
-                #     elif self.match('label', 'string'):
-                #         self.string(*self.values())
+                    elif self.match('label', 'space', 'const'):
+                        self.space(*self.values())
                         
-                #     elif self.match('label', 'space', 'const'):
-                #         self.space(*self.values())
-                        
-                #     else:
-                #         self.error()
+                    else:
+                        self.error()
                 else:
                     print(f'{self.line_no: >2}|  {line}')
                     
@@ -194,9 +196,9 @@ class Assembler:
                         self.immediate(*self.values())
                         
                     elif self.match('push', 'rd'):
-                        pass
+                        self.push(*self.values())
                     elif self.match('pop', 'rd'):
-                        pass
+                        self.pop(*self.values())
                         
                     elif self.accept('push'):
                         args = [self.expect('reg')]
@@ -215,11 +217,11 @@ class Assembler:
                             self.pop(Cond.AL, False, Size.W, reg)
                                                 
                     elif self.match('call', 'reg'):
-                        self.ternary(Op.ADD, Cond.AL, False, Size.W, Reg.LR, Reg.PC, 2, True)
+                        self.ternary(Op.ADD, Cond.AL, False, Size.W, Reg.LR, Reg.PC, 4*2, True)
                         self.binary(Op.MOV, Cond.AL, False, Size.W, Reg.PC, *self.values(), False)
                         
                     elif self.match('call', 'id'):
-                        self.ternary(Op.ADD, Cond.AL, False, Size.W, Reg.LR, Reg.PC, 2, True)
+                        self.ternary(Op.ADD, Cond.AL, False, Size.W, Reg.LR, Reg.PC, 4*2, True)
                         self.jump(Cond.AL, *self.values())
                         
                     elif self.match('ret'):
@@ -227,7 +229,6 @@ class Assembler:
                         
                     elif self.match('halt'):
                         self.binary(Op.MOV, Cond.AL, False, Size.W, Reg.PC, Reg.PC, False)
-                        self.op4(Op.MOV, Reg.PC, Reg.PC)
                         
                     else:
                         self.error()
@@ -276,6 +277,13 @@ class Assembler:
                 yield Cond.get(match['pop_cond'])
                 yield bool(match['pop_flag'])
                 yield Size.get(match['pop_size'])
+            elif type == 'size':
+                if value == 'word':
+                    yield Size.W
+                elif value == 'byte':
+                    yield Size.B
+                elif value == 'half':
+                    yield Size.H
 
     def match(self, *pattern):
         pattern += ('end',)
@@ -309,16 +317,19 @@ class Linker:
     def link(objects):
         targets = {}
         indices = set()
-        print(objects)
+        
+        addr = 0
         for i, (labels, type, args) in enumerate(objects):
             for label in labels:
-                targets[label] = i
-                indices.add(i)
+                targets[label] = addr
+                indices.add(addr)
             objects[i] = (type, args)
+            addr += type.SIZE
+        
         print('-'*67)
-        print(targets)
         contents = []
-        for i, (type, args) in enumerate(objects):
+        i = 0
+        for type, args in objects:
             if args and type is not Char:
                 *args, last = args
                 if isinstance(last, str):
@@ -328,23 +339,24 @@ class Linker:
                 args = *args, last
             data = type(*args)
             contents.append(data.little_end())
-            print('>>' if i in indices else '  ', f'{i*4:06x}', f'{data.str: <20}', f'| {data.format_dec(): <20}', f'{data.format_bin(): <45}', data.hex())
+            print('>>' if i in indices else '  ', f'{i:06x}', f'{data.str: <20}', f'| {data.format_dec(): <21}', f'{data.format_bin(): <42}', data.hex())
+            i += type.SIZE
         print('\n', ' '.join(contents))
         print(len(contents))
         return contents
 
-# assembler = Assembler()
+assembler = Assembler()
 
-# def assemble(program, fflag=True, name='out'):
-#     if program.endswith('.s'):
-#         name = program[:-2]
-#         with open(program) as file:
-#             program = file.read()
-#     objects = assembler.assemble(program)
-#     bit16 = Linker.link(objects)
-#     if fflag:
-#         with open(f'{name}.bit16', 'w+') as file:
-#             file.write('v2.0 raw\n' + ' '.join(bit16))
+def assemble(program, fflag=True, name='out'):
+    if program.endswith('.s'):
+        name = program[:-2]
+        with open(program) as file:
+            program = file.read()
+    objects = assembler.assemble(program)
+    bit32 = Linker.link(objects)
+    if fflag:
+        with open(f'{name}.bit32', 'w+') as file:
+            file.write('v2.0 raw\n' + ' '.join(bit32))
 
 test = '''
 mov A, 0
@@ -365,7 +377,67 @@ done:
     
 '''
 
+fact = '''
+main:
+    ld sp, 0xfffffc
+    mov A, 6
+    call fact
+    halt
+    
+fact:
+    push lr, e, f, fp
+    sub sp, 4
+    mov fp, sp
+    
+    ld [fp, 0], a
+    ld a, [fp, 0]
+    cmp a, 0
+    jne l1
+    mov a, 1
+    jmp l0
+l1:
+    ld e, [fp, 0]
+    ld f, [fp, 0]
+    sub f, 1
+    mov a, f
+    call fact
+    mov f, a
+    mul a, e, f
+    jmp l0
+l0:
+    mov sp, fp
+    add sp, 4
+    pop pc, e, f, fp
+'''
+
+stack = '''
+mov sp, 0x7c
+mov a, 0xa
+mov b, 0xb
+mov c, 0xc
+push a, b, c
+
+pop d, e, f
+push
+halt
+'''
+
+test2 = '''
+
+num: word 30000
+mybyte: byte 0xff
+lol: half 300
+addr: lol
+my_char: 'c'
+str: "Hello!\0"
+cat: space 14
+ld A, =num
+ld A, [A]
+ld B, =mybyte
+ld.b B, [B]
+ld C, =lol
+ld.h C, [C]
+'''
+
 if __name__ == '__main__':
-    ass = Assembler()
-    objs = ass.assemble(test)
-    Linker.link(objs)
+    assemble(test2)
