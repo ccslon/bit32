@@ -100,6 +100,8 @@ class Assembler:
     def new_data(self, type, value):
         self.data.append((self.labels, type, (value,)))
         self.labels = []
+    def name(self, name, value):
+        self.names[name] = value
 
     def assemble(self, asm):
         # with open('boot.s') as bios:
@@ -124,7 +126,7 @@ class Assembler:
                     print(f'{self.line_no: >2}|{line}')
                     
                     if self.match('label'):
-                        self.label(*self.values())
+                        self.labels.append(*self.values())
                     
                     elif self.match('label', 'size', 'const'):
                         self.const(*self.values())
@@ -149,12 +151,18 @@ class Assembler:
                     if self.match('nop'):
                         self.jump(Cond.NV, 0)
                     
-                #     elif self.match('id'):
-                #         self.new_data(*self.values())
-                #     elif self.match('const'):
-                #         self.new_data(*self.values())
-                #     elif self.match('char'):
-                #         self.new_char(*self.values())
+                    elif self.match('id'):
+                        self.new_data(Word, *self.values())
+                    elif self.match('size', 'const'):
+                        size, value = self.values()
+                        if size == Size.B:
+                            self.new_data(Byte, value)
+                        elif size == Size.H:
+                            self.new_data(Half, value)
+                        else:
+                            self.new_data(Word, value)
+                    elif self.match('char'):
+                        self.new_data(Char, *self.values())
                         
                     elif self.match('jump', 'id'):
                         self.jump(*self.values())
@@ -325,7 +333,7 @@ class Linker:
                 indices.add(addr)
             objects[i] = (type, args)
             addr += type.SIZE
-        
+        print(targets)
         print('-'*67)
         contents = []
         i = 0
@@ -335,7 +343,7 @@ class Linker:
                 if isinstance(last, str):
                     last = targets[last]
                     if type is Jump:
-                        last = type.SIZE * (last-i)
+                        last -= i
                 args = *args, last
             data = type(*args)
             contents.append(data.little_end())
@@ -440,4 +448,4 @@ ld.h C, [C]
 '''
 
 if __name__ == '__main__':
-    assemble(test2)
+    assemble('hello.s')
