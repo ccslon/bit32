@@ -14,12 +14,14 @@ def negative(num, base):
     return (-num ^ (2**base - 1)) + 1
 
 class Size(IntEnum):
-    B = 0
-    H = 1
-    W = 2
+    BYTE = 1
+    HALF = 2 #TODO
+    WORD = 4
     @classmethod
     def get(cls, name):
-        return cls[name.upper()] if name else cls.W
+        return {'B': cls.BYTE, 'H': cls.HALF, 'W': cls.WORD}.get(name.upper() if name else name, cls.WORD)
+    def display(self):
+        return f'.{self.name[0]}' if self != Size.WORD else ''
 
 class Reg(IntEnum):
     A = 0
@@ -73,8 +75,7 @@ class Op(IntEnum):
     SHR = 28
     ASL = 29
     ROL = 30
-    ROR = 31
-    
+    ROR = 31    
     
 class Cond(IntEnum):
     NV = 0
@@ -124,7 +125,7 @@ def escape(char):
     return ESCAPE.get(char, char)
 
 class Data:
-    SIZE = 4
+    size = Size.WORD
     def __init__(self, value):
         self.str = f'0x{value:08x}'
         self.dec = value,
@@ -144,7 +145,7 @@ class Data:
         return ' '.join(map(str, map(int,self.dec)))
 
 class Byte(Data):
-    SIZE = 1
+    size = Size.BYTE
     def __init__(self, byte):
         self.str = f'0x{byte:02x}'
         self.dec = byte,
@@ -157,7 +158,7 @@ class Byte(Data):
         return f'{int(self):02x}'
 
 class Char(Byte):
-    SIZE = 1
+    size = Size.BYTE
     def __init__(self, char):
         self.str = f"'{escape(char)}'"
         assert 0 <= ord(char) < 128
@@ -165,7 +166,7 @@ class Char(Byte):
         self.bin = f'{ord(char):08b}',
 
 class Half(Data):
-    SIZE = 2
+    size = Size.HALF
     def __init__(self, half):
         self.str = f'0x{half:04x}'
         self.dec = half,
@@ -202,70 +203,70 @@ class Jump(Inst):
  
 class Unary(Inst):
     def __init__(self, cond, flag, size, op, rd):
-        self.str = f'{op.name}{cond.display()}{"S"*flag}.{size.name} {rd.name}'
+        self.str = f'{op.name}{cond.display()}{"S"*flag}.{size.name[0]} {rd.name}'
         self.dec = cond,int(flag),1,size,0,op,rd,rd,rd
-        self.bin = f'{cond:04b}',f'{flag:b}','001',f'{size:02b}','0',f'{op:05b}','XXXX',f'{rd:04b}',f'{rd:04b}',f'{rd:04b}'       
+        self.bin = f'{cond:04b}',f'{flag:b}','001',f'{size>>1:02b}','0',f'{op:05b}','XXXX',f'{rd:04b}',f'{rd:04b}',f'{rd:04b}'       
  
 class Binary(Inst):
     def __init__(self, cond, flag, size, imm, op, src, rd):
         if imm:
             if isinstance(src, str):
-                self.str = f"{op.name}{cond.display()}{'S'*flag}.{size.name} {rd.name}, '{escape(src)}'"
+                self.str = f"{op.name}{cond.display()}{'S'*flag}.{size.name[0]} {rd.name}, '{escape(src)}'"
                 self.dec = cond,int(flag),1,size,1,op,ord(src),rd,rd
-                self.bin = f'{cond:04b}',f'{flag:b}','001',f'{size:02b}','1',f'{op:05b}',f'{ord(src):08b}',f'{rd:04b}',f'{rd:04b}'
+                self.bin = f'{cond:04b}',f'{flag:b}','001',f'{size>>1:02b}','1',f'{op:05b}',f'{ord(src):08b}',f'{rd:04b}',f'{rd:04b}'
             else:
-                self.str = f"{op.name}{cond.display()}{'S'*flag}.{size.name} {rd.name}, {src}"
+                assert 0 <= src < 256
+                self.str = f"{op.name}{cond.display()}{'S'*flag}.{size.name[0]} {rd.name}, {src}"
                 self.dec = cond,int(flag),1,size,1,op,src,rd,rd
-                assert src >= 0
-                self.bin = f'{cond:04b}',f'{flag:b}','001',f'{size:02b}','1',f'{op:05b}',f'{src:08b}',f'{rd:04b}',f'{rd:04b}'
+                self.bin = f'{cond:04b}',f'{flag:b}','001',f'{size>>1:02b}','1',f'{op:05b}',f'{src:08b}',f'{rd:04b}',f'{rd:04b}'
         else:
-            self.str = f'{op.name}{cond.display()}{"S"*flag}.{size.name} {rd.name}, {src.name}'
+            self.str = f'{op.name}{cond.display()}{"S"*flag}.{size.name[0]} {rd.name}, {src.name}'
             self.dec = cond,int(flag),1,size,0,op,0,src,rd,rd
-            self.bin = f'{cond:04b}',f'{flag:b}','001',f'{size:02b}','0',f'{op:05b}','XXXX',f'{src:04b}',f'{rd:04b}',f'{rd:04b}'
+            self.bin = f'{cond:04b}',f'{flag:b}','001',f'{size>>1:02b}','0',f'{op:05b}','XXXX',f'{src:04b}',f'{rd:04b}',f'{rd:04b}'
 
 class Ternary(Inst):
     def __init__(self, cond, flag, size, imm, op, src, rs, rd):
         if imm:
             if isinstance(src, str):
-                self.str = f"{op.name}{cond.display()}{'S'*flag}.{size.name} {rd.name}, {rs.name}, '{escape(src)}'"
+                self.str = f"{op.name}{cond.display()}{'S'*flag}.{size.name[0]} {rd.name}, {rs.name}, '{escape(src)}'"
                 self.dec = cond,int(flag),1,size,1,op,ord(src),rs,rd
-                self.bin = f'{cond:04b}',f'{flag:b}','001',f'{size:02b}','1',f'{op:05b}',f'{ord(src):08b}',f'{rs:04b}',f'{rd:04b}'
+                self.bin = f'{cond:04b}',f'{flag:b}','001',f'{size>>1:02b}','1',f'{op:05b}',f'{ord(src):08b}',f'{rs:04b}',f'{rd:04b}'
             else:
-                self.str = f'{op.name}{cond.display()}{"S"*flag}.{size.name} {rd.name}, {rs.name}, {src}'
+                assert 0 <= src < 256
+                self.str = f'{op.name}{cond.display()}{"S"*flag}.{size.name[0]} {rd.name}, {rs.name}, {src}'
                 self.dec = cond,int(flag),1,size,1,op,src,rs,rd
-                assert src >= 0
-                self.bin = f'{cond:04b}',f'{flag:b}','001',f'{size:02b}','1',f'{op:05b}',f'{src:08b}',f'{rs:04b}',f'{rd:04b}'
+                self.bin = f'{cond:04b}',f'{flag:b}','001',f'{size>>1:02b}','1',f'{op:05b}',f'{src:08b}',f'{rs:04b}',f'{rd:04b}'
         else:
-            self.str = f'{op.name}{cond.display()}{"S"*flag}.{size.name} {rd.name}, {rs.name}, {src.name}'
+            self.str = f'{op.name}{cond.display()}{"S"*flag}.{size.name[0]} {rd.name}, {rs.name}, {src.name}'
             self.dec = cond,int(flag),1,size,0,op,src,rs,rd
-            self.bin = f'{cond:04b}',f'{flag:b}','001',f'{size:02b}','0',f'{op:05b}','XXXX',f'{src:04b}',f'{rs:04b}',f'{rd:04b}'
+            self.bin = f'{cond:04b}',f'{flag:b}','001',f'{size>>1:02b}','0',f'{op:05b}','XXXX',f'{src:04b}',f'{rs:04b}',f'{rd:04b}'
 
 class LoadStore(Inst):
     def __init__(self, cond, flag, size, imm, storing, rd, rb, offset):
         if storing:
-            self.str = f'LD{cond.display()}{"S"*flag}.{size.name} [{rb.name}, {offset if imm else offset.name}], {rd.name}'
+            self.str = f'LD{cond.display()}{"S"*flag}.{size.name[0]} [{rb.name}, {offset if imm else offset.name}], {rd.name}'
         else:
-            self.str = f'LD{cond.display()}{"S"*flag}.{size.name} {rd.name}, [{rb.name}, {offset if imm else offset.name}]'
+            self.str = f'LD{cond.display()}{"S"*flag}.{size.name[0]} {rd.name}, [{rb.name}, {offset if imm else offset.name}]'
         self.dec = cond,int(flag),4,size,str(int(imm)),int(storing),0,offset,rb,rd
         if imm:
-            self.bin = f'{cond:04b}',f'{flag:b}','100',f'{size:02b}','1',str(int(storing)),'XXXXXXXX',f'{offset:04b}',f'{rb:04b}',f'{rd:04b}'
+            self.bin = f'{cond:04b}',f'{flag:b}','100',f'{size>>1:02b}','1',str(int(storing)),'XXXXXXXX',f'{offset:04b}',f'{rb:04b}',f'{rd:04b}'
         else:
-            self.bin = f'{cond:04b}',f'{flag:b}','100',f'{size:02b}','1',str(int(storing)),'XXXX',f'{offset:08b}',f'{rb:04b}',f'{rd:04b}'
+            self.bin = f'{cond:04b}',f'{flag:b}','100',f'{size>>1:02b}','1',str(int(storing)),'XXXX',f'{offset:08b}',f'{rb:04b}',f'{rd:04b}'
 
 class PushPop(Inst):
     def __init__(self, cond, flag, size, pushing, rd):
         if pushing:
-            self.str = f'PUSH{cond.display()}{"S"*flag}.{size.name} {rd.name}'
+            self.str = f'PUSH{cond.display()}{"S"*flag}.{size.name[0]} {rd.name}'
         else:
-            self.str = f'POP{cond.display()}{"S"*flag}.{size.name} {rd.name}'
-        self.dec = cond,int(flag),5,Size.W,0,int(pushing),0,(-1)**pushing * 2**size,0,rd
-        self.bin = f'{cond:04b}',f'{flag:b}','101',f'{size:02b}','0',str(int(pushing)),'XXXX',f'{negative(-2**size,8) if pushing else 2**size:08b}','XXXX',f'{rd:04b}'
+            self.str = f'POP{cond.display()}{"S"*flag}.{size.name[0]} {rd.name}'
+        self.dec = cond,int(flag),5,Size.WORD,0,int(pushing),0,(-1)**pushing * size,0,rd
+        self.bin = f'{cond:04b}',f'{flag:b}','101',f'{size>>1:02b}','0',str(int(pushing)),'XXXX',f'{negative(-size,8) if pushing else size:08b}','XXXX',f'{rd:04b}'
 
 class Interrupt(Inst):
     pass
 
 class Immediate(Inst):
     def __init__(self, cond, flag, size, rd):
-        self.str = f'LD{cond.display()}.{size.name} {rd.name}, ...'
+        self.str = f'LD{cond.display()}.{size.name[0]} {rd.name}, ...'
         self.dec = cond,0,7,size,0,rd
-        self.bin = f'{cond:04b}',f'{flag:b}','111',f'{size:02b}','XXXXXXXXXXXXXXXXXX',f'{rd:04b}'
+        self.bin = f'{cond:04b}',f'{flag:b}','111',f'{size>>1:02b}','XXXXXXXXXXXXXXXXXX',f'{rd:04b}'

@@ -8,7 +8,7 @@ Created on Fri Aug 25 10:49:03 2023
 import re
 from bit32 import Size, Reg, FReg, Op, Cond, Byte, Char, Half, Word, Jump, Unary, Binary, Ternary, LoadStore, PushPop, Immediate,  unescape
 
-RE_SIZE = r'|'.join(size.name for size in Size)
+RE_SIZE = r'B|H|W'
 RE_OP = r'|'.join(op.name for op in Op)
 RE_COND = r'|'.join(cond.name for cond in Cond)
 
@@ -50,9 +50,9 @@ class Assembler:
     
     def const(self, label, size, value):
         self.labels.append(label)
-        if size == Size.B:
+        if size == Size.BYTE:
             self.new_data(Byte, value)
-        elif size == Size.H:
+        elif size == Size.HALF:
             self.new_data(Half, value)
         else:
             self.new_data(Word, value)
@@ -75,10 +75,13 @@ class Assembler:
     def jump(self, cond, label):
         self.new_inst(Jump, cond, label)
     def unary(self, op, cond, flag, size, rd):
+        assert op in [Op.NOT, Op.NEG]
         self.new_inst(Unary, cond, flag, size, op, rd)
     def binary(self, op, cond, flag, size, rd, src, imm):
+        assert op not in [Op.NOT, Op.NEG]
         self.new_inst(Binary, cond, flag, size, imm, op, src, rd)
     def ternary(self, op, cond, flag, size, rd, rs, src, imm):
+        assert op not in [Op.MOV, Op.MVN, Op.CMN, Op.CMP, Op.NOT, Op.NEG, Op.TST, Op.TEQ]
         self.new_inst(Ternary, cond, flag, size, imm, op, src, rs, rd)
     def load(self, cond, flag, size, rd, rb, offset, imm):
         self.new_inst(LoadStore, cond, flag, size, imm, False, rd, rb, offset)
@@ -93,7 +96,17 @@ class Assembler:
         self.new_inst(PushPop, cond, flag, size, False, rd)
     def push(self, cond, flag, size, rd):
         self.new_inst(PushPop, cond, flag, size, True, rd)
-    
+    def binary_w_name(self, cond, flag, size, op, rd, value):
+        if 0 <= value < 256:
+            assert op not in [Op.NOT, Op.NEG]
+            self.new_inst(Binary, cond, flag, size, True, op, value, rd)
+        else:
+            assert op == Op.MOV
+            self.immediate(cond, flag, size, rd, value)
+    def ternary_w_name(self, cond, flag, size, op, rd, rs, value):
+        assert op in [Op.NOT, Op.NEG]
+        assert 0 <= value < 256
+        self.new_inst(Ternary, cond, flag, size, True, op, value, rs, rd)
     def new_inst(self, inst, *args):
         self.inst.append((self.labels, inst, args))
         self.labels = []
@@ -155,9 +168,9 @@ class Assembler:
                         self.new_data(Word, *self.values())
                     elif self.match('size', 'const'):
                         size, value = self.values()
-                        if size == Size.B:
+                        if size == Size.BYTE:
                             self.new_data(Byte, value)
-                        elif size == Size.H:
+                        elif size == Size.HALF:
                             self.new_data(Half, value)
                         else:
                             self.new_data(Word, value)
@@ -176,6 +189,8 @@ class Assembler:
                         self.binary(*self.values(), True)                        
                     elif self.match('op', 'reg', ',', 'char'):
                         self.binary(*self.values(), True)
+                    elif self.match('op', 'reg', ',', 'id'):
+                        self.binary_w_name(*self.values())
                     
                     elif self.match('op', 'reg', ',', 'reg', ',', 'reg'):
                         self.ternary(*self.values(), False)
@@ -183,6 +198,8 @@ class Assembler:
                         self.ternary(*self.values(), True)
                     elif self.match('op', 'reg', ',', 'reg', ',', 'char'):
                         self.ternary(*self.values(), True)
+                    elif self.match('op', 'reg', ',', 'reg', ',', 'id'):
+                        self.ternary_w_name(*self.values())
                         
                     elif self.match('ld', 'reg', ',', '[', 'reg', ',', 'reg', ']'):
                         self.load(*self.values(), False)                            
@@ -214,7 +231,7 @@ class Assembler:
                             args.append(self.expect('reg'))
                         self.expect('end')
                         for reg in args:
-                            self.push(Cond.AL, False, Size.W, reg)
+                            self.push(Cond.AL, False, Size.WORD, reg)
                             
                     elif self.accept('pop'):
                         args = [self.expect('reg')]
@@ -222,21 +239,21 @@ class Assembler:
                             args.append(self.expect('reg'))
                         self.expect('end')
                         for reg in reversed(args):
-                            self.pop(Cond.AL, False, Size.W, reg)
+                            self.pop(Cond.AL, False, Size.WORD, reg)
                                                 
                     elif self.match('call', 'reg'):
-                        self.ternary(Op.ADD, Cond.AL, False, Size.W, Reg.LR, Reg.PC, 4*2, True)
-                        self.binary(Op.MOV, Cond.AL, False, Size.W, Reg.PC, *self.values(), False)
+                        self.ternary(Op.ADD, Cond.AL, False, Size.WORD, Reg.LR, Reg.PC, 4*2, True)
+                        self.binary(Op.MOV, Cond.AL, False, Size.WORD, Reg.PC, *self.values(), False)
                         
                     elif self.match('call', 'id'):
-                        self.ternary(Op.ADD, Cond.AL, False, Size.W, Reg.LR, Reg.PC, 4*2, True)
+                        self.ternary(Op.ADD, Cond.AL, False, Size.WORD, Reg.LR, Reg.PC, 4*2, True)
                         self.jump(Cond.AL, *self.values())
                         
                     elif self.match('ret'):
-                        self.binary(Op.MOV, Cond.AL, False, Size.W, Reg.PC, Reg.LR, False)
+                        self.binary(Op.MOV, Cond.AL, False, Size.WORD, Reg.PC, Reg.LR, False)
                         
                     elif self.match('halt'):
-                        self.binary(Op.MOV, Cond.AL, False, Size.W, Reg.PC, Reg.PC, False)
+                        self.binary(Op.MOV, Cond.AL, False, Size.WORD, Reg.PC, Reg.PC, False)
                         
                     else:
                         self.error()
@@ -287,11 +304,11 @@ class Assembler:
                 yield Size.get(match['pop_size'])
             elif type == 'size':
                 if value == 'word':
-                    yield Size.W
+                    yield Size.WORD
                 elif value == 'byte':
-                    yield Size.B
+                    yield Size.BYTE
                 elif value == 'half':
-                    yield Size.H
+                    yield Size.HALF
 
     def match(self, *pattern):
         pattern += ('end',)
@@ -332,8 +349,7 @@ class Linker:
                 targets[label] = addr
                 indices.add(addr)
             objects[i] = (type, args)
-            addr += type.SIZE
-        print(targets)
+            addr += type.size
         print('-'*67)
         contents = []
         i = 0
@@ -347,8 +363,8 @@ class Linker:
                 args = *args, last
             data = type(*args)
             contents.append(data.little_end())
-            print('>>' if i in indices else '  ', f'{i:06x}', f'{data.str: <20}', f'| {data.format_dec(): <21}', f'{data.format_bin(): <42}', data.hex())
-            i += type.SIZE
+            print('>>' if i in indices else '  ', f'{i:06x}', f'{data.str: <20}', f'| {data.format_dec(): <23}', f'{data.format_bin(): <42}', data.hex())
+            i += type.size
         print('\n', ' '.join(contents))
         print(len(contents))
         return contents
@@ -448,4 +464,4 @@ ld.h C, [C]
 '''
 
 if __name__ == '__main__':
-    assemble('hello.s')
+    assemble(fact)
