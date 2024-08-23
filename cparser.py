@@ -6,7 +6,7 @@ Created on Mon Jul  3 19:47:39 2023
 """
 
 import clexer
-from cnodes import Program, Defn, Block, Label, Goto, Break, Continue, For, Do, While, Switch, Case, If, Statement, Return, Glob, Attr, Local, InitArrayString, InitListAssign, Assign, InitAssign, Condition, Logic, Compare, Binary, Func, Array, Union, Struct, Pointer, Char, Short, Int, Float, Void, Pre, Cast, SizeOf, Deref, AddrOf, Not, Unary, Call, Arrow, SubScr, Dot, Post, String, Letter, EnumConst, NegNum, Num, Frame
+from cnodes import Program, Defn, Block, Label, Goto, Break, Continue, For, Do, While, Switch, Case, If, Statement, Return, Glob, Attr, Local, InitArrayString, InitListAssign, Assign, InitAssign, Condition, Logic, Compare, Binary, Func, Array, Union, Struct, Pointer, Char, Short, Int, Float, Void, Pre, Cast, SizeOf, Deref, AddrOf, Not, Unary, Call, Arrow, SubScr, Dot, Post, String, Letter, EnumConst, NegNum, Num, Decimal, Frame
 
 '''
 TODO
@@ -75,6 +75,8 @@ class CParser:
         '''
         if self.peek('id'):
             return self.resolve(next(self).lexeme)
+        elif self.peek('decimal'):
+            return Decimal(next(self))
         elif self.peek('num'):
             return Num(next(self))
         elif self.peek('letter'):
@@ -105,6 +107,10 @@ class CParser:
             elif self.peek('++','--'):
                     postfix = Post(next(self), postfix)
             elif self.peek('.'):
+                # if isinstance(postfix.type, Union): #TODO make UnionDot?
+                #     next(self)
+                #     postfix = postfix.type[self.expect('id').lexeme]
+                # else:
                 postfix = Dot(next(self), postfix, postfix.type[self.expect('id').lexeme])
             elif self.peek('->'):
                 postfix = Arrow(next(self), postfix, postfix.type.to[self.expect('id').lexeme])
@@ -119,7 +125,8 @@ class CParser:
             args.append(self.assign())
             while self.accept(','):
                 args.append(self.assign())
-        self.max_args = min(max(self.max_args, len(args)),4)
+        self.max_args = max(self.max_args, len(args))
+        # self.max_fargs = max(self.max_fargs, len())
         return args
 
     def unary(self):

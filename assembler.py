@@ -96,14 +96,14 @@ class Assembler:
         self.new_inst(PushPop, cond, flag, size, False, rd)
     def push(self, cond, flag, size, rd):
         self.new_inst(PushPop, cond, flag, size, True, rd)
-    def binary_w_name(self, cond, flag, size, op, rd, value):
+    def binary_w_name(self, op, cond, flag, size, rd, value):
         if 0 <= value < 256:
             assert op not in [Op.NOT, Op.NEG]
             self.new_inst(Binary, cond, flag, size, True, op, value, rd)
         else:
-            assert op == Op.MOV
+            assert op == Op.MOV, f'{op.name}'
             self.immediate(cond, flag, size, rd, value)
-    def ternary_w_name(self, cond, flag, size, op, rd, rs, value):
+    def ternary_w_name(self, op, cond, flag, size, rd, rs, value):
         assert op in [Op.NOT, Op.NEG]
         assert 0 <= value < 256
         self.new_inst(Ternary, cond, flag, size, True, op, value, rs, rd)
@@ -117,9 +117,8 @@ class Assembler:
         self.names[name] = value
 
     def assemble(self, asm):
-        # with open('boot.s') as bios:
-        #     base = bios.read()
-        base = 'nop'
+        with open('boot.s') as boot:
+            base = boot.read()
         self.inst = []
         self.data = []
         self.labels = []
@@ -303,11 +302,11 @@ class Assembler:
                 yield bool(match['pop_flag'])
                 yield Size.get(match['pop_size'])
             elif type == 'size':
-                if value == 'word':
+                if value.lower() == 'word':
                     yield Size.WORD
-                elif value == 'byte':
+                elif value.lower() == 'byte':
                     yield Size.BYTE
-                elif value == 'half':
+                elif value.lower() == 'half':
                     yield Size.HALF
 
     def match(self, *pattern):

@@ -6,6 +6,7 @@ Created on Mon Jul  3 19:48:36 2023
 @author: Colin
 """
 from collections import UserList, UserDict
+from struct import pack
 from bit32 import Size, Reg, FReg, Op, Cond, escape, unescape, negative
 
 class Loop(UserList):
@@ -25,7 +26,15 @@ class Regs:
         self.max = max(self.max, item)
         return Reg(item)
 
+class FRegs(Regs):
+    def __getitem__(self, item):
+        if item >= 4:
+            raise SyntaxError('Not enough floating point registers =(')
+        self.max = max(self.max, item+FReg.F0)
+        return FReg(item+FReg.F0)
+
 regs = Regs()
+fregs = FRegs()
 
 class Frame(UserDict):
     def __init__(self):
@@ -33,7 +42,7 @@ class Frame(UserDict):
         self.size = 0
     def __setitem__(self, name, obj):
         obj.location = self.size
-        self.size += obj.type.size
+        self.size += obj.size
         super().__setitem__(name, obj)
 
 class Visitor:
@@ -44,7 +53,7 @@ class Visitor:
         self.if_jump_end = False
         self.loop = Loop()
     def begin_func(self, defn):
-        if defn.type.size or defn.returns:
+        if defn.size or defn.returns:
             self.return_label = self.next_label()
         self.defn = defn
     def begin_loop(self):
@@ -85,9 +94,9 @@ class Visitor:
         pass
     def store(self, size, rd, rb, offset=None, name=None):
         pass
-    def imm(self, rd, value):
+    def imm(self, size, rd, value):
         pass
-    def unary(self, op, size, rd, src):
+    def unary(self, op, size, rd):
         pass
     def binary(self, op, size, rd, src):
         pass
@@ -95,6 +104,9 @@ class Visitor:
         pass
     def jump(self, cond, target):
         pass
+    def mov(self, cond, rd, value):
+        pass
+    
 
 class Emitter(Visitor):
     def clear(self):
@@ -117,8 +129,8 @@ class Emitter(Visitor):
         self.labels.clear()
     def space(self, name, size):
         self.data.append(f'{name}: space {size}')
-    def glob(self, name, value):
-        self.data.append(f'{name}: {value}')
+    def glob(self, name, size, value):
+        self.data.append(f'{name}: {size.name} {value}')
     def datas(self, label, datas):
         self.data.append(f'{label}:')
         for data in datas:
@@ -150,14 +162,16 @@ class Emitter(Visitor):
         self.add(f'LD{size.display()} [{rb.name}'+(f', {offset}' if offset is not None else '')+f'], {rd.name}'+(f' ; {name}' if name else ''))
     def imm(self, size, rd, value):
         self.add(f'LD{size.display()} {rd.name}, {value}')
-    def unary(self, op, size, rd, src):
+    def unary(self, op, size, rd):
         self.add(f'{op.name}{size.display()} {rd.name}')
     def binary(self, op, size, rd, src):
-        self.add(f'{op.name}{size.display()} {rd.name}, {src.name if isinstance(src, Reg) else src}')
+        self.add(f'{op.name}{size.display()} {rd.name}, {src.name if isinstance(src, (Reg,FReg)) else src}')
     def ternary(self, op, size, rd, rs, src):
-        self.add(f'{op.name}{size.display()} {rd.name}, {rs.name}, {src.name if isinstance(src, Reg) else src}')
+        self.add(f'{op.name}{size.display()} {rd.name}, {rs.name}, {src.name if isinstance(src, (Reg,FReg)) else src}')
     def jump(self, cond, target):
         self.add(f'J{cond.display_jump()} {target}')
+    def mov(self, cond, rd, value):
+        self.add(f'MOV{cond.display()} {rd.name}, {value}')
 
 class CNode:
     def generate(self, vstr, n):
@@ -176,7 +190,7 @@ class Type(CNode):
         self.const = False
     @staticmethod
     def address(vstr, n, local, base):
-        vstr.inst3(Op.ADD, regs[n], regs[base], local.location)
+        vstr.ternary(Op.ADD, Size.WORD, regs[n], regs[base], local.location)
         return regs[n]
     @staticmethod
     def store(vstr, n, local, base):
@@ -190,16 +204,16 @@ class Type(CNode):
     def reduce(vstr, n, local, base):
         if local.location is None:
             vstr.load_glob(regs[n], local.token.lexeme)
-            vstr.load(regs[n], regs[n])
+            vstr.load(local.size, regs[n], regs[n])
         else:
             vstr.load(local.size, regs[n], regs[base], local.location, local.token.lexeme)
         return regs[n]
     @staticmethod
     def glob(vstr, glob):
         if glob.init:
-            vstr.glob(glob.token.lexeme, glob.init.data(vstr))
+            vstr.glob(glob.token.lexeme, glob.size, glob.init.data(vstr))
         else:
-            vstr.space(glob.token.lexeme, glob.type.size)
+            vstr.space(glob.token.lexeme, glob.size)
 
 class Bin(Type):
     def __init__(self, signed):
@@ -207,24 +221,56 @@ class Bin(Type):
         self.signed = signed
     def is_signed(self):
         return self.signed
+    def is_float(self):
+        return False
+    def cast(self, other):
+        return #TODO
+    def __eq__(self, other):
+        return isinstance(other, Bin)
 
 class Char(Bin):
     def __init__(self, signed=True):
         super().__init__(signed)
         self.size = Size.BYTE
+    def __str__(self):
+        return 'char'
 
 class Short(Bin):
     def __init__(self, signed=True):
         super().__init__(signed)
         self.size = Size.HALF
+    def __str__(self):
+        return 'short'
 
 class Int(Bin):
     def __init__(self, signed=True):
         super().__init__(signed)
         self.size = Size.WORD
+    def __str__(self):
+        return 'int'
         
 class Float(Type):
-    pass
+    def __init__(self):
+        super().__init__()
+        self.size = Size.WORD
+    def is_float(self):
+        return True
+    @staticmethod
+    def store(vstr, n, local, base):
+        if local.location is None:
+            pass
+        else:
+            vstr.store(local.size, fregs[n], regs[base], local.location, local.token.lexeme)
+        return fregs[n]
+    @staticmethod
+    def reduce(vstr, n, local, base):
+        if local.location is None:
+            pass
+        else:
+            vstr.load(local.size, fregs[n], regs[base], local.location, local.token.lexeme)
+        return fregs[n]
+    def __eq__(self, other):
+        return isinstance(other, Float)
 
 class Pointer(Int):
     def __init__(self, type):
@@ -249,7 +295,7 @@ class Struct(Frame, Type):
     @staticmethod
     def store(vstr, n, local, base):
         Struct.address(vstr, n+1, local, base)
-        for i in range(local.type.size):
+        for i in range(local.size):
             vstr.load(regs[n+2], regs[n], i)
             vstr.store(regs[n+2], regs[n+1], i)
     @staticmethod
@@ -260,7 +306,7 @@ class Struct(Frame, Type):
         if glob.init:
             vstr.datas(glob.token.lexeme, [expr.data(vstr) for expr in glob.init])
         else:
-            vstr.space(glob.token.lexeme, glob.type.size)
+            vstr.space(glob.token.lexeme, glob.size)
     def cast(self, other):
         return self == other
     def __eq__(self, other):
@@ -276,7 +322,7 @@ class Union(UserDict, Type): #TODO
         self.name = name
     def __setitem__(self, name, attr):
         attr.location = 0
-        self.size = max(self.size, attr.type.size)
+        self.size = max(self.size, attr.size)
         super().__setitem__(name, attr)
 
 class Array(Type):
@@ -301,7 +347,7 @@ class Array(Type):
         if glob.init:
             vstr.datas(glob.token.lexeme, [expr.data(vstr) for expr in glob.init])
         else:
-            vstr.space(glob.token.lexeme, glob.type.size)
+            vstr.space(glob.token.lexeme, glob.size)
     def cast(self, other):
         return self == other
     def __eq__(self, other):
@@ -329,20 +375,32 @@ class Expr(CNode):
         self.generate(vstr, n)
     def compare(self, vstr, n, label):
         vstr.binary(Op.CMP, self.size, self.reduce(vstr, n), 0)
-        vstr.jump(Cond.JEQ, f'.L{label}')
+        vstr.jump(Cond.EQ, f'.L{label}')
     def compare_false(self, vstr, n, label):
         vstr.binary(Op.CMP, self.size, self.reduce(vstr, n), 0)
-        vstr.jump(Cond.JNE, f'.L{label}')
+        vstr.jump(Cond.NE, f'.L{label}')
     def branch_reduce(self, vstr, n, _):
         self.reduce(vstr, n)
     def num_reduce(self, vstr, n):
         return self.reduce(vstr, n)
     def is_signed(self):
         return self.type.is_signed()
+    def is_float(self):
+        return self.type.is_float()
+
+class Decimal(Expr):
+    def __init__(self, token):
+        super().__init__(Float(), token)
+        self.value = int.from_bytes(pack('>f', float(token.lexeme)), 'big')
+    def data(self, vstr):
+        return self.value
+    def reduce(self, vstr, n):
+        vstr.imm(self.size, fregs[n], self.value)
+        return fregs[n] 
 
 class NumBase(Expr):
     def __init__(self, token):
-        super().__init__(Int(), token) #TODO
+        super().__init__(Int(), token)
     def data(self, vstr):
         return self.value
     def reduce(self, vstr, n):
@@ -376,9 +434,9 @@ class Num(NumBase):
 class NegNum(Num):
     def reduce(self, vstr, n):
         if 0 <= self.value < 256:
-            vstr.inst(Op.MVN, self.size, regs[n], self.value)
+            vstr.binary(Op.MVN, self.size, regs[n], self.value)
         else:
-            vstr.imm(self.size, regs[n], negative(self.value, 32))
+            vstr.imm(self.size, regs[n], negative(-self.value, 32))
         return regs[n]
 
 class SizeOf(NumBase):
@@ -421,28 +479,31 @@ class String(Expr):
 class OpExpr(Expr):
     def __init__(self, type, op):
         super().__init__(type, op)
-        self.op = self.OP[op.lexeme]
+        self.op = self.OPF[op.lexeme] if self.is_float() else self.OP[op.lexeme]
 
 class Unary(OpExpr):
     OP = {'-':Op.NEG,
           '~':Op.NOT}
+    OPF = {'-':Op.NEGF}
     def __init__(self, op, unary):
         # assert unary.type.cast(Word('int')), f'Line {op.line}: Cannot {op.lexeme} {unary.type}'
         super().__init__(unary.type, op)
         self.unary = unary
     def reduce(self, vstr, n):
-        vstr.inst(self.op, self.unary.reduce(vstr, n), Reg.A)
+        vstr.unary(self.op, self.size, self.unary.reduce(vstr, n))
         return regs[n]
 
 class Pre(Unary):
     OP = {'++':Op.ADD,
           '--':Op.SUB}
+    OPF = {'++':Op.ADDF,
+           '--':Op.SUBF}
     def reduce(self, vstr, n):
         self.generate(vstr, n)
         return regs[n]
     def generate(self, vstr, n):
         self.unary.reduce(vstr, n)
-        vstr.inst(self.op, regs[n], 1)
+        vstr.binary(self.op, self.size, regs[n], 1)
         self.unary.store(vstr, n)
 
 class AddrOf(Expr):
@@ -459,10 +520,10 @@ class Deref(Expr):
         self.unary = unary
     def store(self, vstr, n):
         self.unary.reduce(vstr, n+1)
-        vstr.store(regs[n], regs[n+1])
+        vstr.store(self.size, regs[n], regs[n+1])
     def reduce(self, vstr, n):
         self.unary.reduce(vstr, n)
-        vstr.load(regs[n], regs[n])
+        vstr.load(self.size, regs[n], regs[n])
         return regs[n]
     def call(self, vstr, n):
         self.unary.call(vstr, n)
@@ -482,28 +543,21 @@ class Not(Expr):
         super().__init__(unary.type, token)
         self.unary = unary
     def compare(self, vstr, n, label):
-        vstr.inst(Op.CMP, self.unary.reduce(vstr, n), 0)
-        vstr.jump(Cond.JNE, f'.L{label}')
+        vstr.binary(Op.CMP, self.size, self.unary.reduce(vstr, n), 0)
+        vstr.jump(Cond.NE, f'.L{label}')
     def compare_false(self, vstr, n, label):
-        vstr.inst(Op.CMP, self.unary.reduce(vstr, n), 0)
-        vstr.jump(Cond.JEQ, f'.L{label}')
+        vstr.binary(Op.CMP, self.size, self.unary.reduce(vstr, n), 0)
+        vstr.jump(Cond.EQ, f'.L{label}')
     def reduce(self, vstr, n):
-        label = vstr.next_label()
-        sublabel = vstr.next_label()
-        self.unary.compare(vstr, n, sublabel)
-        vstr.inst(Op.MOV, regs[n], 0)
-        vstr.jump(Cond.JR, f'.L{label}')
-        vstr.append_label(f'.L{sublabel}')
-        vstr.inst(Op.MOV, regs[n], 1)
-        vstr.append_label(f'.L{label}')
+        vstr.binary(Op.CMP, self.size, self.unary.reduce(vstr, n), 0)
+        vstr.mov(Cond.EQ, regs[n], 1)
+        vstr.mov(Cond.NE, regs[n], 0)
         return regs[n]
 
 class Binary(OpExpr):
     OP = {'+' :Op.ADD,
-          '++':Op.ADD,
           '+=':Op.ADD,
           '-' :Op.SUB,
-          '--':Op.SUB,
           '-=':Op.SUB,
           '*' :Op.MUL,
           '*=':Op.MUL,
@@ -521,13 +575,23 @@ class Binary(OpExpr):
           '/=':Op.DIV,
           '%': Op.MOD,
           '%=':Op.MOD}
+    OPF = {'+': Op.ADDF,
+           '+=':Op.ADDF,
+           '-' :Op.SUBF,
+           '-=':Op.SUBF,
+           '*' :Op.MULF,
+           '*=':Op.MULF,
+           '/': Op.DIVF,
+           '/=':Op.DIVF}
     def __init__(self, op, left, right):
         # assert not isinstance(left, String) or not isinstance(right, String)
         # assert left.type.cast(right.type), f'Line {op.line}: Cannot {left.type} {op.lexeme} {right.type}'
-        super().__init__(left.type, op)
         self.left, self.right = left, right
+        super().__init__(left.type, op)
     def is_signed(self):
         return self.left.is_signed() or self.right.is_signed()
+    def is_float(self):
+        return self.left.is_float() or self.right.is_float()
     def reduce(self, vstr, n):
         vstr.binary(self.op, self.size, self.left.reduce(vstr, n), self.right.num_reduce(vstr, n+1))
         return regs[n]
@@ -545,14 +609,14 @@ class Compare(Binary):
            '<': Cond.GE,
            '>=':Cond.LT,
            '<=':Cond.GT}
-    # UOP = {'>': Cond.JHI,
-    #        '<': Cond.JLO,
-    #        '>=':Cond.JHS,
-    #        '<=':Cond.JLS}
-    # UINV = {'>': Cond.JLS,
-    #         '<': Cond.JHS,
-    #         '>=':Cond.JLO,
-    #         '<=':Cond.JHI}
+    UOP = {'>': Cond.HI,
+           '<': Cond.LO,
+           '>=':Cond.HS,
+           '<=':Cond.LS}
+    UINV = {'>': Cond.LS,
+            '<': Cond.HS,
+            '>=':Cond.LO,
+            '<=':Cond.HI}
     def __init__(self, op, left, right):
         super().__init__(op, left, right)
         if self.is_signed():
@@ -565,74 +629,71 @@ class Compare(Binary):
         vstr.binary(Op.CMP, self.size, self.left.reduce(vstr, n), self.right.num_reduce(vstr, n+1))
         vstr.jump(self.inv, f'.L{label}')
     def compare_false(self, vstr, n, label):
-        vstr.inst(Op.CMP, self.left.reduce(vstr, n), self.right.num_reduce(vstr, n+1))
+        vstr.binary(Op.CMP, self.size, self.left.reduce(vstr, n), self.right.num_reduce(vstr, n+1))
         vstr.jump(self.op, f'.L{label}')
     def reduce(self, vstr, n):
-        label = vstr.next_label()
-        sublabel = vstr.next_label()
-        self.compare_false(vstr, n, label)
-        vstr.inst(Op.MOV, regs[n], 0)
-        vstr.jump(Cond.JR, f'.L{sublabel}')
-        vstr.append_label(f'.L{label}')
-        vstr.inst(Op.MOV, regs[n], 1)
-        vstr.append_label(f'.L{sublabel}')
+        vstr.binary(Op.CMP, self.size, self.left.reduce(vstr, n), self.right.num_reduce(vstr, n+1))
+        vstr.mov(self.op, regs[n], 1)
+        vstr.mov(self.inv, regs[n], 0)
         return regs[n]
 
 class Logic(Binary):
-    # OP = {'&&':Op.AND,
-    #       '||':Op.OR}
+    OP = {'&&':Op.AND,
+          '||':Op.OR}
+    OPF = {'&&':Op.AND,
+           '||':Op.OR}
     def compare(self, vstr, n, label):
         if self.op == Op.AND:
-            vstr.inst(Op.CMP, self.left.reduce(vstr, n), 0)
-            vstr.jump(Cond.JEQ, f'.L{label}')
-            vstr.inst(Op.CMP, self.right.reduce(vstr, n), 0)
-            vstr.jump(Cond.JEQ, f'.L{label}')
+            vstr.binary(Op.CMP, self.size, self.left.reduce(vstr, n), 0)
+            vstr.jump(Cond.EQ, f'.L{label}')
+            vstr.binary(Op.CMP, self.size, self.right.reduce(vstr, n), 0)
+            vstr.jump(Cond.EQ, f'.L{label}')
         elif self.op == Op.OR:
             sublabel = vstr.next_label()
-            vstr.inst(Op.CMP, self.left.reduce(vstr, n), 0)
-            vstr.jump(Cond.JNE, f'.L{sublabel}')
-            vstr.inst(Op.CMP, self.right.reduce(vstr, n), 0)
-            vstr.jump(Cond.JEQ, f'.L{label}')
+            vstr.binary(Op.CMP, self.size, self.left.reduce(vstr, n), 0)
+            vstr.jump(Cond.NE, f'.L{sublabel}')
+            vstr.binary(Op.CMP, self.size, self.right.reduce(vstr, n), 0)
+            vstr.jump(Cond.EQ, f'.L{label}')
             vstr.append_label(f'.L{sublabel}')
     def compare_false(self, vstr, n, label): 
         if self.op == Op.AND:
             sublabel = vstr.next_label()
-            vstr.inst(Op.CMP, self.left.reduce(vstr, n), 0)
-            vstr.jump(Cond.JEQ, f'.L{sublabel}')
-            vstr.inst(Op.CMP, self.right.reduce(vstr, n), 0)
-            vstr.jump(Cond.JNE, f'.L{label}')
+            vstr.binary(Op.CMP, self.size, self.left.reduce(vstr, n), 0)
+            vstr.jump(Cond.EQ, f'.L{sublabel}')
+            vstr.binary(Op.CMP, self.size, self.right.reduce(vstr, n), 0)
+            vstr.jump(Cond.NE, f'.L{label}')
             vstr.append_label(f'.L{sublabel}')
         elif self.op == Op.OR:
-            vstr.inst(Op.CMP, self.left.reduce(vstr, n), 0)
-            vstr.jump(Cond.JNE, f'.L{label}')
-            vstr.inst(Op.CMP, self.right.reduce(vstr, n), 0)
-            vstr.jump(Cond.JNE, f'.L{label}')
+            vstr.binary(Op.CMP, self.size, self.left.reduce(vstr, n), 0)
+            vstr.jump(Cond.NE, f'.L{label}')
+            vstr.binary(Op.CMP, self.size, self.right.reduce(vstr, n), 0)
+            vstr.jump(Cond.NE, f'.L{label}')
     def reduce(self, vstr, n):
         if self.op == Op.AND:
             label = vstr.next_label()
             sublabel = vstr.next_label()
-            vstr.inst(Op.CMP, self.left.reduce(vstr, n), 0)
-            vstr.jump(Cond.JEQ, f'.L{label}')
-            vstr.inst(Op.CMP, self.right.reduce(vstr, n), 0)
-            vstr.jump(Cond.JEQ, f'.L{label}')
-            vstr.inst(Op.MOV, regs[n], 1)
-            vstr.jump(Cond.JR, f'.L{sublabel}')
+            vstr.binary(Op.CMP, self.size, self.left.reduce(vstr, n), 0)
+            vstr.jump(Cond.EQ, f'.L{label}')
+            vstr.binary(Op.CMP, self.size, self.right.reduce(vstr, n), 0)
+            vstr.jump(Cond.EQ, f'.L{label}')
+            vstr.binary(Op.MOV, Size.WORD, regs[n], 1)
+            vstr.jump(Cond.AL, f'.L{sublabel}')
             vstr.append_label(f'.L{label}')
-            vstr.inst(Op.MOV, regs[n], 0)
+            vstr.binary(Op.MOV, Size.WORD, regs[n], 0)
             vstr.append_label(f'.L{sublabel}') 
         elif self.op == Op.OR:
             label = vstr.next_label()
             sublabel = vstr.next_label()
             subsublabel = vstr.next_label()
-            vstr.inst(Op.CMP, self.left.reduce(vstr, n), 0)
-            vstr.jump(Cond.JNE, f'.L{label}')            
-            vstr.inst(Op.CMP, self.right.reduce(vstr, n), 0)
-            vstr.jump(Cond.JEQ, f'.L{sublabel}')
+            vstr.binary(Op.CMP, self.size, self.left.reduce(vstr, n), 0)
+            vstr.jump(Cond.NE, f'.L{label}')            
+            vstr.binary(Op.CMP, self.size, self.right.reduce(vstr, n), 0)
+            vstr.jump(Cond.EQ, f'.L{sublabel}')
             vstr.append_label(f'.L{label}')
-            vstr.inst(Op.MOV, regs[n], 1)
-            vstr.jump(Cond.JR, f'.L{subsublabel}')
+            vstr.binary(Op.MOV, Size.WORD, regs[n], 1)
+            vstr.jump(Cond.AL, f'.L{subsublabel}')
             vstr.append_label(f'.L{sublabel}')
-            vstr.inst(Op.MOV, regs[n], 0)
+            vstr.binary(Op.MOV, Size.WORD, regs[n], 0)
             vstr.append_label(f'.L{subsublabel}')
         return regs[n]
 
@@ -646,7 +707,7 @@ class Condition(Expr):
         sublabel = vstr.next_label() if self.false else label
         self.cond.compare(vstr, n, sublabel)
         self.true.reduce(vstr, n)
-        vstr.jump(Cond.JR, f'.L{label}')
+        vstr.jump(Cond.AL, f'.L{label}')
         vstr.append_label(f'.L{sublabel}')
         self.false.branch_reduce(vstr, n, label)
         vstr.append_label(f'.L{label}')
@@ -654,7 +715,7 @@ class Condition(Expr):
         sublabel = vstr.next_label()
         self.cond.compare(vstr, n, sublabel)
         self.true.reduce(vstr, n)
-        vstr.jump(Cond.JR, f'.L{root}')
+        vstr.jump(Cond.AL, f'.L{root}')
         vstr.append_label(f'.L{sublabel}')
         self.false.branch_reduce(vstr, n, root)
 
@@ -683,7 +744,7 @@ class InitListAssign(Expr):
         self.left.address(vstr, n)
         for i in range(self.left.type.size):
             self.right[i].reduce(vstr, n+1)
-            vstr.store(regs[n+1], regs[n], i)
+            vstr.store(self.right[i].size, regs[n+1], regs[n], i)
 
 class InitArrayString(Expr):
     def __init__(self, token, array, string):
@@ -696,8 +757,8 @@ class InitArrayString(Expr):
     def generate(self, vstr, n):
         self.array.address(vstr, n)
         for i, c in enumerate(self.string):
-            vstr.inst(Op.MOV, regs[n+1], c.data(vstr))
-            vstr.store(regs[n+1], regs[n], i)
+            vstr.binary(Op.MOV, self.size, regs[n+1], c.data(vstr))
+            vstr.store(self.size, regs[n+1], regs[n], i)
 
 class Block(UserList, Expr):
     def generate(self, vstr, n):
@@ -749,10 +810,11 @@ class Defn(Expr):
         self.params, self.block, self.returns, self.calls, self.max_args, self.space = params, block, returns, calls, max_args, space
     def generate(self, vstr):
         regs.clear()
+        fregs.clear()
         preview = Visitor()
         preview.begin_func(self)
         self.block.generate(preview, self.max_args)
-        push = list(map(Reg, range(max(bool(self.type.size), self.max_args), regs.max+1))) + [Reg.FP]
+        push = list(map(Reg, range(max(bool(self.size), self.max_args), regs.max+1))) + [Reg.FP]
         
         vstr.begin_func(self)
         #start
@@ -770,9 +832,9 @@ class Defn(Expr):
         #body
         self.block.generate(vstr, self.calls)
         #epilogue
-        if self.type.size or self.returns:
+        if self.size or self.returns:
             vstr.append_label(f'.L{vstr.return_label}')
-        if self.calls and self.type.size:
+        if self.calls and self.size:
             vstr.binary(Op.MOV, self.size, Reg.A, regs[self.calls])
         vstr.binary(Op.MOV, Size.WORD, Reg.SP, Reg.FP)
         if self.space:
@@ -784,6 +846,8 @@ class Defn(Expr):
 class Post(OpExpr):
     OP = {'++':Op.ADD,
           '--':Op.SUB}
+    OPF = {'++':Op.ADDF,
+           '--':Op.SUBF}
     def __init__(self, op, postfix):
         # assert postfix.type.cast(Int()), f'Line {op.line}: Cannot {op.lexeme} {postfix.type}'
         super().__init__(postfix.type, op)
@@ -806,7 +870,7 @@ class Dot(Access):
         super().__init__(attr.type, token, postfix)
         self.attr = attr
     def address(self, vstr, n):
-        vstr.inst(Op.ADD, self.postfix.address(vstr, n), self.attr.location)
+        vstr.binary(Op.ADD, Size.WORD, self.postfix.address(vstr, n), self.attr.location)
         return regs[n]
     def store(self, vstr, n):
         self.postfix.address(vstr, n+1)
@@ -820,7 +884,7 @@ class Dot(Access):
 
 class Arrow(Dot):
     def address(self, vstr, n):
-        vstr.inst(Op.ADD, self.postfix.reduce(vstr, n), self.attr.location)
+        vstr.binary(Op.ADD, Size.WORD, self.postfix.reduce(vstr, n), self.attr.location)
         return regs[n]
     def store(self, vstr, n):
         self.postfix.reduce(vstr, n+1)
@@ -840,22 +904,22 @@ class SubScr(Access):
         self.postfix.reduce(vstr, n)
         if isinstance(self.postfix.type, (Array,Pointer)) and self.postfix.type.of.size > 1:
             self.sub.reduce(vstr, n+1)
-            vstr.inst(Op.MUL, regs[n+1], self.postfix.type.of.size)
-            vstr.inst(Op.ADD, regs[n], regs[n+1])
+            vstr.binary(Op.MUL, Size.WORD, regs[n+1], self.postfix.type.of.size)
+            vstr.binary(Op.ADD, Size.WORD, regs[n], regs[n+1])
         else:
-            vstr.inst(Op.ADD, regs[n], self.sub.num_reduce(vstr, n+1))
+            vstr.binary(Op.ADD, Size.BYTE, regs[n], self.sub.num_reduce(vstr, n+1))
         return regs[n]
     def store(self, vstr, n):
-        vstr.store(regs[n], self.address(vstr, n+1))
+        vstr.store(self.sub.size, regs[n], self.address(vstr, n+1))
         return regs[n]
     def reduce(self, vstr, n):
-        vstr.load(self.address(vstr, n), regs[n])
+        vstr.load(self.sub.size, self.address(vstr, n), regs[n])
         return regs[n]
 
 class Call(Expr):
     def __init__(self, primary, args):
-        for i, param in enumerate(primary.type.params):
-            assert param == args[i].type, f'Line {primary.token.line}: Argument #{i+1} of {primary.token.lexeme} {param} != {args[i].type}'
+        # for i, param in enumerate(primary.type.params):
+        #     assert param == args[i].type, f'Line {primary.token.line}: Argument #{i+1} of {primary.token.lexeme} {param} != {args[i].type}'
         super().__init__(primary.type.ret, primary.token)
         self.primary, self.args = primary, args
     def reduce(self, vstr, n):
@@ -867,9 +931,9 @@ class Call(Expr):
         for i, arg in enumerate(self.args):
             vstr.binary(Op.MOV, arg.size, regs[i], regs[n+i])
         self.primary.call(vstr, n)
-        if self.primary.type.variable and len(self.args) > len(self.primary.type.params):
-            vstr.inst(Op.ADD, Reg.SP, len(self.args) - len(self.primary.type.params))
-        if n > 0 and self.type.size:
+        # if self.primary.type.variable and len(self.args) > len(self.primary.type.params):
+        #     vstr.binary(Op.ADD, Reg.SP, len(self.args) - len(self.primary.type.params))
+        if n > 0 and self.size:
             vstr.binary(Op.MOV, self.size, regs[n], Reg.A)
 
 class Return(Expr):
@@ -896,7 +960,7 @@ class If(Statement):
         self.true.generate(vstr, n)
         if self.false:
             if not (isinstance(self.true, Return) or (isinstance(self.true, Block) and self.true and isinstance(self.true[-1], Return))):
-                vstr.jump(Cond.JR, f'.L{label}')
+                vstr.jump(Cond.AL, f'.L{label}')
                 vstr.if_jump_end = True
             vstr.append_label(f'.L{sublabel}')
             self.false.branch(vstr, n, label)
@@ -910,7 +974,7 @@ class If(Statement):
         self.true.generate(vstr, n)
         if self.false:
             if not (isinstance(self.true, Return) or (isinstance(self.true, Block) and self.true and isinstance(self.true[-1], Return))):
-                vstr.jump(Cond.JR, f'.L{root}')
+                vstr.jump(Cond.AL, f'.L{root}')
                 vstr.if_jump_end = True
             vstr.append_label(f'.L{sublabel}')
             self.false.branch(vstr, n, root)
@@ -928,13 +992,13 @@ class Switch(Statement):
         labels = []
         for case in self.cases:
             labels.append(vstr.next_label())
-            vstr.inst(Op.CMP, regs[n], case.const.num_reduce(vstr, n+1))
-            vstr.jump(Cond.JEQ, f'.L{labels[-1]}')
+            vstr.binary(Op.CMP, regs[n], case.const.num_reduce(vstr, n+1))
+            vstr.jump(Cond.EQ, f'.L{labels[-1]}')
         if self.default:
             default = vstr.next_label()
-            vstr.jump(Cond.JR, f'.L{default}')
+            vstr.jump(Cond.AL, f'.L{default}')
         else:
-            vstr.jump(Cond.JR, f'.L{vstr.loop.end()}')
+            vstr.jump(Cond.AL, f'.L{vstr.loop.end()}')
         for i, case in enumerate(self.cases):
             vstr.append_label(f'.L{labels[i]}')
             case.statement.generate(vstr, n)
@@ -982,33 +1046,34 @@ class For(While):
         vstr.append_label(f'.L{vstr.loop.start()}')
         for step in self.steps:
             step.generate(vstr, n)
-        vstr.jump(Cond.JR, f'.L{loop}')
+        vstr.jump(Cond.AL, f'.L{loop}')
         vstr.append_label(f'.L{vstr.loop.end()}')
         vstr.end_loop()
 
 class Continue(Statement):
     def generate(self, vstr, n):
-        vstr.jump(Cond.JR, f'.L{vstr.loop.start()}')
+        vstr.jump(Cond.AL, f'.L{vstr.loop.start()}')
 
 class Break(Statement):
     def generate(self, vstr, n):
-        vstr.jump(Cond.JR, f'.L{vstr.loop.end()}')
+        vstr.jump(Cond.AL, f'.L{vstr.loop.end()}')
 
 class Goto(Statement):
     def __init__(self, target):
         self.target = target
     def generate(self, vstr, n):
-        vstr.jump(Cond.JR, self.target.lexeme)
+        vstr.jump(Cond.AL, self.target.lexeme)
 
 class Label(Statement):
-    def __init__(self, target):
-        self.target = target
+    def __init__(self, label):
+        self.label = label
     def generate(self, vstr, n):
-        vstr.append_label(self.target.lexeme)
+        vstr.append_label(self.label.lexeme)
 
 class Program(UserList, CNode):
     def generate(self):
         regs.clear()
+        fregs.clear()
         emitter = Emitter()
         for statement in self:
             statement.generate(emitter)

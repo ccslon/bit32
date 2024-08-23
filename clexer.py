@@ -34,7 +34,7 @@ class LexerBase(metaclass=MetaLexer):
         return [Token(match.lastgroup, result, self.line) for match in self.regex.finditer(text) if (result := self.action[match.lastgroup](self, match.group())) is not None] + [Token('end','',self.line)]
 
 class CLexer(LexerBase):
-
+    RE_decimal = r'\d+\.\d+'
     RE_num = r'0x[0-9a-f]+|0b[01]+|\d+'
     RE_letter = r"'\\?[^']'"
     def RE_string(self, match):

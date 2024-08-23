@@ -38,10 +38,10 @@ class Reg(IntEnum):
     PC = 15
     
 class FReg(IntEnum):
-    F0 = FA = 8
-    F1 = FB = 9
-    F2 = FC = 10
-    F3 = FD = 11
+    F0 = 8
+    F1 = 9
+    F2 = 10
+    F3 = 11
 
 class Op(IntEnum):
     MOV = 0
