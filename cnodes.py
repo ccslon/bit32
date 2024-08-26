@@ -193,7 +193,7 @@ class Type(CNode):
         vstr.ternary(Op.ADD, Size.WORD, regs[n], regs[base], local.location)
         return regs[n]
     @staticmethod
-    def store(vstr, n, local, base):
+    def store(vstr, n, f, local, base):
         if local.location is None:
             vstr.load_glob(regs[n+1], local.token.lexeme)
             vstr.store(regs[n], regs[n+1])
@@ -201,7 +201,7 @@ class Type(CNode):
             vstr.store(local.size, regs[n], regs[base], local.location, local.token.lexeme)
         return regs[n]
     @staticmethod
-    def reduce(vstr, n, local, base):
+    def reduce(vstr, n, f, local, base):
         if local.location is None:
             vstr.load_glob(regs[n], local.token.lexeme)
             vstr.load(local.size, regs[n], regs[n])
@@ -256,14 +256,14 @@ class Float(Type):
     def is_float(self):
         return True
     @staticmethod
-    def store(vstr, n, local, base):
+    def store(vstr, n, f, local, base):
         if local.location is None:
             pass
         else:
             vstr.store(local.size, fregs[n], regs[base], local.location, local.token.lexeme)
         return fregs[n]
     @staticmethod
-    def reduce(vstr, n, local, base):
+    def reduce(vstr, n, f, local, base):
         if local.location is None:
             pass
         else:
@@ -724,12 +724,11 @@ class InitAssign(Expr):
         # assert left.type == right.type, f'Line {token.line}: {left.type} != {right.type}'
         super().__init__(left.type, token)
         self.left, self.right = left, right
-    def reduce(self, vstr, n):
-        self.generate(vstr, n)
-        return regs[n]
-    def generate(self, vstr, n):
-        self.right.reduce(vstr, n)
-        self.left.store(vstr, n)
+    def reduce(self, vstr, n, f):
+        return self.generate(vstr, n, f)        
+    def generate(self, vstr, n, f):
+        self.right.reduce(vstr, n, f)
+        return self.left.store(vstr, n, f)
 
 class Assign(InitAssign):
     def __init__(self, token, left, right):
@@ -761,19 +760,19 @@ class InitArrayString(Expr):
             vstr.store(self.size, regs[n+1], regs[n], i)
 
 class Block(UserList, Expr):
-    def generate(self, vstr, n):
+    def generate(self, vstr, n, f):
         for statement in self:
-            statement.generate(vstr, n)
+            statement.generate(vstr, n, f)
 
 class Local(Expr):
-    def store(self, vstr, n):
-        return self.type.store(vstr, n, self, 'FP')
-    def reduce(self, vstr, n):
-        return self.type.reduce(vstr, n, self, 'FP')
-    def address(self, vstr, n):
-        return self.type.address(vstr, n, self, 'FP')
-    def call(self, vstr, n):
-        Type.reduce(vstr, n, self, 'FP')
+    def store(self, vstr, n, f):
+        return self.type.store(vstr, n, f, self, 'FP')
+    def reduce(self, vstr, n, f):
+        return self.type.reduce(vstr, n, f, self, 'FP')
+    def address(self, vstr, n, f):
+        return self.type.address(vstr, n, f, self, 'FP')
+    def call(self, vstr, n, f):
+        Type.reduce(vstr, n, f, self, 'FP')
         vstr.call(regs[n])
 
 class Attr(Local):
@@ -805,15 +804,15 @@ class Glob(Local):
         vstr.call(self.token.lexeme)
 
 class Defn(Expr):
-    def __init__(self, type, id, params, block, returns, calls, max_args, space):
+    def __init__(self, type, id, params, block, returns, calls, max_args, max_fargs, space):
         super().__init__(type, id)
-        self.params, self.block, self.returns, self.calls, self.max_args, self.space = params, block, returns, calls, max_args, space
+        self.params, self.block, self.returns, self.calls, self.max_args, self.max_fargs, self.space = params, block, returns, calls, max_args, max_args, space
     def generate(self, vstr):
         regs.clear()
         fregs.clear()
         preview = Visitor()
         preview.begin_func(self)
-        self.block.generate(preview, self.max_args)
+        self.block.generate(preview, self.max_args, self.max_fargs)
         push = list(map(Reg, range(max(bool(self.size), self.max_args), regs.max+1))) + [Reg.FP]
         
         vstr.begin_func(self)
@@ -830,7 +829,7 @@ class Defn(Expr):
             vstr.store(param.size, regs[i], Reg.FP, addr)
             addr += param.size
         #body
-        self.block.generate(vstr, self.calls)
+        self.block.generate(vstr, self.max_args, self.max_fargs)
         #epilogue
         if self.size or self.returns:
             vstr.append_label(f'.L{vstr.return_label}')
@@ -925,9 +924,9 @@ class Call(Expr):
     def reduce(self, vstr, n):
         self.generate(vstr, n)
         return regs[n]
-    def generate(self, vstr, n):
+    def generate(self, vstr, n, f):
         for i, arg in enumerate(self.args):
-            arg.reduce(vstr, n+i)
+            arg.reduce(vstr, n, )
         for i, arg in enumerate(self.args):
             vstr.binary(Op.MOV, arg.size, regs[i], regs[n+i])
         self.primary.call(vstr, n)
