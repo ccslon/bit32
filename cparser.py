@@ -125,8 +125,7 @@ class CParser:
             args.append(self.assign())
             while self.accept(','):
                 args.append(self.assign())
-        self.max_args = max(self.max_args, len([arg for arg in args if not isinstance(arg, Float)]))
-        self.max_fargs = max(self.max_fargs, len([arg for arg in args if isinstance(arg, Float)]))
+        self.max_args = max(self.max_args, len(args))
         return args
 
     def unary(self):
@@ -700,7 +699,7 @@ class CParser:
                         block = self.block()
                         self.expect('}')
                         self.end_func()
-                        program.append(Defn(type, id, params, block, self.returns, self.calls, self.max_args, self.max_fargs, self.space))
+                        program.append(Defn(type, id, params, block, self.returns, self.calls, self.max_args, self.space))
                     else:
                         self.expect(';')
                         self.end_func()
@@ -732,7 +731,6 @@ class CParser:
         self.returns = False
         self.calls = False
         self.max_args = 0
-        self.max_fargs = 0
         self.scope = Scope()
         self.param_scope = Scope()
         self.stack = []

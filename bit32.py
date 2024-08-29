@@ -15,7 +15,7 @@ def negative(num, base):
 
 class Size(IntEnum):
     BYTE = 1
-    HALF = 2 #TODO
+    HALF = 2
     WORD = 4
     @classmethod
     def get(cls, name):
@@ -32,16 +32,14 @@ class Reg(IntEnum):
     F = 5
     G = 6
     H = 7
+    I = 8
+    J = 9
+    K = 10
+    L = 11
     LR = 12
     FP = 13
     SP = 14
     PC = 15
-    
-class FReg(IntEnum):
-    F0 = 8
-    F1 = 9
-    F2 = 10
-    F3 = 11
 
 class Op(IntEnum):
     MOV = 0
@@ -63,11 +61,11 @@ class Op(IntEnum):
     ITF = 16
     ADDF = 17
     SUBF = 18
-    MULF = 19
-    DIVF = 20
+    CMPF = 19
+    FTI = 20
     NEGF = 21
-    #CMPF = 22
-    FTI = 23
+    MULF = 22
+    DIVF = 23
     MUL = 24
     DIV = 25
     MOD = 26

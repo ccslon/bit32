@@ -6,7 +6,7 @@ Created on Fri Aug 25 10:49:03 2023
 """
 
 import re
-from bit32 import Size, Reg, FReg, Op, Cond, Byte, Char, Half, Word, Jump, Unary, Binary, Ternary, LoadStore, PushPop, Immediate,  unescape
+from bit32 import Size, Reg, Op, Cond, Byte, Char, Half, Word, Jump, Unary, Binary, Ternary, LoadStore, PushPop, Immediate,  unescape
 
 RE_SIZE = r'B|H|W'
 RE_OP = r'|'.join(op.name for op in Op)
@@ -26,7 +26,7 @@ TOKENS = {
     'halt': r'^(halt)\b',
     'size': r'\b(byte|half|word)\b',
     'space': r'\b(space)\b',
-    'reg': r'\b('+r'|'.join(reg.name for reg in Reg)+'|'+'|'.join(reg.name for reg in FReg)+r')\b',
+    'reg': r'\b('+r'|'.join(reg.name for reg in Reg)+r')\b',
     'op': rf'^(?P<op_name>{RE_OP})(?P<op_cond>{RE_COND})?(?P<op_flag>s)?(\.(?P<op_size>{RE_SIZE}))?\b',
     'jump': rf'^j(mp)?(?P<jump_cond>{RE_COND})?\b',
     'label': r'\.?[a-z_]\w*\s*:',

@@ -7,7 +7,7 @@ Created on Mon Jul  3 19:48:36 2023
 """
 from collections import UserList, UserDict
 from struct import pack
-from bit32 import Size, Reg, FReg, Op, Cond, escape, unescape, negative
+from bit32 import Size, Reg, Op, Cond, escape, unescape, negative
 
 class Loop(UserList):
     def start(self):
@@ -26,15 +26,7 @@ class Regs:
         self.max = max(self.max, item)
         return Reg(item)
 
-class FRegs(Regs):
-    def __getitem__(self, item):
-        if item >= 4:
-            raise SyntaxError('Not enough floating point registers =(')
-        self.max = max(self.max, item+FReg.F0)
-        return FReg(item+FReg.F0)
-
 regs = Regs()
-fregs = FRegs()
 
 class Frame(UserDict):
     def __init__(self):
@@ -120,7 +112,7 @@ class Emitter(Visitor):
     def string(self, string):
         if string not in self.strings:
             self.strings.append(string)
-            self.glob(f'.S{self.strings.index(string)}', rf'"{string}\0"')
+            self.data.append(rf'.S{self.strings.index(string)}: "{string}\0"')
         return f'.S{self.strings.index(string)}'
     def add(self, asm):
         for label in self.labels:
@@ -165,9 +157,9 @@ class Emitter(Visitor):
     def unary(self, op, size, rd):
         self.add(f'{op.name}{size.display()} {rd.name}')
     def binary(self, op, size, rd, src):
-        self.add(f'{op.name}{size.display()} {rd.name}, {src.name if isinstance(src, (Reg,FReg)) else src}')
+        self.add(f'{op.name}{size.display()} {rd.name}, {src.name if isinstance(src, Reg) else src}')
     def ternary(self, op, size, rd, rs, src):
-        self.add(f'{op.name}{size.display()} {rd.name}, {rs.name}, {src.name if isinstance(src, (Reg,FReg)) else src}')
+        self.add(f'{op.name}{size.display()} {rd.name}, {rs.name}, {src.name if isinstance(src, Reg) else src}')
     def jump(self, cond, target):
         self.add(f'J{cond.display_jump()} {target}')
     def mov(self, cond, rd, value):
@@ -193,7 +185,7 @@ class Type(CNode):
         vstr.ternary(Op.ADD, Size.WORD, regs[n], regs[base], local.location)
         return regs[n]
     @staticmethod
-    def store(vstr, n, f, local, base):
+    def store(vstr, n, local, base):
         if local.location is None:
             vstr.load_glob(regs[n+1], local.token.lexeme)
             vstr.store(regs[n], regs[n+1])
@@ -201,7 +193,7 @@ class Type(CNode):
             vstr.store(local.size, regs[n], regs[base], local.location, local.token.lexeme)
         return regs[n]
     @staticmethod
-    def reduce(vstr, n, f, local, base):
+    def reduce(vstr, n, local, base):
         if local.location is None:
             vstr.load_glob(regs[n], local.token.lexeme)
             vstr.load(local.size, regs[n], regs[n])
@@ -223,6 +215,15 @@ class Bin(Type):
         return self.signed
     def is_float(self):
         return False
+    @staticmethod
+    def float_reduce(vstr, n, local, base):
+        Bin.reduce(vstr, n, local, base)
+        vstr.binary(Op.ITF, Size.WORD, regs[n], regs[n])
+        return regs[n]
+    @staticmethod
+    def convert(vstr, reg, other):
+        if not isinstance(other.type, Bin):
+            vstr.binary(Op.FTI, Size.WORD, regs[reg], regs[reg])
     def cast(self, other):
         return #TODO
     def __eq__(self, other):
@@ -256,21 +257,32 @@ class Float(Type):
     def is_float(self):
         return True
     @staticmethod
-    def store(vstr, n, f, local, base):
+    def store(vstr, n, local, base):
         if local.location is None:
-            pass
+            vstr.load_glob(regs[n+1], local.token.lexeme)
+            vstr.store(regs[n], regs[n+1])
         else:
-            vstr.store(local.size, fregs[n], regs[base], local.location, local.token.lexeme)
-        return fregs[n]
+            vstr.store(local.size, regs[n], regs[base], local.location, local.token.lexeme)
+        return regs[n]
     @staticmethod
-    def reduce(vstr, n, f, local, base):
+    def reduce(vstr, n, local, base):
         if local.location is None:
-            pass
+            vstr.load_glob(regs[n], local.token.lexeme)
+            vstr.load(local.size, regs[n], regs[n])
         else:
-            vstr.load(local.size, fregs[n], regs[base], local.location, local.token.lexeme)
-        return fregs[n]
+            vstr.load(local.size, regs[n], regs[base], local.location, local.token.lexeme)
+        return regs[n]
+    @staticmethod
+    def float_reduce(vstr, n, local, base):
+        return Float.reduce(vstr, n, local, base)
+    @staticmethod
+    def convert(vstr, reg, other):
+        if not isinstance(other.type, Float):
+            vstr.binary(Op.ITF, Size.WORD, regs[reg], regs[reg])
     def __eq__(self, other):
         return isinstance(other, Float)
+    def __str__(self):
+        return 'float'
 
 class Pointer(Int):
     def __init__(self, type):
@@ -366,6 +378,14 @@ class Func(Type):
     def __str__(self):
         return f'{self.ret}('+','.join(map(str, self.params))+')'
 
+def max_type(left, right):
+    if left.is_float():
+        return left
+    elif right.is_float():
+        return right
+    else:
+        return right if right.size > left.size else left
+
 class Expr(CNode):
     def __init__(self, type, token):
         self.type = type
@@ -383,20 +403,27 @@ class Expr(CNode):
         self.reduce(vstr, n)
     def num_reduce(self, vstr, n):
         return self.reduce(vstr, n)
+    def convert(self, vstr, reg, other):
+        self.type.convert(vstr, reg, other)
     def is_signed(self):
         return self.type.is_signed()
     def is_float(self):
         return self.type.is_float()
-
+    
+def itf(i):
+    return int.from_bytes(pack('>f', float(i)), 'big')
+    
 class Decimal(Expr):
     def __init__(self, token):
         super().__init__(Float(), token)
-        self.value = int.from_bytes(pack('>f', float(token.lexeme)), 'big')
+        self.value = itf(token.lexeme)
     def data(self, vstr):
         return self.value
     def reduce(self, vstr, n):
-        vstr.imm(self.size, fregs[n], self.value)
-        return fregs[n] 
+        vstr.imm(self.size, regs[n], self.value)
+        return regs[n]
+    def float_reduce(self, vstr, n):
+        return self.reduce(vstr, n)
 
 class NumBase(Expr):
     def __init__(self, token):
@@ -414,6 +441,10 @@ class NumBase(Expr):
             return self.value
         else:
             vstr.imm(self.size, regs[n], self.value)
+        return regs[n]
+    def float_reduce(self, vstr, n):
+        self.reduce(vstr, n)
+        vstr.binary(Op.ITF, self.size, regs[n], regs[n])
         return regs[n]
 
 class EnumConst(NumBase):
@@ -534,6 +565,8 @@ class Cast(Expr):
         super().__init__(type, token)
         self.cast = cast
     def reduce(self, vstr, n):
+        if type.is_float():
+            return self.cast.float_reduce(vstr, n)
         return self.cast.reduce(vstr, n)
     def data(self, vstr):
         return self.cast.data(vstr)
@@ -587,13 +620,16 @@ class Binary(OpExpr):
         # assert not isinstance(left, String) or not isinstance(right, String)
         # assert left.type.cast(right.type), f'Line {op.line}: Cannot {left.type} {op.lexeme} {right.type}'
         self.left, self.right = left, right
-        super().__init__(left.type, op)
+        super().__init__(max_type(left.type, right.type), op)
     def is_signed(self):
         return self.left.is_signed() or self.right.is_signed()
     def is_float(self):
         return self.left.is_float() or self.right.is_float()
     def reduce(self, vstr, n):
-        vstr.binary(self.op, self.size, self.left.reduce(vstr, n), self.right.num_reduce(vstr, n+1))
+        if self.is_float():
+            vstr.binary(self.op, self.size, self.left.float_reduce(vstr, n), self.right.float_reduce(vstr, n+1))
+        else:
+            vstr.binary(self.op, self.size, self.left.reduce(vstr, n), self.right.num_reduce(vstr, n+1))
         return regs[n]
 
 class Compare(Binary):
@@ -724,11 +760,12 @@ class InitAssign(Expr):
         # assert left.type == right.type, f'Line {token.line}: {left.type} != {right.type}'
         super().__init__(left.type, token)
         self.left, self.right = left, right
-    def reduce(self, vstr, n, f):
-        return self.generate(vstr, n, f)        
-    def generate(self, vstr, n, f):
-        self.right.reduce(vstr, n, f)
-        return self.left.store(vstr, n, f)
+    def reduce(self, vstr, n):
+        return self.generate(vstr, n)
+    def generate(self, vstr, n):
+        self.right.reduce(vstr, n)
+        self.left.convert(vstr, n, self.right)
+        return self.left.store(vstr, n)
 
 class Assign(InitAssign):
     def __init__(self, token, left, right):
@@ -760,19 +797,21 @@ class InitArrayString(Expr):
             vstr.store(self.size, regs[n+1], regs[n], i)
 
 class Block(UserList, Expr):
-    def generate(self, vstr, n, f):
+    def generate(self, vstr, n):
         for statement in self:
-            statement.generate(vstr, n, f)
+            statement.generate(vstr, n)
 
 class Local(Expr):
-    def store(self, vstr, n, f):
-        return self.type.store(vstr, n, f, self, 'FP')
-    def reduce(self, vstr, n, f):
-        return self.type.reduce(vstr, n, f, self, 'FP')
-    def address(self, vstr, n, f):
-        return self.type.address(vstr, n, f, self, 'FP')
-    def call(self, vstr, n, f):
-        Type.reduce(vstr, n, f, self, 'FP')
+    def store(self, vstr, n):
+        return self.type.store(vstr, n, self, 'FP')
+    def reduce(self, vstr, n):
+        return self.type.reduce(vstr, n, self, 'FP')
+    def float_reduce(self, vstr, n):
+        return self.type.float_reduce(vstr, n, self, 'FP')
+    def address(self, vstr, n):
+        return self.type.address(vstr, n, self, 'FP')
+    def call(self, vstr, n):
+        Type.reduce(vstr, n, self, 'FP')
         vstr.call(regs[n])
 
 class Attr(Local):
@@ -780,6 +819,8 @@ class Attr(Local):
         return self.type.store(vstr, n, self, n+1)
     def reduce(self, vstr, n):
         return self.type.reduce(vstr, n, self, n)
+    def float_reduce(self, vstr, n):
+        return self.type.float_reduce(vstr, n, self, 'FP')
     def address(self, vstr, n):
         return self.type.address(vstr, n, self, n)
     def call(self, vstr, n):
@@ -795,6 +836,8 @@ class Glob(Local):
         return self.type.store(vstr, n, self, n+1)
     def reduce(self, vstr, n):
         return self.type.reduce(vstr, n, self, n)
+    def float_reduce(self, vstr, n):
+        return self.type.float_reduce(vstr, n, self, n)
     def address(self, vstr, n):
         vstr.load_glob(regs[n], self.token.lexeme)
         return regs[n]
@@ -804,16 +847,15 @@ class Glob(Local):
         vstr.call(self.token.lexeme)
 
 class Defn(Expr):
-    def __init__(self, type, id, params, block, returns, calls, max_args, max_fargs, space):
+    def __init__(self, type, id, params, block, returns, calls, max_args, space):
         super().__init__(type, id)
-        self.params, self.block, self.returns, self.calls, self.max_args, self.max_fargs, self.space = params, block, returns, calls, max_args, max_args, space
+        self.params, self.block, self.returns, self.calls, self.max_args, self.space = params, block, returns, calls, max_args, space
     def generate(self, vstr):
         regs.clear()
-        fregs.clear()
         preview = Visitor()
         preview.begin_func(self)
-        self.block.generate(preview, self.max_args, self.max_fargs)
-        push = list(map(Reg, range(max(bool(self.size), self.max_args), regs.max+1))) + [Reg.FP]
+        self.block.generate(preview, self.max_args)
+        push = list(map(Reg, range(max(bool(self.size), len(self.params)), regs.max+1))) + [Reg.FP]
         
         vstr.begin_func(self)
         #start
@@ -829,7 +871,7 @@ class Defn(Expr):
             vstr.store(param.size, regs[i], Reg.FP, addr)
             addr += param.size
         #body
-        self.block.generate(vstr, self.max_args, self.max_fargs)
+        self.block.generate(vstr, self.max_args)
         #epilogue
         if self.size or self.returns:
             vstr.append_label(f'.L{vstr.return_label}')
@@ -877,6 +919,9 @@ class Dot(Access):
     def reduce(self, vstr, n):
         self.postfix.address(vstr, n)
         return self.attr.reduce(vstr, n)
+    def float_reduce(self, vstr, n):
+        self.postfix.address(vstr, n)
+        return self.attr.float_reduce(vstr, n)
     def call(self, vstr, n):
         self.postfix.address(vstr, n)
         self.attr.call(vstr, n)
@@ -891,6 +936,9 @@ class Arrow(Dot):
     def reduce(self, vstr, n):
         self.postfix.reduce(vstr, n)
         return self.attr.reduce(vstr, n)
+    def float_reduce(self, vstr, n):
+        self.postfix.reduce(vstr, n)
+        return self.attr.float_reduce(vstr, n)
     def call(self, vstr, n):
         self.postfix.reduce(vstr, n)
         self.attr.call(vstr, n)
@@ -914,6 +962,11 @@ class SubScr(Access):
     def reduce(self, vstr, n):
         vstr.load(self.sub.size, self.address(vstr, n), regs[n])
         return regs[n]
+    def float_reduce(self, vstr, n):
+        self.reduce(vstr, n)
+        if not self.is_float():
+            vstr.binary(Op.ITF, Size.WORD, regs[n], regs[n])
+        return regs[n]
 
 class Call(Expr):
     def __init__(self, primary, args):
@@ -921,19 +974,24 @@ class Call(Expr):
         #     assert param == args[i].type, f'Line {primary.token.line}: Argument #{i+1} of {primary.token.lexeme} {param} != {args[i].type}'
         super().__init__(primary.type.ret, primary.token)
         self.primary, self.args = primary, args
-    def reduce(self, vstr, n):
-        self.generate(vstr, n)
+    def reduce(self, vstr, reg):
+        self.generate(vstr, reg)
+        return regs[reg]
+    def float_reduce(self, vstr, n):
+        self.reduce(vstr, n)
+        if not self.is_float():
+            vstr.binary(Op.ITF, Size.WORD, regs[n], regs[n])
         return regs[n]
-    def generate(self, vstr, n, f):
+    def generate(self, vstr, reg):
         for i, arg in enumerate(self.args):
-            arg.reduce(vstr, n, )
+            arg.reduce(vstr, reg+i)
         for i, arg in enumerate(self.args):
-            vstr.binary(Op.MOV, arg.size, regs[i], regs[n+i])
-        self.primary.call(vstr, n)
+            vstr.binary(Op.MOV, arg.size, regs[i], regs[reg+i])
+        self.primary.call(vstr, reg)
         # if self.primary.type.variable and len(self.args) > len(self.primary.type.params):
         #     vstr.binary(Op.ADD, Reg.SP, len(self.args) - len(self.primary.type.params))
-        if n > 0 and self.size:
-            vstr.binary(Op.MOV, self.size, regs[n], Reg.A)
+        if reg > 0 and self.size:
+            vstr.binary(Op.MOV, self.size, regs[reg], Reg.A)
 
 class Return(Expr):
     def __init__(self, token, expr):
@@ -1072,7 +1130,6 @@ class Label(Statement):
 class Program(UserList, CNode):
     def generate(self):
         regs.clear()
-        fregs.clear()
         emitter = Emitter()
         for statement in self:
             statement.generate(emitter)
