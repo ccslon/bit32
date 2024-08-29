@@ -6,7 +6,7 @@ Created on Mon Jul  3 19:47:39 2023
 """
 
 import clexer
-from cnodes import Program, Defn, Block, Label, Goto, Break, Continue, For, Do, While, Switch, Case, If, Statement, Return, Glob, Attr, Local, InitArrayString, InitListAssign, Assign, InitAssign, Condition, Logic, Compare, Binary, Func, Array, Union, Struct, Pointer, Char, Short, Int, Float, Void, Pre, Cast, SizeOf, Deref, AddrOf, Not, Unary, Call, Arrow, SubScr, Dot, Post, String, Letter, EnumConst, NegNum, Num, Decimal, Frame
+from cnodes import Program, VarDefn, Defn, Block, Label, Goto, Break, Continue, For, Do, While, Switch, Case, If, Statement, Return, Glob, Attr, Local, InitArrayString, InitListAssign, Assign, InitAssign, Condition, Logic, Compare, Binary, Func, Array, Union, Struct, Pointer, Char, Short, Int, Float, Void, Pre, Cast, SizeOf, Deref, AddrOf, Not, Unary, Call, Arrow, SubScr, Dot, Post, String, Letter, EnumConst, NegNum, Num, Decimal, Frame
 
 '''
 TODO
@@ -125,7 +125,7 @@ class CParser:
             args.append(self.assign())
             while self.accept(','):
                 args.append(self.assign())
-        self.max_args = max(self.max_args, len(args))
+        self.max_args = min(max(self.max_args, len(args)), 4)
         return args
 
     def unary(self):
@@ -513,7 +513,7 @@ class CParser:
                 self.expect(']')
         param = Local(type, id)
         if id:
-            self.scope[id.lexeme] = param
+            self.param_scope[id.lexeme] = param
         return param
 
     def params(self):
@@ -689,10 +689,14 @@ class CParser:
                     self.globs[id.lexeme] = Glob(type, id)
                     if self.accept('{'):
                         assert not any(param.token is None for param in params)
+                        param_space = self.param_scope.size
                         block = self.block()
                         self.expect('}')
                         self.end_func()
-                        program.append(Defn(type, id, params, block, self.returns, self.calls, self.max_args, self.space))
+                        if variable:
+                            program.append(VarDefn(type, id, params, block, self.returns, self.calls, self.max_args, self.space))
+                        else:
+                            program.append(Defn(type, id, params, block, self.returns, self.calls, self.max_args, self.space+param_space))
                     else:
                         self.expect(';')
                         self.end_func()

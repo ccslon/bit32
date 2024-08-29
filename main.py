@@ -9,5 +9,5 @@ from ccompiler import compile as ccompile
 
 if __name__ == '__main__':
     
-    ccompile('tests/binary.c', sflag=True, fflag=False)
+    ccompile('tests/vfuncs.c', sflag=True, fflag=False)
     # ccompile('tests/const.c', sflag=True, fflag=True)
