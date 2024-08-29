@@ -343,13 +343,6 @@ class CParser:
                     |('struct'|'union') [id] '{' {QUAL ATTR {',' ATTR} ';'} '}'
                     |'enum' [id] '{' ENUM {',' ENUM}'}'
         '''
-        # if self.peek('word'):
-        #     spec = Word(next(self).lexeme)
-        # elif self.accept('signed'):
-        #     spec = Word(next(self).lexeme if self.peek('word') else 'int')
-        # elif self.accept('unsigned'):
-        #     spec = Word(next(self).lexeme if self.peek('word') else 'int', True)
-        # el
         if self.accept('void'):
             spec = Void()
         elif self.peek('id'):

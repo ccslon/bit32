@@ -18,13 +18,13 @@ class Loop(UserList):
 class Regs:
     def clear(self):
         self.max = -1
-    def __getitem__(self, item):
-        if item == 'FP':
-            return Reg.FP
-        elif item > Reg.H:
+    def __getitem__(self, reg):
+        if reg == Reg.FP:
+            return reg
+        elif reg > Reg.H:
             raise SyntaxError('Not enough registers =(')
-        self.max = max(self.max, item)
-        return Reg(item)
+        self.max = max(self.max, reg)
+        return Reg(reg)
 
 regs = Regs()
 
@@ -185,21 +185,27 @@ class Type(CNode):
         vstr.ternary(Op.ADD, Size.WORD, regs[n], regs[base], local.location)
         return regs[n]
     @staticmethod
+    def glob_address(vstr, n, glob):
+        vstr.load_glob(regs[n], glob.token.lexeme)
+        return regs[n]
+    @staticmethod
     def store(vstr, n, local, base):
-        if local.location is None:
-            vstr.load_glob(regs[n+1], local.token.lexeme)
-            vstr.store(regs[n], regs[n+1])
-        else:
-            vstr.store(local.size, regs[n], regs[base], local.location, local.token.lexeme)
+        vstr.store(local.size, regs[n], regs[base], local.location, local.token.lexeme)
+        return regs[n]
+    @staticmethod
+    def glob_store(vstr, n, glob):
+        vstr.load_glob(regs[n+1], glob.token.lexeme)
+        vstr.store(regs[n], regs[n+1])
         return regs[n]
     @staticmethod
     def reduce(vstr, n, local, base):
-        if local.location is None:
-            vstr.load_glob(regs[n], local.token.lexeme)
-            vstr.load(local.size, regs[n], regs[n])
-        else:
-            vstr.load(local.size, regs[n], regs[base], local.location, local.token.lexeme)
+        vstr.load(local.size, regs[n], regs[base], local.location, local.token.lexeme)
         return regs[n]
+    @staticmethod
+    def glob_reduce(vstr, reg, glob):
+        vstr.load_glob(regs[reg], glob.token.lexeme)
+        vstr.load(glob.size, regs[reg], regs[reg])
+        return regs[reg]
     @staticmethod
     def glob(vstr, glob):
         if glob.init:
@@ -215,11 +221,6 @@ class Bin(Type):
         return self.signed
     def is_float(self):
         return False
-    @staticmethod
-    def float_reduce(vstr, n, local, base):
-        Bin.reduce(vstr, n, local, base)
-        vstr.binary(Op.ITF, Size.WORD, regs[n], regs[n])
-        return regs[n]
     @staticmethod
     def convert(vstr, reg, other):
         if not isinstance(other.type, Bin):
@@ -257,27 +258,8 @@ class Float(Type):
     def is_float(self):
         return True
     @staticmethod
-    def store(vstr, n, local, base):
-        if local.location is None:
-            vstr.load_glob(regs[n+1], local.token.lexeme)
-            vstr.store(regs[n], regs[n+1])
-        else:
-            vstr.store(local.size, regs[n], regs[base], local.location, local.token.lexeme)
-        return regs[n]
-    @staticmethod
-    def reduce(vstr, n, local, base):
-        if local.location is None:
-            vstr.load_glob(regs[n], local.token.lexeme)
-            vstr.load(local.size, regs[n], regs[n])
-        else:
-            vstr.load(local.size, regs[n], regs[base], local.location, local.token.lexeme)
-        return regs[n]
-    @staticmethod
-    def float_reduce(vstr, n, local, base):
-        return Float.reduce(vstr, n, local, base)
-    @staticmethod
     def convert(vstr, reg, other):
-        if not isinstance(other.type, Float):
+        if not other.is_float():
             vstr.binary(Op.ITF, Size.WORD, regs[reg], regs[reg])
     def __eq__(self, other):
         return isinstance(other, Float)
@@ -288,7 +270,6 @@ class Pointer(Int):
     def __init__(self, type):
         super().__init__(False)
         self.type = self.to = self.of = type
-        self.size = Size.WORD
     def cast(self, other):
         return isinstance(other, Int)
     def __eq__(self, other):
@@ -345,13 +326,6 @@ class Array(Type):
         self.of = of
         self.length = length
     @staticmethod
-    def address(vstr, n, local, base):
-        if local.location is None:
-            vstr.load_glob(regs[n], local.token.lexeme)
-        else:
-            Type.address(vstr, n, local, base)
-        return regs[n]
-    @staticmethod
     def reduce(vstr, n, local, base):
         return Array.address(vstr, n, local, base)
     @staticmethod
@@ -403,6 +377,11 @@ class Expr(CNode):
         self.reduce(vstr, n)
     def num_reduce(self, vstr, n):
         return self.reduce(vstr, n)
+    def float_reduce(self, vstr, n):
+        self.reduce(vstr, n)
+        if not self.is_float():
+            vstr.binary(Op.ITF, self.size, regs[n], regs[n])
+        return regs[n]
     def convert(self, vstr, reg, other):
         self.type.convert(vstr, reg, other)
     def is_signed(self):
@@ -422,8 +401,6 @@ class Decimal(Expr):
     def reduce(self, vstr, n):
         vstr.imm(self.size, regs[n], self.value)
         return regs[n]
-    def float_reduce(self, vstr, n):
-        return self.reduce(vstr, n)
 
 class NumBase(Expr):
     def __init__(self, token):
@@ -441,10 +418,6 @@ class NumBase(Expr):
             return self.value
         else:
             vstr.imm(self.size, regs[n], self.value)
-        return regs[n]
-    def float_reduce(self, vstr, n):
-        self.reduce(vstr, n)
-        vstr.binary(Op.ITF, self.size, regs[n], regs[n])
         return regs[n]
 
 class EnumConst(NumBase):
@@ -534,7 +507,11 @@ class Pre(Unary):
         return regs[n]
     def generate(self, vstr, n):
         self.unary.reduce(vstr, n)
-        vstr.binary(self.op, self.size, regs[n], 1)
+        if self.is_float():
+            vstr.imm(self.size, regs[n+1], itf(1))
+            vstr.binay(self.op, self.size, regs[n], regs[n+1])
+        else:
+            vstr.binary(self.op, self.size, regs[n], 1)
         self.unary.store(vstr, n)
 
 class AddrOf(Expr):
@@ -561,13 +538,14 @@ class Deref(Expr):
 
 class Cast(Expr):
     def __init__(self, type, token, cast):
-        assert type.cast(cast.type), f'Line {token.line}: Cannot cast {cast.type} to {type}'
+        # assert type.cast(cast.type), f'Line {token.line}: Cannot cast {cast.type} to {type}'
         super().__init__(type, token)
         self.cast = cast
     def reduce(self, vstr, n):
-        if type.is_float():
-            return self.cast.float_reduce(vstr, n)
-        return self.cast.reduce(vstr, n)
+        self.cast.reduce(vstr, n)
+        if self.type.is_float() and not self.cast.is_float():
+            vstr.binary(Op.ITF, self.size, regs[n], regs[n])
+        return regs[n]
     def data(self, vstr):
         return self.cast.data(vstr)
 
@@ -655,7 +633,7 @@ class Compare(Binary):
             '<=':Cond.HI}
     def __init__(self, op, left, right):
         super().__init__(op, left, right)
-        if self.is_signed():
+        if self.is_signed() or self.is_float():
             self.op = self.OP[op.lexeme]
             self.inv = self.INV[op.lexeme]
         else:
@@ -803,15 +781,13 @@ class Block(UserList, Expr):
 
 class Local(Expr):
     def store(self, vstr, n):
-        return self.type.store(vstr, n, self, 'FP')
+        return self.type.store(vstr, n, self, Reg.FP)
     def reduce(self, vstr, n):
-        return self.type.reduce(vstr, n, self, 'FP')
-    def float_reduce(self, vstr, n):
-        return self.type.float_reduce(vstr, n, self, 'FP')
+        return self.type.reduce(vstr, n, self, Reg.FP)
     def address(self, vstr, n):
-        return self.type.address(vstr, n, self, 'FP')
+        return self.type.address(vstr, n, self, Reg.FP)
     def call(self, vstr, n):
-        Type.reduce(vstr, n, self, 'FP')
+        self.reduce(vstr, n, self, Reg.FP)
         vstr.call(regs[n])
 
 class Attr(Local):
@@ -819,28 +795,22 @@ class Attr(Local):
         return self.type.store(vstr, n, self, n+1)
     def reduce(self, vstr, n):
         return self.type.reduce(vstr, n, self, n)
-    def float_reduce(self, vstr, n):
-        return self.type.float_reduce(vstr, n, self, 'FP')
     def address(self, vstr, n):
         return self.type.address(vstr, n, self, n)
     def call(self, vstr, n):
-        Type.reduce(vstr, n, self, n)
+        self.reduce(vstr, n, self, n)
         vstr.call(regs[n])
 
 class Glob(Local):
     def __init__(self, type, token):
         super().__init__(type, token)
-        self.location = None
         self.init = None
     def store(self, vstr, n):
-        return self.type.store(vstr, n, self, n+1)
+        return self.type.glob_store(vstr, n, self)
     def reduce(self, vstr, n):
-        return self.type.reduce(vstr, n, self, n)
-    def float_reduce(self, vstr, n):
-        return self.type.float_reduce(vstr, n, self, n)
+        return self.type.glob_reduce(vstr, n, self)
     def address(self, vstr, n):
-        vstr.load_glob(regs[n], self.token.lexeme)
-        return regs[n]
+        return self.type.glob_address(vstr, n, self)
     def generate(self, vstr):
         self.type.glob(vstr, self)
     def call(self, vstr, n):
@@ -898,7 +868,11 @@ class Post(OpExpr):
         return regs[n]
     def generate(self, vstr, n):
         self.postfix.reduce(vstr, n)
-        vstr.ternary(self.op, self.size, regs[n+1], regs[n], 1)
+        if self.is_float():
+            vstr.imm(self.size, regs[n+2], itf(1))
+            vstr.ternary(self.op, self.size, regs[n+1], regs[n], regs[n+2])
+        else:
+            vstr.ternary(self.op, self.size, regs[n+1], regs[n], 1)
         self.postfix.store(vstr, n+1)
 
 class Access(Expr):
@@ -919,9 +893,6 @@ class Dot(Access):
     def reduce(self, vstr, n):
         self.postfix.address(vstr, n)
         return self.attr.reduce(vstr, n)
-    def float_reduce(self, vstr, n):
-        self.postfix.address(vstr, n)
-        return self.attr.float_reduce(vstr, n)
     def call(self, vstr, n):
         self.postfix.address(vstr, n)
         self.attr.call(vstr, n)
@@ -936,9 +907,6 @@ class Arrow(Dot):
     def reduce(self, vstr, n):
         self.postfix.reduce(vstr, n)
         return self.attr.reduce(vstr, n)
-    def float_reduce(self, vstr, n):
-        self.postfix.reduce(vstr, n)
-        return self.attr.float_reduce(vstr, n)
     def call(self, vstr, n):
         self.postfix.reduce(vstr, n)
         self.attr.call(vstr, n)
@@ -962,11 +930,6 @@ class SubScr(Access):
     def reduce(self, vstr, n):
         vstr.load(self.sub.size, self.address(vstr, n), regs[n])
         return regs[n]
-    def float_reduce(self, vstr, n):
-        self.reduce(vstr, n)
-        if not self.is_float():
-            vstr.binary(Op.ITF, Size.WORD, regs[n], regs[n])
-        return regs[n]
 
 class Call(Expr):
     def __init__(self, primary, args):
@@ -977,11 +940,6 @@ class Call(Expr):
     def reduce(self, vstr, reg):
         self.generate(vstr, reg)
         return regs[reg]
-    def float_reduce(self, vstr, n):
-        self.reduce(vstr, n)
-        if not self.is_float():
-            vstr.binary(Op.ITF, Size.WORD, regs[n], regs[n])
-        return regs[n]
     def generate(self, vstr, reg):
         for i, arg in enumerate(self.args):
             arg.reduce(vstr, reg+i)
