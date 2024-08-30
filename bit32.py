@@ -247,9 +247,9 @@ class LoadStore(Inst):
             self.str = f'LD{cond.display()}{"S"*flag}.{size.name[0]} {rd.name}, [{rb.name}, {offset if imm else offset.name}]'
         self.dec = cond,int(flag),4,size,str(int(imm)),int(storing),0,offset,rb,rd
         if imm:
-            self.bin = f'{cond:04b}',f'{flag:b}','100',f'{size>>1:02b}','1',str(int(storing)),'XXXXXXXX',f'{offset:04b}',f'{rb:04b}',f'{rd:04b}'
-        else:
             self.bin = f'{cond:04b}',f'{flag:b}','100',f'{size>>1:02b}','1',str(int(storing)),'XXXX',f'{offset:08b}',f'{rb:04b}',f'{rd:04b}'
+        else:
+            self.bin = f'{cond:04b}',f'{flag:b}','100',f'{size>>1:02b}','1',str(int(storing)),'XXXXXXXX',f'{offset:04b}',f'{rb:04b}',f'{rd:04b}'
 
 class PushPop(Inst):
     def __init__(self, cond, flag, size, pushing, rd):

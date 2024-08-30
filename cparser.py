@@ -689,14 +689,15 @@ class CParser:
                     self.globs[id.lexeme] = Glob(type, id)
                     if self.accept('{'):
                         assert not any(param.token is None for param in params)
+                        if not variable:
+                            self.scope = self.param_scope
                         block = self.block()
                         self.expect('}')
                         self.end_func()
                         if variable:
                             program.append(VarDefn(type, id, params, block, self.returns, self.calls, self.max_args, self.space))
                         else:
-                            self.param_scope.update(self.scope)
-                            program.append(Defn(type, id, params, block, self.returns, self.calls, self.max_args, self.space+self.param_scope.size))
+                            program.append(Defn(type, id, params, block, self.returns, self.calls, self.max_args, self.space))
                     else:
                         self.expect(';')
                         self.end_func()

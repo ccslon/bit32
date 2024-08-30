@@ -13,4 +13,5 @@ if __name__ == '__main__':
     # ccompile('std/stdio.h', sflag=True, fflag=True)
     # ccompile('tests/vfuncs.c', sflag=True, fflag=False)
     # ccompile('tests/const.c', sflag=True, fflag=True)
-    ccompile('test.c')
+    # ccompile('c/fib.c', sflag=True, fflag=True)
+    ccompile('c/fib.c')

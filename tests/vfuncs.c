@@ -21,6 +21,12 @@ int sum(int base, int n, ...) {
 
 int main() {
     print("%c", 'c');
-    int s = sum(0, 5, 1, 2, 3, 4, 5);
+    int s = sum(0, 3, 1, 2, 3);
 }
 
+void foo(int a, int b) {
+    int c = 2 * a;
+    {
+        int d = 2 * b;
+    }
+}

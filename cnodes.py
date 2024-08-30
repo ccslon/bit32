@@ -850,7 +850,7 @@ class Defn(Expr):
         if self.space:
             vstr.binary(Op.SUB, Size.WORD, Reg.SP, self.space)
         vstr.binary(Op.MOV, Size.WORD, Reg.FP, Reg.SP)
-        for i, param in enumerate(self.params):
+        for i, param in enumerate(self.params[:4]):
             vstr.store(param.size, regs[i], Reg.FP, param.location)            
         #body
         self.block.generate(vstr, self.max_args)
@@ -858,7 +858,7 @@ class Defn(Expr):
         if self.size or self.returns:
             vstr.append_label(f'.L{vstr.return_label}')
         if self.calls and self.size:
-            vstr.binary(Op.MOV, self.size, Reg.A, regs[self.calls])
+            vstr.binary(Op.MOV, self.size, Reg.A, regs[self.max_args])
         vstr.binary(Op.MOV, Size.WORD, Reg.SP, Reg.FP)
         if self.space:
             vstr.binary(Op.ADD, Size.WORD, Reg.SP, self.space)
@@ -896,7 +896,7 @@ class VarDefn(Defn):
         if self.size or self.returns:
             vstr.append_label(f'.L{vstr.return_label}')
         if self.calls and self.size:
-            vstr.binary(Op.MOV, self.size, Reg.A, regs[self.calls])
+            vstr.binary(Op.MOV, self.size, Reg.A, regs[self.max_args])
         vstr.binary(Op.MOV, Size.WORD, Reg.SP, Reg.FP)
         if self.space:
             vstr.binary(Op.ADD, Size.WORD, Reg.SP, self.space)        
@@ -998,10 +998,14 @@ class Call(Expr):
             arg.reduce(vstr, reg+i)
         for i, arg in enumerate(self.args[:4]):
             vstr.binary(Op.MOV, arg.size, regs[i], regs[reg+i])
-        for i, arg in reversed(list(enumerate(self.args[4:]))):
-            vstr.push(arg.size, regs[4+i])
+        if self.primary.type.variable:
+            for i, arg in reversed(list(enumerate(self.args[4:]))):
+                vstr.push(Size.WORD, regs[4+i])
+        else:
+            for i, arg in reversed(list(enumerate(self.args[4:]))):
+                vstr.push(arg.size, regs[4+i])
         self.primary.call(vstr, reg)
-        if self.primary.type.variable and len(self.args) > len(self.primary.type.params):
+        if self.primary.type.variable and len(self.args) > 4:
             vstr.binary(Op.ADD, Size.WORD, Reg.SP, sum(arg.size for arg in self.args) - sum(param.size for param in self.primary.type.params))
         if reg > 0 and self.size:
             vstr.binary(Op.MOV, self.size, regs[reg], Reg.A)

@@ -55,7 +55,7 @@ void main() {
         printf("%d\n", fib(i));  
     //Cats
     printf("%s\n", name);
-    printd(num);
+    dprint(num);
     putchar('\n');
     Cat* cat1 = &cats[0];
     cat1->name = "Cloud";

@@ -42,49 +42,49 @@ int puts(const char* s) {
     putchar('\n');
     return 0;
 }
-void printd(int n) {
+void dprint(int n) {
     if (n < 0) {
         putchar('-');
         n = -n;
     }
     if (n / 10)
-        printd(n / 10);
+        dprint(n / 10);
     putchar(n % 10 + '0');
 }
-void printx(int n, char uplo) {
+void xprint(int n, char uplo) {
     if (n < 0) {
         putchar('-');
         n = -n;
     }
     if (n / 16)
-        printx(n / 16, uplo);
+        xprint(n / 16, uplo);
     if (n % 16 > 9) 
         putchar(n % 16 - 10 + uplo);
     else
         putchar(n % 16 + '0');
 }
 void printf(const char* format, ...) {
-    char* ap;
-    (ap = (char*)&(format)+4);
+    int* ap;
+    (ap = (int*)&(format)+4);
     const char* c;
     for (c = format; *c; c++) {
         if (*c == '%') {
             switch (*++c) {
                 case 'i': ;
                 case 'd': {
-                    printd((*((int*)ap)++));
+                    dprint(((int)*ap++));
                     break;
                 }
                 case 'x': {
-                    printx(((int)*ap++), 'a');
+                    xprint(((int)*ap++), 'a');
                     break;
                 }
                 case 'X': {
-                    printx(((int)*ap++), 'A');
+                    xprint(((int)*ap++), 'A');
                     break;
                 }
                 case 's': {
-                     printf((*((char*)ap)++));
+                    printf(((char*)*ap++));
                     break;
                 }
                 case 'c': {
