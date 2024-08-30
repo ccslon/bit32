@@ -1,4 +1,4 @@
-STACK_INIT = 0x8000
+STACK_INIT = 0x7ffffc
 boot:
     NOP
     MOV SP, STACK_INIT

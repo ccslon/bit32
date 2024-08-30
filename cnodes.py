@@ -267,7 +267,7 @@ class Pointer(Int):
     def __init__(self, type):
         super().__init__(False)
         self.to = self.of = type
-        self.inc = self.type.size
+        self.inc = self.to.size
     def cast(self, other):
         return isinstance(other, Int)
     def __eq__(self, other):
@@ -527,6 +527,7 @@ class Deref(Expr):
     def store(self, vstr, n):
         self.unary.reduce(vstr, n+1)
         vstr.store(self.size, regs[n], regs[n+1])
+        return regs[n]
     def reduce(self, vstr, n):
         self.unary.reduce(vstr, n)
         vstr.load(self.size, regs[n], regs[n])
@@ -733,6 +734,7 @@ class Condition(Expr):
         vstr.append_label(f'.L{sublabel}')
         self.false.branch_reduce(vstr, n, label)
         vstr.append_label(f'.L{label}')
+        return regs[n]
     def branch(self, vstr, n, root):
         sublabel = vstr.next_label()
         self.cond.compare(vstr, n, sublabel)
@@ -863,7 +865,7 @@ class Defn(Expr):
         if self.calls:
             vstr.popm(Reg.PC, *push)
         else:
-            vstr.popm(Reg.PC, *push)
+            vstr.popm(*push)
             vstr.ret()
 
 class VarDefn(Defn):
@@ -878,7 +880,7 @@ class VarDefn(Defn):
         #start
         vstr.append_label(self.token.lexeme)
         #prologue
-        vstr.push(*reversed(list(map(Reg, range(4)))))
+        vstr.pushm(*reversed(list(map(Reg, range(4)))))
         for param in self.params:
             param.location += self.space + 4*self.calls + 4*len(push)
         if self.calls:
@@ -1060,7 +1062,7 @@ class Switch(Statement):
         labels = []
         for case in self.cases:
             labels.append(vstr.next_label())
-            vstr.binary(Op.CMP, regs[n], case.const.num_reduce(vstr, n+1))
+            vstr.binary(Op.CMP, self.test.size, regs[n], case.const.num_reduce(vstr, n+1))
             vstr.jump(Cond.EQ, f'.L{labels[-1]}')
         if self.default:
             default = vstr.next_label()

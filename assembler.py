@@ -331,7 +331,7 @@ class Assembler:
     def expect(self, symbol):
         if self.peek(symbol):
             return next(self)
-        self.error(expected=symbol)
+        self.error()
 
     def error(self):
         etype, evalue, _ = self.tokens[self.index]
@@ -434,14 +434,14 @@ l0:
 '''
 
 stack = '''
-mov sp, 0x7c
+main:
+ld sp, 0x7ffffc
 mov a, 0xa
 mov b, 0xb
 mov c, 0xc
 push a, b, c
 
 pop d, e, f
-push
 halt
 '''
 
@@ -463,4 +463,4 @@ ld.h C, [C]
 '''
 
 if __name__ == '__main__':
-    assemble(fact)
+    assemble(stack)
