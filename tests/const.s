@@ -1,4 +1,4 @@
-func1:
+func:
   PUSH A, FP
   SUB SP, 12
   MOV FP, SP

@@ -220,7 +220,7 @@ class Bin(Type):
         return False
     @staticmethod
     def convert(vstr, reg, other):
-        if not isinstance(other.type, Bin):
+        if isinstance(other.type, Float):
             vstr.binary(Op.FTI, Size.WORD, regs[reg], regs[reg])
     def cast(self, other):
         return #TODO
@@ -343,6 +343,9 @@ class Func(Type):
     def __init__(self, ret, params, variable):
         self.ret, self.params, self.variable = ret, params, variable
         self.size = ret.size
+    @staticmethod
+    def glob_reduce(vstr, n, glob):
+        return Func.glob_address(vstr, n, glob)
     def cast(self, other):
         return False
     def __eq__(self, other):
@@ -592,7 +595,17 @@ class Binary(OpExpr):
            '*' :Op.MULF,
            '*=':Op.MULF,
            '/': Op.DIVF,
-           '/=':Op.DIVF}
+           '/=':Op.DIVF,
+           '<<':Op.SHL,
+           '<<=':Op.SHL,
+           '>>':Op.SHR,
+           '>>=':Op.SHR,
+           '^' :Op.XOR,
+           '^=':Op.XOR,
+           '|' :Op.OR,
+           '|=':Op.OR,
+           '&': Op.AND,
+           '&=':Op.AND}
     def __init__(self, op, left, right):
         # assert not isinstance(left, String) or not isinstance(right, String)
         # assert left.type.cast(right.type), f'Line {op.line}: Cannot {left.type} {op.lexeme} {right.type}'
@@ -630,9 +643,10 @@ class Compare(Binary):
             '<': Cond.HS,
             '>=':Cond.LO,
             '<=':Cond.HI}
+    OPF = OP
     def __init__(self, op, left, right):
         super().__init__(op, left, right)
-        if self.is_signed() or self.is_float():
+        if self.is_float() or self.is_signed():
             self.op = self.OP[op.lexeme]
             self.inv = self.INV[op.lexeme]
         else:
@@ -797,7 +811,7 @@ class Local(Expr):
     def address(self, vstr, n):
         return self.type.address(vstr, n, self, Reg.FP)
     def call(self, vstr, n):
-        self.reduce(vstr, n, self, Reg.FP)
+        self.reduce(vstr, n)
         vstr.call(regs[n])
 
 class Attr(Local):
@@ -808,7 +822,7 @@ class Attr(Local):
     def address(self, vstr, n):
         return self.type.address(vstr, n, self, n)
     def call(self, vstr, n):
-        self.reduce(vstr, n, self, n)
+        self.reduce(vstr, n)
         vstr.call(regs[n])
 
 class Glob(Local):
@@ -841,8 +855,10 @@ class Defn(Expr):
         #start
         vstr.append_label(self.token.lexeme)
         #prologue
-        for param in self.params[4:]:
-            param.location += self.space + self.calls + 4*len(push)
+        if len(self.params) > 4:
+            offset = self.space + 4*self.calls + 4*len(push)
+            for param in self.params[4:]:
+                param.location += offset
         if self.calls:
             vstr.pushm(Reg.LR, *push)
         else:
@@ -975,13 +991,13 @@ class SubScr(Access):
             vstr.binary(Op.MUL, Size.WORD, regs[n+1], self.postfix.type.of.size)
             vstr.binary(Op.ADD, Size.WORD, regs[n], regs[n+1])
         else:
-            vstr.binary(Op.ADD, Size.BYTE, regs[n], self.sub.num_reduce(vstr, n+1))
+            vstr.binary(Op.ADD, Size.WORD, regs[n], self.sub.num_reduce(vstr, n+1))
         return regs[n]
     def store(self, vstr, n):
-        vstr.store(self.sub.size, regs[n], self.address(vstr, n+1))
+        vstr.store(self.size, regs[n], self.address(vstr, n+1))
         return regs[n]
     def reduce(self, vstr, n):
-        vstr.load(self.sub.size, self.address(vstr, n), regs[n])
+        vstr.load(self.size, self.address(vstr, n), regs[n])
         return regs[n]
 
 class Call(Expr):
@@ -996,6 +1012,7 @@ class Call(Expr):
     def generate(self, vstr, reg):
         for i, arg in enumerate(self.args):
             arg.reduce(vstr, reg+i)
+            self.primary.type.params[i].convert(vstr, reg+i, arg)
         for i, arg in enumerate(self.args[:4]):
             vstr.binary(Op.MOV, arg.size, regs[i], regs[reg+i])
         if self.primary.type.variable:

@@ -75,7 +75,7 @@ class Assembler:
     def jump(self, cond, label):
         self.new_inst(Jump, cond, label)
     def unary(self, op, cond, flag, size, rd):
-        assert op in [Op.NOT, Op.NEG]
+        assert op in [Op.NOT, Op.NEG, Op.NEGF]
         self.new_inst(Unary, cond, flag, size, op, rd)
     def binary(self, op, cond, flag, size, rd, src, imm):
         assert op not in [Op.NOT, Op.NEG]

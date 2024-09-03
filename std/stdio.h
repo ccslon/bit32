@@ -42,14 +42,17 @@ int puts(const char* s) {
     putchar('\n');
     return 0;
 }
+void uprint(unsigned int n) {
+    if (n / 10)
+        uprint(n / 10);
+    putchar(n % 10 + '0');
+}
 void dprint(int n) {
     if (n < 0) {
         putchar('-');
         n = -n;
     }
-    if (n / 10)
-        dprint(n / 10);
-    putchar(n % 10 + '0');
+    uprint(n);
 }
 void xprint(int n, char uplo) {
     if (n < 0) {
@@ -62,6 +65,19 @@ void xprint(int n, char uplo) {
         putchar(n % 16 - 10 + uplo);
     else
         putchar(n % 16 + '0');
+}
+void fprint(float f, char prec) {
+    if (f < 0) {
+        putchar('-');
+        f = -f;
+    }
+    int left = f;
+    dprint(left);
+    putchar('.');
+    int p;
+    for (p = 1; prec > 0; --prec) p *= 10;
+    int right = (f - left) * p;
+    dprint(right);    
 }
 void printf(const char* format, ...) {
     int* ap;

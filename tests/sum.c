@@ -9,3 +9,7 @@ int sum(int n, int (*f)(int)) {
     }
     return s;
 }
+
+int main() {
+    return sum(5, sqr);
+}

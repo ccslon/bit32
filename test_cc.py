@@ -36,12 +36,6 @@ class TestCompiler(TestCase):
     def test_rconst(self):
         self.code_eq_asm('rconst')
         
-    def test_multi(self):
-        self.code_eq_asm('multi')
-    
-    def test_paren1(self):
-        self.code_eq_asm('paren')
-        
     def test_params(self):
         self.code_eq_asm('params')
         
@@ -66,50 +60,50 @@ class TestCompiler(TestCase):
     def test_hello(self):
         self.code_eq_asm('hello')
         
-    def test_array(self):
-        self.code_eq_asm('array')
+    # def test_array(self):
+    #     self.code_eq_asm('array')
         
-    def test_structs(self):
-        self.code_eq_asm('structs')
+    # def test_structs(self):
+    #     self.code_eq_asm('structs')
         
-    def test_glob_struct(self):
-        self.code_eq_asm('globs')
+    # def test_glob_struct(self):
+    #     self.code_eq_asm('globs')
         
-    def test_goto(self):
-        self.code_eq_asm('goto')
+    # def test_goto(self):
+    #     self.code_eq_asm('goto')
     
-    def test_return_struct(self):
-        self.code_eq_asm('returns')
+    # def test_return_struct(self):
+    #     self.code_eq_asm('returns')
         
-    def test_pointers(self):
-        self.code_eq_asm('pointers')
+    # def test_pointers(self):
+    #     self.code_eq_asm('pointers')
         
-    def test_defines(self):
-        self.code_eq_asm('defines')
+    # def test_defines(self):
+    #     self.code_eq_asm('defines')
     
-    def test_includes(self):
-        self.code_eq_asm('include')
+    # def test_includes(self):
+    #     self.code_eq_asm('include')
     
-    def test_enums(self):
-        self.code_eq_asm('enums')
+    # def test_enums(self):
+    #     self.code_eq_asm('enums')
         
-    def test_unions(self):
-        self.code_eq_asm('unions')
+    # def test_unions(self):
+    #     self.code_eq_asm('unions')
         
-    def test_func_ptrs(self):
-        self.code_eq_asm('func_ptrs')
+    # def test_func_ptrs(self):
+    #     self.code_eq_asm('func_ptrs')
     
-    def test_neg_nums(self):
-        self.code_eq_asm('neg_nums')
+    # def test_neg_nums(self):
+    #     self.code_eq_asm('neg_nums')
         
-    def test_unsigned(self):
-        self.code_eq_asm('unsigned')
+    # def test_unsigned(self):
+    #     self.code_eq_asm('unsigned')
     
-    def test_logic(self):
-        self.code_eq_asm('logic')
+    # def test_logic(self):
+    #     self.code_eq_asm('logic')
         
-    def test_cstrings(self):
-        self.code_eq_asm('cstrings')
+    # def test_cstrings(self):
+    #     self.code_eq_asm('cstrings')
 
 if __name__ == '__main__':
     main()

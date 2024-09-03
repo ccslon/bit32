@@ -10,28 +10,26 @@ from cnodes import Program, VarDefn, Defn, Block, Label, Goto, Break, Continue, 
 
 '''
 TODO
-[X] Type checking
+[ ] Type checking
 [X] '.' vs '->' checking
 [X] Cast
 [X] Allocating local arrays
 [X] Globals overhaul including global structs and arrays
-[X] Init lists
+[ ] Init lists
 [X] Proper ++/--
-[X] Unions. But could be better
+[ ] Fix Unions
 [X] Enums
 [X] peekn
 [X] Labels and goto
 [X] Division/Modulo
-[X] Different calling convention. Went with stdcall-like
 [X] Fix void and void*
-[X] Fix array strings e.g. char str[3] = "Hi";
+[ ] Fix array strings e.g. char str[3] = "Hi";
 [ ] init Arrays of unknown size
 [X] Add negative numbers
 [X] Fix const
 [X] Add unsigned
-[ ] Add floats??
-[X] Fix compile function?
-[X] Update Docs
+[X] Add floats
+[ ] Update Docs
 [X] Typedef
 [ ] Const expressions
 [X] Function pointers
@@ -60,6 +58,8 @@ class CParser:
     def resolve(self, name):
         if name in self.param_scope:
             return self.param_scope[name]
+        elif name in self.stack_param_scope:
+            return self.stack_param_scope[name]
         elif name in self.scope:
             return self.scope[name]
         elif name in self.globs:
@@ -513,7 +513,10 @@ class CParser:
                 self.expect(']')
         param = Local(type, id)
         if id:
-            self.param_scope[id.lexeme] = param
+            if len(self.param_scope) >= 4:
+                self.stack_param_scope[id.lexeme] = param
+            else:                
+                self.param_scope[id.lexeme] = param
         return param
 
     def params(self):
@@ -731,6 +734,7 @@ class CParser:
         self.max_args = 0
         self.scope = Scope()
         self.param_scope = Scope()
+        self.stack_param_scope = Scope()
         self.stack = []
         self.begin_scope()
 
