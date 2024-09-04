@@ -6,7 +6,7 @@ typedef struct _Owner_ {
 } Owner;
 typedef struct _Cat_ {
     char* name;
-    int age;
+    unsigned char age;
     Owner* owner;
 } Cat;
 void print_cat(Cat* cat) {    
