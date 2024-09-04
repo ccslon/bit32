@@ -3,5 +3,5 @@ __pycache__/
 bkp/
 c/*.s
 std/*.s
-*.bit16
+*.bit32
 *.pyc
