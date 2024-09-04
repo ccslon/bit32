@@ -60,11 +60,12 @@ class TestCompiler(TestCase):
     def test_hello(self):
         self.code_eq_asm('hello')
         
+    def test_structs(self):
+        self.code_eq_asm('structs')
+        
     # def test_array(self):
     #     self.code_eq_asm('array')
         
-    # def test_structs(self):
-    #     self.code_eq_asm('structs')
         
     # def test_glob_struct(self):
     #     self.code_eq_asm('globs')

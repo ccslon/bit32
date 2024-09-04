@@ -284,11 +284,15 @@ class Struct(Frame, Type):
         self.const = False
         self.name = name
     @staticmethod
+    def convert(vstr, reg, other):
+        pass #TODO DELETE FUNC
+    @staticmethod
     def store(vstr, n, local, base):
         Struct.address(vstr, n+1, local, base)
-        for i in range(local.size):
-            vstr.load(regs[n+2], regs[n], i)
-            vstr.store(regs[n+2], regs[n+1], i)
+        for attr in local.type.values():
+            print(attr)
+            vstr.load(attr.size, regs[n+2], regs[n], attr.location)
+            vstr.store(attr.size, regs[n+2], regs[n+1], attr.location)
     @staticmethod
     def reduce(vstr, n, local, base):
         return Struct.address(vstr, n, local, base)
@@ -1012,7 +1016,7 @@ class Call(Expr):
     def generate(self, vstr, reg):
         for i, arg in enumerate(self.args):
             arg.reduce(vstr, reg+i)
-            self.primary.type.params[i].convert(vstr, reg+i, arg)
+            # self.primary.type.params[i].convert(vstr, reg+i, arg)
         for i, arg in enumerate(self.args[:4]):
             vstr.binary(Op.MOV, arg.size, regs[i], regs[reg+i])
         if self.primary.type.variable:
@@ -1025,7 +1029,7 @@ class Call(Expr):
         if self.primary.type.variable and len(self.args) > 4:
             vstr.binary(Op.ADD, Size.WORD, Reg.SP, sum(arg.size for arg in self.args) - sum(param.size for param in self.primary.type.params))
         if reg > 0 and self.size:
-            vstr.binary(Op.MOV, self.size, regs[reg], Reg.A)
+            vstr.binary(Op.MOV, self.size if self.size in [Size.WORD, Size.HALF, Size.BYTE] else Size.WORD, regs[reg], Reg.A)
 
 class Return(Expr):
     def __init__(self, token, expr):

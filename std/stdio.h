@@ -86,6 +86,10 @@ void printf(const char* format, ...) {
     for (c = format; *c; c++) {
         if (*c == '%') {
             switch (*++c) {
+                case 'u': {
+                    uprint(((unsigned int)*ap++));
+                    break;
+                }
                 case 'i': ;
                 case 'd': {
                     dprint(((int)*ap++));

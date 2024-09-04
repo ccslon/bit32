@@ -14,8 +14,9 @@ def compile(name, iflag=False, sflag=False, fflag=True):
         text = cpreproc.preprocess(name)
         if iflag:
             print(text)
-            with open(f'{name[:-2]}.i', 'w+') as file:
-                file.write(text)
+            if fflag:
+                with open(f'{name[:-2]}.i', 'w+') as file:
+                    file.write(text)
         else:
             ast = cparser.parse(text)
             asm = ast.generate()
