@@ -282,7 +282,7 @@ class Struct(Frame, Type):
     def __init__(self, name):
         super().__init__()
         self.const = False
-        self.name = name
+        self.name = name.lexeme
     @staticmethod
     def convert(vstr, reg, other):
         pass #TODO DELETE FUNC
@@ -290,7 +290,6 @@ class Struct(Frame, Type):
     def store(vstr, n, local, base):
         Struct.address(vstr, n+1, local, base)
         for attr in local.type.values():
-            print(attr)
             vstr.load(attr.size, regs[n+2], regs[n], attr.location)
             vstr.store(attr.size, regs[n+2], regs[n+1], attr.location)
     @staticmethod
@@ -387,6 +386,8 @@ class Expr(CNode):
         if not self.is_float():
             vstr.binary(Op.ITF, self.size, regs[n], regs[n])
         return regs[n]
+    def list_reduce(self, vstr, n, _):
+        return self.reduce(vstr, n)
     def convert(self, vstr, reg, other):
         self.type.convert(vstr, reg, other)
     def is_signed(self):
@@ -777,16 +778,34 @@ class Assign(InitAssign):
     def __init__(self, token, left, right):
         assert not left.type.const, 'Line {token.line}: Left is const'
         super().__init__(token, left, right)
-        
+
+class List(UserList, Expr):
+    def list_reduce(self, vstr, n, list):
+        list.address(vstr, n)
+        for i, attr in enumerate(list.type.values()):
+            self[i].list_reduce(vstr, n, attr)
+            attr.list_store(vstr, n)
+
 class InitListAssign(Expr):
     def __init__(self, token, left, right):
         super().__init__(left.type, token)
         self.left, self.right = left, right
     def generate(self, vstr, n):
-        self.left.address(vstr, n)
-        for i in range(self.left.type.size):
-            self.right[i].reduce(vstr, n+1)
-            vstr.store(self.right[i].size, regs[n+1], regs[n], i)
+        self.left.address(vstr, n+1)
+        for i, attr in enumerate(self.type.values()):
+            if isinstance(attr.type, (Array,Struct)):
+                pass
+            else:
+                self.right[i].reduce(vstr, n)
+                attr.store(vstr, n)
+            # print(attr.type)
+            # attr.type.store(vstr, n, attr, n+1)
+            
+            # type.list_store(vstr, n, self.right[i])
+        
+        # for i in range(self.left.type.size):
+        #     self.right[i].reduce(vstr, n+1)
+        #     vstr.store(self.right[i].size, regs[n+1], regs[n], i)
 
 class InitArrayString(Expr):
     def __init__(self, token, array, string):
@@ -1029,7 +1048,7 @@ class Call(Expr):
         if self.primary.type.variable and len(self.args) > 4:
             vstr.binary(Op.ADD, Size.WORD, Reg.SP, sum(arg.size for arg in self.args) - sum(param.size for param in self.primary.type.params))
         if reg > 0 and self.size:
-            vstr.binary(Op.MOV, self.size if self.size in [Size.WORD, Size.HALF, Size.BYTE] else Size.WORD, regs[reg], Reg.A)
+            vstr.binary(Op.MOV, Size.WORD, regs[reg], Reg.A)
 
 class Return(Expr):
     def __init__(self, token, expr):

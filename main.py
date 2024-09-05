@@ -13,5 +13,5 @@ if __name__ == '__main__':
     # ccompile('std/stdio.h', sflag=True, fflag=True)
     # ccompile('tests/structs.c', sflag=True, fflag=True)
     # ccompile('tests/const.c', sflag=True, fflag=True)
-    ccompile('c/cats.c', sflag=True, fflag=False)
+    ccompile('c/arr.c', sflag=True, fflag=False)
     # ccompile('c/cats.c')
