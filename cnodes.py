@@ -177,6 +177,9 @@ class Type(CNode):
     def __init__(self):
         self.const = False
         self.inc = 1
+    def list_store(self, vstr, n, right):
+        right.reduce(vstr, n+1)
+        vstr.store(self.size, regs[n+1], regs[n])
     @staticmethod
     def address(vstr, n, local, base):
         vstr.ternary(Op.ADD, Size.WORD, regs[n], regs[base], local.location)
@@ -283,6 +286,9 @@ class Struct(Frame, Type):
         super().__init__()
         self.const = False
         self.name = name.lexeme
+    def __iter__(self):
+        for attr in self.data.values():
+            yield attr
     @staticmethod
     def convert(vstr, reg, other):
         pass #TODO DELETE FUNC
@@ -325,7 +331,15 @@ class Array(Type):
         if length is not None:
             self.size = of.size * length.value
         self.of = of
-        self.length = length
+        self.length = length.value
+    def __iter__(self):
+        for _ in range(self.length):
+            yield self.of
+    def list_store(self, vstr, n, right):
+        # vstr.binary(Op.ADD, Size.WORD, regs[n], )
+        for i, type in enumerate(self.of):
+            type.list_store(vstr, n, right[i])
+            
     @staticmethod
     def reduce(vstr, n, local, base):
         return Array.address(vstr, n, local, base)
@@ -780,7 +794,7 @@ class Assign(InitAssign):
         super().__init__(token, left, right)
 
 class List(UserList, Expr):
-    def list_reduce(self, vstr, n, list):
+    def list_store(self, vstr, n, list):
         list.address(vstr, n)
         for i, attr in enumerate(list.type.values()):
             self[i].list_reduce(vstr, n, attr)
@@ -791,13 +805,15 @@ class InitListAssign(Expr):
         super().__init__(left.type, token)
         self.left, self.right = left, right
     def generate(self, vstr, n):
-        self.left.address(vstr, n+1)
-        for i, attr in enumerate(self.type.values()):
-            if isinstance(attr.type, (Array,Struct)):
-                pass
-            else:
-                self.right[i].reduce(vstr, n)
-                attr.store(vstr, n)
+        self.left.address(vstr, n)
+        for i, type in enumerate(self.left.type):
+            type.list_store(vstr, n, self.right[i])
+        # for i, attr in enumerate(self.type.values()):
+        #     if isinstance(attr.type, (Array,Struct)):
+        #         pass
+        #     else:
+        #         self.right[i].reduce(vstr, n)
+        #         attr.store(vstr, n)
             # print(attr.type)
             # attr.type.store(vstr, n, attr, n+1)
             
@@ -1008,7 +1024,10 @@ class SubScr(Access):
         super().__init__(postfix.type.of, token, postfix)
         self.sub = sub
     def address(self, vstr, n):
-        self.postfix.reduce(vstr, n)
+        if isinstance(self.postfix.type, Pointer): #Needs to be here because SubScr can't differentiate between actual array and pointer, unlike Dot and Arrow
+            self.postfix.reduce(vstr, n)
+        else:
+            self.postfix.address(vstr, n)
         if isinstance(self.postfix.type, (Array,Pointer)) and self.postfix.type.of.size > 1:
             self.sub.reduce(vstr, n+1)
             vstr.binary(Op.MUL, Size.WORD, regs[n+1], self.postfix.type.of.size)
@@ -1019,7 +1038,7 @@ class SubScr(Access):
     def store(self, vstr, n):
         vstr.store(self.size, regs[n], self.address(vstr, n+1))
         return regs[n]
-    def reduce(self, vstr, n):
+    def reduce(self, vstr, n):        
         vstr.load(self.size, self.address(vstr, n), regs[n])
         return regs[n]
 
