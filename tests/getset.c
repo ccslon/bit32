@@ -1,3 +1,4 @@
+int array[10];
 int get(int *g, int i) {
     return g[i];
 }
@@ -9,4 +10,18 @@ char getchar(char *c, int i) {
 }
 void setchar(char *c, int i, char t) {
     c[i] = t;
+}
+int getarray(int i) {
+    return array[i];
+}
+void setarray(int i, int t) {
+    array[i] = t;
+}
+int getstack(int i) {
+    int a[10];
+    return a[i];
+}
+int getstack(int i, int t) {
+    int a[10];
+    a[i] = t;
 }

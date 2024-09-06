@@ -1,3 +1,7 @@
+int globs[3] = {1,2,3};
+
+/*
+
 typedef struct _Owner_ {
     char* name;
     int phone;
@@ -26,3 +30,5 @@ int main() {
     print_cat(cat1);
     return 0;
 }
+
+*/

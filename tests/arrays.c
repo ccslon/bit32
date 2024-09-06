@@ -1,27 +1,29 @@
-void foo() {
-    int a[5];
-    int i = 2;
-    a[i] = 2;
-    int is[3] = {1,2,3};
+struct Cat {
+    char* name;
+    unsigned char age;        
+};
+struct Person {
+    char* name;
+    unsigned char age;
+    struct Cat cat;    
+};
+int stack_int() {
+    int ints[3] = {1,2,3};
+    int ints2d[3][3] = {
+        {1,2,3},
+        {4,5,6},
+        {7,8,9}
+    };
 }
-
-// void bar() {
-//     char c[4];
-//     short s[5];
-//     c[0] = 'h';
-//     c[1] = 'i';
-//     c[2] = '!';
-//     c[3] = '\0';
-//     s[3] = 24;
-// }
-
-// struct Person {
-//     char* name;
-//     unsigned char age;
-// };
-
-// void baz() {
-//     struct Person people[3];
-//     people[2].name = "Colin";
-//     people[2].age = 27;
-// }
+void stack_cat() {
+    struct Cat cat = {"Sam", 10};
+}
+void list_cat() {
+    struct Cat cats[2] = {{"Sam", 10},{"Pippin", 6}};
+}
+void stack_person() {
+    struct Person me = {"Colin", 27, {"Cloud", 15}};
+}
+void list_person() {
+    struct Person people[2] = {{"Colin", 27, {"Cloud", 15}}, {"Nick", 24, {"Chuck", 15}}};
+}

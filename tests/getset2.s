@@ -1,3 +1,4 @@
+array: space 400
 get2:
   PUSH FP
   SUB SP, 12
@@ -82,5 +83,86 @@ setchar2:
   LD.B [B], A
   MOV SP, FP
   ADD SP, 13
+  POP FP
+  RET
+getarray2:
+  PUSH FP
+  SUB SP, 8
+  MOV FP, SP
+  LD [FP, 0], A
+  LD [FP, 4], B
+  LD A, =array
+  LD B, [FP, 0] ; i
+  MUL B, 40
+  ADD A, B
+  LD B, [FP, 4] ; j
+  MUL B, 4
+  ADD A, B
+  LD A, [A]
+  JMP .L2
+.L2:
+  MOV SP, FP
+  ADD SP, 8
+  POP FP
+  RET
+setarray2:
+  PUSH FP
+  SUB SP, 12
+  MOV FP, SP
+  LD [FP, 0], A
+  LD [FP, 4], B
+  LD [FP, 8], C
+  LD A, [FP, 8] ; t
+  LD B, =array
+  LD C, [FP, 0] ; i
+  MUL C, 40
+  ADD B, C
+  LD C, [FP, 4] ; j
+  MUL C, 4
+  ADD B, C
+  LD [B], A
+  MOV SP, FP
+  ADD SP, 12
+  POP FP
+  RET
+getstack:
+  PUSH FP
+  SUB SP, 108
+  MOV FP, SP
+  LD [FP, 0], A
+  LD [FP, 4], B
+  ADD A, FP, 8
+  LD B, [FP, 0] ; i
+  MUL B, 20
+  ADD A, B
+  LD B, [FP, 4] ; j
+  MUL B, 4
+  ADD A, B
+  LD A, [A]
+  JMP .L3
+.L3:
+  MOV SP, FP
+  ADD SP, 108
+  POP FP
+  RET
+getstack:
+  PUSH FP
+  SUB SP, 112
+  MOV FP, SP
+  LD [FP, 0], A
+  LD [FP, 4], B
+  LD [FP, 8], C
+  LD A, [FP, 8] ; t
+  ADD B, FP, 12
+  LD C, [FP, 0] ; i
+  MUL C, 20
+  ADD B, C
+  LD C, [FP, 4] ; j
+  MUL C, 4
+  ADD B, C
+  LD [B], A
+.L4:
+  MOV SP, FP
+  ADD SP, 112
   POP FP
   RET

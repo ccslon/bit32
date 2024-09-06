@@ -6,7 +6,9 @@ Created on Mon Jul  3 19:47:39 2023
 """
 
 import clexer
-from cnodes import Program, VarDefn, Defn, Block, Label, Goto, Break, Continue, For, Do, While, Switch, Case, If, Statement, Return, Glob, Attr, Local, InitArrayString, InitListAssign, List, Assign, InitAssign, Condition, Logic, Compare, Binary, Func, Array, Union, Struct, Pointer, Char, Short, Int, Float, Void, Pre, Cast, SizeOf, Deref, AddrOf, Not, Unary, Call, Arrow, SubScr, Dot, Post, String, Letter, EnumConst, NegNum, Num, Decimal, Frame
+from cnodes import Frame, Func, Array, Union, Struct, Pointer, Char, Short, Int, Float, Void
+from cexprs import Program, VarDefn, Defn, Block,  Return, Glob, Attr, Local, InitArrayString, InitListAssign, Assign, InitAssign, Condition, Logic, Compare, Binary, Pre, Cast, SizeOf, Deref, AddrOf, Not, Unary, Call, Arrow, SubScr, Dot, Post, String, Letter, EnumConst, NegNum, Num, Decimal
+from cstates import Label, Goto, Break, Continue, For, Do, While, Switch, Case, If, Statement
 
 '''
 TODO
@@ -476,7 +478,7 @@ class CParser:
         '''
         INIT_LIST -> EXPR|'{' INIT_LIST {',' INIT_LIST} '}'
         '''
-        init = List()
+        init = [] #List()
         if self.accept('{'):
             init.append(self.list())
             self.expect('}')
