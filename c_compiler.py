@@ -6,19 +6,19 @@ Created on Thu Aug 31 21:52:15 2023
 """
 
 import assembler
-import cpreproc
-import cparser
+import c_preprocessor
+import c_parser
 
 def compile(name, iflag=False, sflag=False, fflag=True):
     if name.endswith('.c') or name.endswith('.h'):
-        text = cpreproc.preprocess(name)
+        text = c_preprocessor.preprocess(name)
         if iflag:
             print(text)
             if fflag:
                 with open(f'{name[:-2]}.i', 'w+') as file:
                     file.write(text)
         else:
-            ast = cparser.parse(text)
+            ast = c_parser.parse(text)
             asm = ast.generate()
             if sflag:
                 print(asm)

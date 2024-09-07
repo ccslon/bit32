@@ -5,14 +5,14 @@ Created on Fri Sep  8 14:37:22 2023
 @author: ccslon
 """
 from unittest import TestCase, main, expectedFailure
-import cpreproc
-import cparser
+import c_preprocessor
+import c_parser
 
 class TestCompiler(TestCase):
     
     def code_eq_asm(self, name):
-        text = cpreproc.preprocess(f'tests/{name}.c')
-        ast = cparser.parse(text)
+        text = c_preprocessor.preprocess(f'tests/{name}.c')
+        ast = c_parser.parse(text)
         out = ast.generate()
         with open(f'tests/{name}.s') as file:
             asm = file.read()
@@ -20,8 +20,8 @@ class TestCompiler(TestCase):
     
     @expectedFailure
     def test_bad_const(self):
-        text = cpreproc.preprocess('tests/bad_const.c')
-        ast = cparser.parse(text)
+        text = c_preprocessor.preprocess('tests/bad_const.c')
+        ast = c_parser.parse(text)
         ast.generate()
     
     def test_init(self):

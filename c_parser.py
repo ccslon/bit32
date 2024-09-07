@@ -5,10 +5,14 @@ Created on Mon Jul  3 19:47:39 2023
 @author: Colin
 """
 
-import clexer
-from cnodes import Frame, Func, Array, Union, Struct, Pointer, Char, Short, Int, Float, Void
-from cexprs import Program, VarDefn, Defn, Block,  Return, Glob, Attr, Local, InitArrayString, InitListAssign, Assign, InitAssign, Condition, Logic, Compare, Binary, Pre, Cast, SizeOf, Deref, AddrOf, Not, Unary, Call, Arrow, SubScr, Dot, Post, String, Letter, EnumConst, NegNum, Num, Decimal
-from cstates import Label, Goto, Break, Continue, For, Do, While, Switch, Case, If, Statement
+import c_lexer
+from c_utils import Frame
+from c_types import Void, Float, Int, Short, Char, Pointer, Struct, Union, Array, Func
+from c_exprs import Num, NegNum, EnumConst, Decimal, Letter, String
+from c_exprs import Post, Unary, Not, Pre, Binary, Compare, Logic
+from c_exprs import Local, Attr, Glob, Dot, SubScr, Arrow, Call, AddrOf, Deref, SizeOf, Cast, Condition
+from c_exprs import InitAssign, Assign, InitListAssign, InitArrayString, Return, Block, Defn, VarDefn, Program
+from c_statements import Statement, If, Case, Switch, While, Do, For, Continue, Break, Goto, Label
 
 '''
 TODO
@@ -764,7 +768,7 @@ class CParser:
         self.enums = []
         self.enum_consts = {}
         self.globs = {}
-        self.tokens = clexer.lex(text)
+        self.tokens = c_lexer.lex(text)
         # for i, t in enumerate(self.tokens): print(i, t.type, t.lexeme)
         self.index = 0
         program = self.program()

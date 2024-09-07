@@ -1,0 +1,164 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Sat Sep  7 01:02:16 2024
+
+@author: Colin
+"""
+from collections import UserList, UserDict
+
+from bit32 import Reg
+
+class Loop(UserList):
+    def start(self):
+        return self[-1][0]
+    def end(self):
+        return self[-1][1]
+
+class Regs:
+    def clear(self):
+        self.max = -1
+    def __getitem__(self, reg):
+        if reg == Reg.FP:
+            return reg
+        elif reg > Reg.L:
+            raise SyntaxError('Not enough registers =(')
+        self.max = max(self.max, reg)
+        return Reg(reg)
+
+regs = Regs()
+
+class Frame(UserDict):
+    def __init__(self):
+        super().__init__()
+        self.size = 0
+    def __setitem__(self, name, obj):
+        obj.location = self.size
+        self.size += obj.size
+        super().__setitem__(name, obj)
+
+class Visitor:
+    def __init__(self):
+        self.clear()
+    def clear(self):
+        self.n_labels = 0
+        self.if_jump_end = False
+        self.loop = Loop()
+    def begin_func(self, defn):
+        if defn.size or defn.returns:
+            self.return_label = self.next_label()
+        self.defn = defn
+    def begin_loop(self):
+        self.loop.append((self.next_label(), self.next_label()))
+    def end_loop(self):
+        self.loop.pop()
+    def next_label(self):
+        label = self.n_labels
+        self.n_labels += 1
+        return label
+    def append_label(self, label):
+        pass
+    def string(self, string):
+        pass
+    def add(self, asm):
+        pass
+    def space(self, name, size):
+        pass
+    def glob(self, name, value):
+        pass
+    def datas(self, label, datas):
+        pass
+    def push(self, size, reg):
+        pass
+    def pop(self, size, reg):
+        pass
+    def pushm(self, calls, *regs):
+        pass
+    def popm(self, calls, *regs):
+        pass
+    def call(self, proc):
+        pass
+    def ret(self):
+        pass
+    def load_glob(self, rd, name):
+        pass
+    def load(self, size, rd, rb, offset=None, name=None):
+        pass
+    def store(self, size, rd, rb, offset=None, name=None):
+        pass
+    def imm(self, size, rd, value):
+        pass
+    def unary(self, op, size, rd):
+        pass
+    def binary(self, op, size, rd, src):
+        pass
+    def ternary(self, op, size, rd, rs, src):
+        pass
+    def jump(self, cond, target):
+        pass
+    def mov(self, cond, rd, value):
+        pass    
+
+class Emitter(Visitor):
+    def clear(self):
+        super().clear()
+        self.labels = []
+        self.asm = []
+        self.data = []
+        self.strings = []
+    def append_label(self, label):
+        self.labels.append(label)
+    def string(self, string):
+        if string not in self.strings:
+            self.strings.append(string)
+            self.data.append(rf'.S{self.strings.index(string)}: "{string}\0"')
+        return f'.S{self.strings.index(string)}'
+    def add(self, asm):
+        for label in self.labels:
+            self.asm.append(f'{label}:')
+        self.asm.append(f'  {asm}')
+        self.labels.clear()
+    def space(self, name, size):
+        self.data.append(f'{name}: space {size}')
+    def glob(self, name, size, value):
+        self.data.append(f'{name}: {size.name} {value}')
+    def datas(self, label, datas):
+        self.data.append(f'{label}:')
+        for data in datas:
+            self.data.append(f'  {data}')
+    def push(self, size, reg):
+        self.add(f'PUSH{size.display()} {reg.name}')
+    def pop(self, size, reg):
+        self.add(f'POP{size.display()} {reg.name}')
+    def pushm(self, *regs):
+        self.add('PUSH '+', '.join(reg.name for reg in regs))
+    def popm(self, *regs):
+        self.add('POP '+', '.join(reg.name for reg in regs))
+    def call(self, proc):
+        if isinstance(proc, str):
+            self.add(f'CALL {proc}')
+        else:
+            self.add(f'CALL {proc.name}')
+    def ret(self):
+        self.add('RET')
+    def load_glob(self, rd, name):
+        self.add(f'LD {rd.name}, ={name}')
+    def load(self, size, rd, rb, offset=None, name=None):
+        self.add(f'LD{size.display()} {rd.name}, [{rb.name}'+(f', {offset}' if offset is not None else '')+']'+(f' ; {name}' if name else ''))
+    def store(self, size, rd, rb, offset=None, name=None):
+        self.add(f'LD{size.display()} [{rb.name}'+(f', {offset}' if offset is not None else '')+f'], {rd.name}'+(f' ; {name}' if name else ''))
+    def imm(self, size, rd, value):
+        self.add(f'LD{size.display()} {rd.name}, {value}')
+    def unary(self, op, size, rd):
+        self.add(f'{op.name}{size.display()} {rd.name}')
+    def binary(self, op, size, rd, src):
+        self.add(f'{op.name}{size.display()} {rd.name}, {src.name if isinstance(src, Reg) else src}')
+    def ternary(self, op, size, rd, rs, src):
+        self.add(f'{op.name}{size.display()} {rd.name}, {rs.name}, {src.name if isinstance(src, Reg) else src}')
+    def jump(self, cond, target):
+        self.add(f'J{cond.display_jump()} {target}')
+    def mov(self, cond, rd, value):
+        self.add(f'MOV{cond.display()} {rd.name}, {value}')
+
+class CNode:
+    def generate(self, vstr, n):
+        pass
