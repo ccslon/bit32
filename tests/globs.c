@@ -1,16 +1,19 @@
-int globs[3] = {1,2,3};
-
-/*
 
 typedef struct _Owner_ {
     char* name;
-    int phone;
+    unsigned char age;
 } Owner;
 typedef struct _Cat_ {
     char* name;
-    int age;
+    unsigned char age;
     Owner* owner;
 } Cat;
+struct Foo {
+    char c;
+    short s;
+    int i;
+} foo = {1,2,3};
+int globs[3] = {1,2,3};
 Owner owners[2] = {{"Colin",34}, {"Mom", 21}};
 Cat cats[3];
 char* name = "Cats Ya!";
@@ -30,5 +33,3 @@ int main() {
     print_cat(cat1);
     return 0;
 }
-
-*/

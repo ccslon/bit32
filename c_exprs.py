@@ -41,6 +41,43 @@ class Expr(CNode):
         return self.type.is_signed()
     def is_float(self):
         return self.type.is_float()
+
+class Local(Expr):
+    def store(self, vstr, n):
+        return self.type.store(vstr, n, self, Reg.FP)
+    def reduce(self, vstr, n):
+        return self.type.reduce(vstr, n, self, Reg.FP)
+    def address(self, vstr, n):
+        return self.type.address(vstr, n, self, Reg.FP)
+    def call(self, vstr, n):
+        self.reduce(vstr, n)
+        vstr.call(regs[n])
+
+class Attr(Local):
+    def store(self, vstr, n):
+        return self.type.store(vstr, n, self, n+1)
+    def reduce(self, vstr, n):
+        return self.type.reduce(vstr, n, self, n)
+    def address(self, vstr, n):
+        return self.type.address(vstr, n, self, n)
+    def call(self, vstr, n):
+        self.reduce(vstr, n)
+        vstr.call(regs[n])
+
+class Glob(Local):
+    def __init__(self, type, token):
+        super().__init__(type, token)
+        self.init = None
+    def store(self, vstr, n):
+        return self.type.glob_store(vstr, n, self)
+    def reduce(self, vstr, n):
+        return self.type.glob_reduce(vstr, n, self)
+    def address(self, vstr, n):
+        return self.type.glob_address(vstr, n, self)
+    def generate(self, vstr):
+        self.type.glob(vstr, self)
+    def call(self, vstr, n):
+        vstr.call(self.token.lexeme)
     
 def itf(i):
     return int.from_bytes(pack('>f', float(i)), 'big')
@@ -461,43 +498,6 @@ class Block(UserList, Expr):
     def generate(self, vstr, n):
         for statement in self:
             statement.generate(vstr, n)
-
-class Local(Expr):
-    def store(self, vstr, n):
-        return self.type.store(vstr, n, self, Reg.FP)
-    def reduce(self, vstr, n):
-        return self.type.reduce(vstr, n, self, Reg.FP)
-    def address(self, vstr, n):
-        return self.type.address(vstr, n, self, Reg.FP)
-    def call(self, vstr, n):
-        self.reduce(vstr, n)
-        vstr.call(regs[n])
-
-class Attr(Local):
-    def store(self, vstr, n):
-        return self.type.store(vstr, n, self, n+1)
-    def reduce(self, vstr, n):
-        return self.type.reduce(vstr, n, self, n)
-    def address(self, vstr, n):
-        return self.type.address(vstr, n, self, n)
-    def call(self, vstr, n):
-        self.reduce(vstr, n)
-        vstr.call(regs[n])
-
-class Glob(Local):
-    def __init__(self, type, token):
-        super().__init__(type, token)
-        self.init = None
-    def store(self, vstr, n):
-        return self.type.glob_store(vstr, n, self)
-    def reduce(self, vstr, n):
-        return self.type.glob_reduce(vstr, n, self)
-    def address(self, vstr, n):
-        return self.type.glob_address(vstr, n, self)
-    def generate(self, vstr):
-        self.type.glob(vstr, self)
-    def call(self, vstr, n):
-        vstr.call(self.token.lexeme)
 
 class Defn(Expr):
     def __init__(self, type, id, params, block, returns, calls, max_args, space):

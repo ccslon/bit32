@@ -6,7 +6,7 @@
 .S5: "Chuck\0"
 stack_int:
   PUSH B, C, FP
-  SUB SP, 48
+  SUB SP, 51
   MOV FP, SP
   ADD A, FP, 0
   MOV B, 1
@@ -37,9 +37,16 @@ stack_int:
   LD [B, 4], C
   MOV C, 9
   LD [B, 8], C
+  ADD A, FP, 48
+  MOV.B B, 'a'
+  LD.B [A, 0], B
+  MOV.B B, 'b'
+  LD.B [A, 1], B
+  MOV.B B, 'c'
+  LD.B [A, 2], B
 .L0:
   MOV SP, FP
-  ADD SP, 48
+  ADD SP, 51
   POP B, C, FP
   RET
 stack_cat:

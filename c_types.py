@@ -50,6 +50,8 @@ class Type(CNode):
         vstr.load_glob(regs[reg], glob.token.lexeme)
         vstr.load(glob.size, regs[reg], regs[reg])
         return regs[reg]
+    def as_data(self, vstr, expr, frame):
+        frame.append((self.size, expr.data(vstr)))
     @staticmethod
     def glob(vstr, glob):
         if glob.init:
@@ -137,22 +139,26 @@ class Struct(Frame, Type):
         vstr.ternary(Op.ADD, Size.WORD, regs[n+1], regs[n], loc)
         for i, (loc, type) in enumerate(self):
             type.list_store(vstr, n+1, right[i], loc)
+    def as_data(self, vstr, expr, frame):
+        for i, (_, type) in enumerate(self):
+            type.as_data(vstr, expr[i], frame)        
+        return frame
     @staticmethod
     def convert(vstr, reg, other):
         pass #TODO DELETE FUNC
     @staticmethod
     def store(vstr, n, local, base):
         Struct.address(vstr, n+1, local, base)
-        for attr in local.type.values():
-            vstr.load(attr.size, regs[n+2], regs[n], attr.location)
-            vstr.store(attr.size, regs[n+2], regs[n+1], attr.location)
+        for loc, type in local.type:
+            vstr.load(type.size, regs[n+2], regs[n], loc)
+            vstr.store(type.size, regs[n+2], regs[n+1], loc)
     @staticmethod
     def reduce(vstr, n, local, base):
         return Struct.address(vstr, n, local, base)
     @staticmethod
     def glob(vstr, glob):
         if glob.init:
-            vstr.datas(glob.token.lexeme, [expr.data(vstr) for expr in glob.init])
+            vstr.datas(glob.token.lexeme, glob.type.as_data(vstr, glob.init, []))
         else:
             vstr.space(glob.token.lexeme, glob.size)
     def cast(self, other):
@@ -187,14 +193,17 @@ class Array(Type):
         vstr.ternary(Op.ADD, Size.WORD, regs[n+1], regs[n], loc)
         for i, (loc, type) in enumerate(self):
             type.list_store(vstr, n+1, right[i], loc)
-            
+    def as_data(self, vstr, expr, frame):
+        for i, (_, type) in enumerate(self):
+            type.as_data(vstr, expr[i], frame)        
+        return frame
     @staticmethod
     def reduce(vstr, n, local, base):
         return Array.address(vstr, n, local, base)
     @staticmethod
     def glob(vstr, glob):
         if glob.init:
-            vstr.datas(glob.token.lexeme, [expr.data(vstr) for expr in glob.init])
+            vstr.datas(glob.token.lexeme, glob.type.as_data(vstr, glob.init, []))
         else:
             vstr.space(glob.token.lexeme, glob.size)
     def cast(self, other):

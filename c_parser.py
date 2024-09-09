@@ -113,11 +113,13 @@ class CParser:
             elif self.peek('++','--'):
                     postfix = Post(next(self), postfix)
             elif self.peek('.'):
-                # if isinstance(postfix.type, Union): #TODO make UnionDot?
-                #     next(self)
-                #     postfix = postfix.type[self.expect('id').lexeme]
-                # else:
-                postfix = Dot(next(self), postfix, postfix.type[self.expect('id').lexeme])
+                if isinstance(postfix.type, Union): #TODO make UnionDot?
+                    next(self)
+                    attr = postfix.type[self.expect('id').lexeme]
+                    postfix = type(postfix)(attr.type, attr.token)
+                    postfix.location = 0
+                else:
+                    postfix = Dot(next(self), postfix, postfix.type[self.expect('id').lexeme])
             elif self.peek('->'):
                 postfix = Arrow(next(self), postfix, postfix.type.to[self.expect('id').lexeme])
         return postfix

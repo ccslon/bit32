@@ -63,30 +63,29 @@ class TestCompiler(TestCase):
     def test_structs(self):
         self.code_eq_asm('structs')
         
-    # def test_array(self):
-    #     self.code_eq_asm('array')
+    def test_array(self):
+        self.code_eq_asm('arrays')        
         
+    def test_glob_struct(self):
+        self.code_eq_asm('globs')
         
-    # def test_glob_struct(self):
-    #     self.code_eq_asm('globs')
-        
-    # def test_goto(self):
-    #     self.code_eq_asm('goto')
+    def test_goto(self):
+        self.code_eq_asm('goto')
     
-    # def test_return_struct(self):
-    #     self.code_eq_asm('returns')
+    def test_return_struct(self):
+        self.code_eq_asm('returns')
         
-    # def test_pointers(self):
-    #     self.code_eq_asm('pointers')
+    def test_pointers(self):
+        self.code_eq_asm('pointers')
         
-    # def test_defines(self):
-    #     self.code_eq_asm('defines')
+    def test_defines(self):
+        self.code_eq_asm('defines')
     
-    # def test_includes(self):
-    #     self.code_eq_asm('include')
+    def test_includes(self):
+        self.code_eq_asm('includes')
     
-    # def test_enums(self):
-    #     self.code_eq_asm('enums')
+    def test_enums(self):
+        self.code_eq_asm('enums')
         
     # def test_unions(self):
     #     self.code_eq_asm('unions')

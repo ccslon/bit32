@@ -14,6 +14,7 @@ int stack_int() {
         {4,5,6},
         {7,8,9}
     };
+    char chars[3] = {'a','b','c'};
 }
 void stack_cat() {
     struct Cat cat = {"Sam", 10};

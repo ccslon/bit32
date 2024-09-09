@@ -61,6 +61,8 @@ class Visitor:
         pass
     def add(self, asm):
         pass
+    def add_data(self, size, data):
+        pass
     def space(self, name, size):
         pass
     def glob(self, name, value):
@@ -120,11 +122,11 @@ class Emitter(Visitor):
     def space(self, name, size):
         self.data.append(f'{name}: space {size}')
     def glob(self, name, size, value):
-        self.data.append(f'{name}: {size.name} {value}')
+        self.data.append(f'{name}: {size.name.lower()} {value}')
     def datas(self, label, datas):
         self.data.append(f'{label}:')
-        for data in datas:
-            self.data.append(f'  {data}')
+        for size, data in datas:
+            self.data.append(f'  {size.name.lower()} {data}')
     def push(self, size, reg):
         self.add(f'PUSH{size.display()} {reg.name}')
     def pop(self, size, reg):
