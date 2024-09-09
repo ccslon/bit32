@@ -54,11 +54,7 @@ void dprint(int n) {
     }
     uprint(n);
 }
-void xprint(int n, char uplo) {
-    if (n < 0) {
-        putchar('-');
-        n = -n;
-    }
+void xprint(unsigned int n, char uplo) {
     if (n / 16)
         xprint(n / 16, uplo);
     if (n % 16 > 9) 

@@ -309,7 +309,7 @@ class Binary(OpExpr):
         self.left, self.right = left, right
         super().__init__(max_type(left.type, right.type), op)
     def is_signed(self):
-        return self.left.is_signed() or self.right.is_signed()
+        return self.left.is_signed() and self.right.is_signed()
     def is_float(self):
         return self.left.is_float() or self.right.is_float()
     def reduce(self, vstr, n):
@@ -679,7 +679,7 @@ class Call(Expr):
             vstr.binary(Op.MOV, arg.size, regs[i], regs[reg+i])
         if self.primary.type.variable:
             for i, arg in reversed(list(enumerate(self.args[4:]))):
-                vstr.push(Size.WORD, regs[4+i])
+                vstr.push(Size.WORD, regs[reg+4+i])
         else:
             for i, arg in reversed(list(enumerate(self.args[4:]))):
                 vstr.push(arg.size, regs[4+i])
