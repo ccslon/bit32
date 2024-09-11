@@ -144,6 +144,8 @@ class NegNum(Num):
         else:
             vstr.imm(self.size, regs[n], negative(-self.value, 32))
         return regs[n]
+    def num_reduce(self, vstr, n):
+        return self.reduce(vstr, n)
 
 class SizeOf(NumBase):
     def __init__(self, token, type):

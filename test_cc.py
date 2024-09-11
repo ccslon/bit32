@@ -90,14 +90,14 @@ class TestCompiler(TestCase):
     def test_unions(self):
         self.code_eq_asm('unions')
         
-    # def test_func_ptrs(self):
-    #     self.code_eq_asm('func_ptrs')
+    def test_func_ptrs(self):
+        self.code_eq_asm('func_ptrs')
     
-    # def test_neg_nums(self):
-    #     self.code_eq_asm('neg_nums')
+    def test_neg_nums(self):
+        self.code_eq_asm('neg_nums')
         
-    # def test_unsigned(self):
-    #     self.code_eq_asm('unsigned')
+    def test_unsigned(self):
+        self.code_eq_asm('unsigned')
     
     # def test_logic(self):
     #     self.code_eq_asm('logic')

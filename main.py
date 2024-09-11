@@ -11,7 +11,7 @@ if __name__ == '__main__':
     
     # ccompile('std/stdio.h', sflag=False, fflag=True)
     # # ccompile('std/stdio.h', sflag=True, fflag=True)
-    # ccompile('tests/func_ptrs.c', sflag=True, fflag=True)
+    ccompile('tests/logic.c', sflag=True, fflag=False)
     # ccompile('tests/const.c', sflag=True, fflag=True)
-    ccompile('c/sec5.12.c', sflag=True, fflag=False)
-    # ccompile('c/test_union.c')
+    # ccompile('c/funcptrs.c', sflag=True, fflag=False)
+    # ccompile('c/funcptrs.c')
