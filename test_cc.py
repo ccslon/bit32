@@ -87,8 +87,8 @@ class TestCompiler(TestCase):
     def test_enums(self):
         self.code_eq_asm('enums')
         
-    # def test_unions(self):
-    #     self.code_eq_asm('unions')
+    def test_unions(self):
+        self.code_eq_asm('unions')
         
     # def test_func_ptrs(self):
     #     self.code_eq_asm('func_ptrs')

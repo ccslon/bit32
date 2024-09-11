@@ -9,7 +9,7 @@ void func1() {
     ip.c[1] = 0;
     ip.c[2] = 0;
     ip.c[3] = 1;
-    int i = ip.i;
+    printf("%u\n", ip.i);
 }
 enum Type {
     CHAR,
@@ -58,6 +58,8 @@ void printToken(struct Token* token) {
     }
 }
 int main() {
+	struct Token t0 = strToken('c');
+    printToken(&t0);
     struct Token t1 = intToken(5);
     printToken(&t1);
     struct Token t2 = strToken("Hello!");

@@ -115,13 +115,15 @@ class CParser:
             elif self.peek('.'):
                 if isinstance(postfix.type, Union): #TODO make UnionDot?
                     next(self)
-                    attr = postfix.type[self.expect('id').lexeme]
-                    postfix = type(postfix)(attr.type, attr.token)
-                    postfix.location = 0
+                    postfix = postfix.union(postfix.type[self.expect('id').lexeme])
                 else:
                     postfix = Dot(next(self), postfix, postfix.type[self.expect('id').lexeme])
             elif self.peek('->'):
-                postfix = Arrow(next(self), postfix, postfix.type.to[self.expect('id').lexeme])
+                if isinstance(postfix.type, Union): #TODO make UnionDot?
+                    next(self)
+                    postfix = postfix.union(postfix.type[self.expect('id').lexeme])
+                else:
+                    postfix = Arrow(next(self), postfix, postfix.type.to[self.expect('id').lexeme])
         return postfix
 
     def args(self):
@@ -436,24 +438,45 @@ class CParser:
             type_name = Array(type_name, Num(self.expect('num')))
             self.expect(']')
         return type_name
-
+    
     def declr(self, type):
         '''
-        DECLR -> {'*'} id {'[' num ']'}
+        DECLR -> {'*'} DIR_DECLR
         '''
+        ns = 0
         while self.accept('*'):
+            ns += 1
+        type, id = self.dir_declr(type)
+        for _ in range(ns):
             type = Pointer(type)
-        id = self.expect('id')
-        while self.accept('['):
-            type = Array(type, Num(next(self)) if self.peek('num') else None)
-            self.expect(']')
-        return Local(type, id)
+        return type, id
+            
+    def dir_declr(self, type):
+        '''
+        DIR_DECLR -> ('(' DECLR ')'|id){'(' PARAMS ')'|'[' num ']'}
+        '''
+        if self.accept('('):
+            type, id = self.declr(type)
+            self.expect(')')
+        else:
+            id = self.expect('id')
+        while self.peek('(','['):            
+            if self.accept('('):
+                params, variable = self.params()
+                type = Pointer(Func(type, [param.type for param in params], variable))
+                self.expect(')')
+            else:
+                while self.accept('['):
+                    type = Array(type, Num(self.expect('num')))
+                    self.expect(']')
+        return type, id
 
     def init(self, type):
         '''
         INIT -> DECLR ['=' (EXPR|'{' INIT_LIST '}')]
         '''
-        init = declr = self.declr(type)
+        type, id = self.declr(type)
+        init = declr = Local(type, id)
         if self.peek('='):
             token = next(self)
             if self.accept('{'):
@@ -463,10 +486,10 @@ class CParser:
             elif isinstance(declr.type, Array) and self.peek('string'):
                 init = InitArrayString(token, declr, String(next(self)))
             else:
-                init = InitAssign(token, declr, self.expr())
+                init = InitAssign(token, declr, self.assign())
         self.scope[declr.token.lexeme] = declr
         return init
-                
+    
     def decln(self):
         '''
         DECLN -> QUAL [INIT {',' INIT}] ';'

@@ -52,6 +52,10 @@ class Local(Expr):
     def call(self, vstr, n):
         self.reduce(vstr, n)
         vstr.call(regs[n])
+    def union(self, attr):
+        new = Local(attr.type, attr.token)
+        new.location = self.location
+        return new
 
 class Attr(Local):
     def store(self, vstr, n):
@@ -63,6 +67,10 @@ class Attr(Local):
     def call(self, vstr, n):
         self.reduce(vstr, n)
         vstr.call(regs[n])
+    def union(self, attr):
+        new = Attr(attr.type, attr.token)
+        new.location = self.location
+        return new
 
 class Glob(Local):
     def __init__(self, type, token):
@@ -78,6 +86,10 @@ class Glob(Local):
         self.type.glob(vstr, self)
     def call(self, vstr, n):
         vstr.call(self.token.lexeme)
+    def union(self, attr):
+        new = Glob(attr.type, attr.token)
+        # new.init = attr.init
+        return new
     
 def itf(i):
     return int.from_bytes(pack('>f', float(i)), 'big')
@@ -624,7 +636,9 @@ class Dot(Access):
     def call(self, vstr, n):
         self.postfix.address(vstr, n)
         self.attr.call(vstr, n)
-
+    def union(self, attr):
+        return Dot(self.token, self.postfix, self.attr.union(attr))
+    
 class Arrow(Dot):
     def address(self, vstr, n):
         vstr.binary(Op.ADD, Size.WORD, self.postfix.reduce(vstr, n), self.attr.location)
@@ -638,6 +652,8 @@ class Arrow(Dot):
     def call(self, vstr, n):
         self.postfix.reduce(vstr, n)
         self.attr.call(vstr, n)
+    def union(self, attr):
+        return Arrow(self.token, self.postfix, self.attr.union(attr))
 
 class SubScr(Access):
     def __init__(self, token, postfix, sub):
