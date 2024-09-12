@@ -546,7 +546,7 @@ class Defn(Expr):
         #epilogue
         if self.size or self.returns:
             vstr.append_label(f'.L{vstr.return_label}')
-        if self.calls and self.size:
+        if self.max_args and self.size:
             vstr.binary(Op.MOV, self.size, Reg.A, regs[self.max_args])
         vstr.binary(Op.MOV, Size.WORD, Reg.SP, Reg.FP)
         if self.space:
@@ -584,7 +584,7 @@ class VarDefn(Defn):
         #epilogue
         if self.size or self.returns:
             vstr.append_label(f'.L{vstr.return_label}')
-        if self.calls and self.size:
+        if self.max_args and self.size:
             vstr.binary(Op.MOV, self.size, Reg.A, regs[self.max_args])
         vstr.binary(Op.MOV, Size.WORD, Reg.SP, Reg.FP)
         if self.space:

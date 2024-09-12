@@ -125,7 +125,7 @@ class Pointer(Int):
                                                or isinstance(other.to, Void)) \
             or isinstance(other, Array) and self.of == other.of
     def __str__(self):
-        return f'{self.to}*'
+        return f'ptr({self.to})'
 
 class Struct(Frame, Type):
     def __init__(self, name):
@@ -211,7 +211,7 @@ class Array(Type):
     def __eq__(self, other):
         return isinstance(other, (Array,Pointer)) and self.of == other.of
     def __str__(self):
-        return f'{self.of}[]'
+        return f'array({self.of})'
 
 class Func(Type):
     def __init__(self, ret, params, variable):

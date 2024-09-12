@@ -435,7 +435,7 @@ class CParser:
         while self.accept('*'):
             type_name = Pointer(type_name)
         while self.accept('['):
-            type_name = Array(type_name, Num(self.expect('num')))
+            type_name = Array(type_name, Num(next(self)) if self.peek('num') else None)
             self.expect(']')
         return type_name
     
@@ -443,31 +443,37 @@ class CParser:
         '''
         DECLR -> {'*'} DIR_DECLR
         '''
+        # while self.accept('*'):
+        #     type = Pointer(type)
+        # return self.dir_declr(type)
         ns = 0
         while self.accept('*'):
             ns += 1
         type, id = self.dir_declr(type)
         for _ in range(ns):
+            print("pointer to", end=' ')
             type = Pointer(type)
         return type, id
             
     def dir_declr(self, type):
         '''
-        DIR_DECLR -> ('(' DECLR ')'|id){'(' PARAMS ')'|'[' num ']'}
+        DIR_DECLR -> ('(' DECLR ')'|[id]){'(' PARAMS ')'|'[' num ']'}
         '''
         if self.accept('('):
             type, id = self.declr(type)
             self.expect(')')
         else:
-            id = self.expect('id')
-        while self.peek('(','['):            
+            id = self.accept('id')
+        while self.peek('(','['):
             if self.accept('('):
+                print("function returning", end=' ')
                 params, variable = self.params()
-                type = Pointer(Func(type, [param.type for param in params], variable))
+                type = Func(type, [param.type for param in params], variable)
                 self.expect(')')
             else:
                 while self.accept('['):
-                    type = Array(type, Num(self.expect('num')))
+                    print("array of", end=' ')
+                    type = Array(type, Num(next(self)) if self.peek('num') else None)
                     self.expect(']')
         return type, id
 
@@ -475,7 +481,11 @@ class CParser:
         '''
         INIT -> DECLR ['=' (EXPR|'{' INIT_LIST '}')]
         '''
+        # that = type
         type, id = self.declr(type)
+        print(that)
+        print(type)
+        # assert id is not None
         init = declr = Local(type, id)
         if self.peek('='):
             token = next(self)

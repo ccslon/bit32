@@ -99,8 +99,8 @@ class TestCompiler(TestCase):
     def test_unsigned(self):
         self.code_eq_asm('unsigned')
     
-    # def test_logic(self):
-    #     self.code_eq_asm('logic')
+    def test_logic(self):
+        self.code_eq_asm('logic')
         
     # def test_cstrings(self):
     #     self.code_eq_asm('cstrings')
