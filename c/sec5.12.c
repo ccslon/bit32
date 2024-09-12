@@ -1,9 +1,12 @@
 
 void foo() {
-	char (*a[]);
-	char *b[];
-	char (*c)[];
-	char (*e[])();
+	char i[5];
+	char *j;
+	char *k[5];
+	char (*a[3]);
+	char *b[3];
+	char (*c)[3];
+	char (*e[3])();
 }
 
 int main() {
