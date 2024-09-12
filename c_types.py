@@ -117,6 +117,12 @@ class Pointer(Int):
         super().__init__(False)
         self.to = self.of = type
         self.inc = self.to.size
+    def glob_call(self, vstr, n, glob):
+        self.glob_reduce(vstr, n, glob)
+        vstr.call(regs[n])
+    def call(self, vstr, n, local, base):
+        self.reduce(vstr, n, local, base)
+        vstr.call(regs[n])
     def cast(self, other):
         return isinstance(other, Int)
     def __eq__(self, other):
@@ -216,10 +222,14 @@ class Array(Type):
 class Func(Type):
     def __init__(self, ret, params, variable):
         self.ret, self.params, self.variable = ret, params, variable
-        self.size = ret.size
+        self.size = ret.size #TODO
     @staticmethod
     def glob_reduce(vstr, n, glob):
         return Func.glob_address(vstr, n, glob)
+    def glob_call(self, vstr, n, glob):
+        vstr.call(glob.token.lexeme)
+    def call(self, vstr, n, local, _):
+        vstr.call(local.token.lexeme)
     def cast(self, other):
         return False
     def __eq__(self, other):

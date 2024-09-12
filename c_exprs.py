@@ -50,8 +50,7 @@ class Local(Expr):
     def address(self, vstr, n):
         return self.type.address(vstr, n, self, Reg.FP)
     def call(self, vstr, n):
-        self.reduce(vstr, n)
-        vstr.call(regs[n])
+        self.type.call(vstr, n, self, Reg.FP)
     def union(self, attr):
         new = Local(attr.type, attr.token)
         new.location = self.location
@@ -65,8 +64,7 @@ class Attr(Local):
     def address(self, vstr, n):
         return self.type.address(vstr, n, self, n)
     def call(self, vstr, n):
-        self.reduce(vstr, n)
-        vstr.call(regs[n])
+        self.type.call(vstr, n, self, n)
     def union(self, attr):
         new = Attr(attr.type, attr.token)
         new.location = self.location
@@ -85,7 +83,7 @@ class Glob(Local):
     def generate(self, vstr):
         self.type.glob(vstr, self)
     def call(self, vstr, n):
-        vstr.call(self.token.lexeme)
+        self.type.glob_call(vstr, n, self)
     def union(self, attr):
         new = Glob(attr.type, attr.token)
         # new.init = attr.init
@@ -230,12 +228,14 @@ class Deref(Expr):
         assert hasattr(unary.type, 'to'), f'Line {token.line}: Cannot {token.lexeme} {unary.type}'
         super().__init__(unary.type.to, token)
         self.unary = unary
+    def address(self, vstr, n):
+        return self.unary.reduce(vstr, n)
     def store(self, vstr, n):
-        self.unary.reduce(vstr, n+1)
+        self.address(vstr, n+1)
         vstr.store(self.size, regs[n], regs[n+1])
         return regs[n]
     def reduce(self, vstr, n):
-        self.unary.reduce(vstr, n)
+        self.address(vstr, n)
         vstr.load(self.size, regs[n], regs[n])
         return regs[n]
     def call(self, vstr, n):
@@ -679,6 +679,9 @@ class SubScr(Access):
     def reduce(self, vstr, n):        
         vstr.load(self.size, self.address(vstr, n), regs[n])
         return regs[n]
+    def call(self, vstr, n):
+        vstr.call(self.reduce(vstr, n))
+        
 
 class Call(Expr):
     def __init__(self, primary, args):

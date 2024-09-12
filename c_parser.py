@@ -439,60 +439,46 @@ class CParser:
             self.expect(']')
         return type_name
     
-    def _declr(self, type):
+    def declr(self, types):
         '''
         DECLR -> {'*'} DIR_DECLR
         '''
-        # while self.accept('*'):
-        #     type = Pointer(type)
-        # return self.dir_declr(type)
         ns = 0
         while self.accept('*'):
             ns += 1
-        id = self.dir_declr(type)
+        id = self.dir_declr(types)
         for _ in range(ns):
-            # print("pointer to", end=' ')
-            self.type = Pointer(self.type)
+            types.append((Pointer, ()))
         return id
             
-    def _dir_declr(self, type):
+    def dir_declr(self, types):
         '''
         DIR_DECLR -> ('(' DECLR ')'|[id]){'(' PARAMS ')'|'[' num ']'}
         '''
         if self.accept('('):
-            id = self.declr(type)
+            id = self.declr(types)
             self.expect(')')
         else:
-            id = self.accept('id')
+            id = self.expect('id')
         while self.peek('(','['):
             if self.accept('('):
-                # print("function returning", end=' ')
                 params, variable = self.params()
-                self.type = Func(self.type, [param.type for param in params], variable)
+                types.append((Func, ([param.type for param in params], variable)))
                 self.expect(')')
             elif self.accept('['):
-                # print("array of", end=' ')
-                self.type = Array(self.type, Num(next(self)) if self.peek('num') else None)
+                types.append((Array, (Num(next(self)) if self.peek('num') else None,)))
                 self.expect(']')
         return id
-    
-    def declr(self, type):
-        '''
-        DECLR -> {'*'} id {'[' num ']'}
-        '''
-        while self.accept('*'):
-            type = Pointer(type)
-        id = self.expect('id')
-        while self.accept('['):
-            type = Array(type, Num(next(self)) if self.peek('num') else None)
-            self.expect(']')
-        return Local(type, id)
 
     def init(self, type):
         '''
         INIT -> DECLR ['=' (EXPR|'{' INIT_LIST '}')]
         '''
-        init = declr = self.declr(type)
+        types = []
+        id = self.declr(types)
+        for new_type, args in reversed(types):
+            type = new_type(type, *args)
+        init = declr = Local(type, id)
         if self.peek('='):
             token = next(self)
             if self.accept('{'):
