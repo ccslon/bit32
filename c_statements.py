@@ -54,7 +54,7 @@ class Switch(Statement):
         labels = []
         for case in self.cases:
             labels.append(vstr.next_label())
-            vstr.binary(Op.CMP, self.test.size, regs[n], case.const.num_reduce(vstr, n+1))
+            vstr.binary(Op.CMP, self.test.width, regs[n], case.const.num_reduce(vstr, n+1))
             vstr.jump(Cond.EQ, f'.L{labels[-1]}')
         if self.default:
             default = vstr.next_label()

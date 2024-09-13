@@ -10,7 +10,7 @@ from c_utils import CNode, regs, Frame
 
 class Void(CNode):
     def __init__(self):
-        self.size = 0
+        self.size = self.width = 0
     def __eq__(self, other):
         return isinstance(other, Void)
     def __str__(self):
@@ -23,7 +23,7 @@ class Type(CNode):
     def list_store(self, vstr, n, expr, loc):
         expr.reduce(vstr, n+1)
         #expr.convert(...) #TODO
-        vstr.store(self.size, regs[n+1], regs[n], loc)
+        vstr.store(self.width, regs[n+1], regs[n], loc)
     @staticmethod
     def address(vstr, n, local, base):
         vstr.ternary(Op.ADD, Size.WORD, regs[n], regs[base], local.location)
@@ -34,30 +34,30 @@ class Type(CNode):
         return regs[n]
     @staticmethod
     def store(vstr, n, local, base):
-        vstr.store(local.size, regs[n], regs[base], local.location, local.token.lexeme)
+        vstr.store(local.width, regs[n], regs[base], local.location, local.token.lexeme)
         return regs[n]
     @staticmethod
     def glob_store(vstr, n, glob):
         vstr.load_glob(regs[n+1], glob.token.lexeme)
-        vstr.store(regs[n], regs[n+1])
+        vstr.store(glob.width, regs[n], regs[n+1])
         return regs[n]
     @staticmethod
     def reduce(vstr, n, local, base):
-        vstr.load(local.size, regs[n], regs[base], local.location, local.token.lexeme)
+        vstr.load(local.width, regs[n], regs[base], local.location, local.token.lexeme)
         return regs[n]
     @staticmethod
     def glob_reduce(vstr, reg, glob):
         vstr.load_glob(regs[reg], glob.token.lexeme)
-        vstr.load(glob.size, regs[reg], regs[reg])
+        vstr.load(glob.width, regs[reg], regs[reg])
         return regs[reg]
     def as_data(self, vstr, expr, frame):
-        frame.append((self.size, expr.data(vstr)))
+        frame.append((self.width, expr.data(vstr)))
     @staticmethod
     def glob(vstr, glob):
         if glob.init:
-            vstr.glob(glob.token.lexeme, glob.size, glob.init.data(vstr))
+            vstr.glob(glob.token.lexeme, glob.width, glob.init.data(vstr))
         else:
-            vstr.space(glob.token.lexeme, glob.size)
+            vstr.space(glob.token.lexeme, glob.width)
 
 class Bin(Type):
     def __init__(self, signed):
@@ -79,28 +79,28 @@ class Bin(Type):
 class Char(Bin):
     def __init__(self, signed=True):
         super().__init__(signed)
-        self.size = Size.BYTE
+        self.size = self.width = Size.BYTE
     def __str__(self):
         return 'char'
 
 class Short(Bin):
     def __init__(self, signed=True):
         super().__init__(signed)
-        self.size = Size.HALF
+        self.size = self.width = Size.HALF
     def __str__(self):
         return 'short'
 
 class Int(Bin):
     def __init__(self, signed=True):
         super().__init__(signed)
-        self.size = Size.WORD
+        self.size = self.width = Size.WORD
     def __str__(self):
         return 'int'
         
 class Float(Type):
     def __init__(self):
         super().__init__()
-        self.size = Size.WORD
+        self.size = self.width = Size.WORD
     def is_float(self):
         return True
     @staticmethod
@@ -138,6 +138,7 @@ class Struct(Frame, Type):
         super().__init__()
         self.const = False
         self.name = name.lexeme
+        self.width = Size.WORD
     def __iter__(self):
         for attr in self.data.values():
             yield attr.location, attr.type
@@ -156,8 +157,8 @@ class Struct(Frame, Type):
     def store(vstr, n, local, base):
         Struct.address(vstr, n+1, local, base)
         for loc, type in local.type:
-            vstr.load(type.size, regs[n+2], regs[n], loc)
-            vstr.store(type.size, regs[n+2], regs[n+1], loc)
+            vstr.load(type.width, regs[n+2], regs[n], loc)
+            vstr.store(type.width, regs[n+2], regs[n+1], loc)
     @staticmethod
     def reduce(vstr, n, local, base):
         return Struct.address(vstr, n, local, base)
@@ -166,7 +167,7 @@ class Struct(Frame, Type):
         if glob.init:
             vstr.datas(glob.token.lexeme, glob.type.as_data(vstr, glob.init, []))
         else:
-            vstr.space(glob.token.lexeme, glob.size)
+            vstr.space(glob.token.lexeme, glob.type.size)
     def cast(self, other):
         return self == other
     def __eq__(self, other):
@@ -179,19 +180,23 @@ class Union(UserDict, Type): #TODO
         super().__init__()
         self.const = False
         self.size = 0
+        self.width = Size.WORD
         self.name = name
     def __setitem__(self, name, attr):
         attr.location = 0
-        self.size = max(self.size, attr.size)
+        self.size = max(self.size, attr.type.size)
         super().__setitem__(name, attr)
 
 class Array(Type):
     def __init__(self, of, length):
         super().__init__()
-        if length is not None:
+        if length is None:
+            self.length = length
+        else:            
             self.size = of.size * length.value
-        self.of = of
-        self.length = length.value
+            self.length = length.value
+        self.of = of        
+        self.width = Size.WORD
     def __iter__(self):
         for i in range(self.length):
             yield i*self.of.size, self.of
@@ -204,6 +209,9 @@ class Array(Type):
             type.as_data(vstr, expr[i], frame)        
         return frame
     @staticmethod
+    def glob_reduce(vstr, n, glob):
+        Type.glob_address(vstr, n, glob)
+    @staticmethod
     def reduce(vstr, n, local, base):
         return Array.address(vstr, n, local, base)
     @staticmethod
@@ -211,7 +219,7 @@ class Array(Type):
         if glob.init:
             vstr.datas(glob.token.lexeme, glob.type.as_data(vstr, glob.init, []))
         else:
-            vstr.space(glob.token.lexeme, glob.size)
+            vstr.space(glob.token.lexeme, glob.type.size)
     def cast(self, other):
         return self == other
     def __eq__(self, other):
@@ -222,7 +230,8 @@ class Array(Type):
 class Func(Type):
     def __init__(self, ret, params, variable):
         self.ret, self.params, self.variable = ret, params, variable
-        self.size = ret.size #TODO
+        self.size = 0
+        self.width = ret.width
     @staticmethod
     def glob_reduce(vstr, n, glob):
         return Func.glob_address(vstr, n, glob)

@@ -27,7 +27,7 @@ TOKENS = {
     'size': r'\b(byte|half|word)\b',
     'space': r'\b(space)\b',
     'reg': r'\b('+r'|'.join(reg.name for reg in Reg)+r')\b',
-    'op': rf'^(?P<op_name>{RE_OP})(?P<op_cond>{RE_COND})?(?P<op_flag>s)?(\.(?P<op_size>{RE_SIZE}))?\b',
+    'op': rf'^(?P<op_name>{RE_OP})(?P<op_cond>{RE_COND})?(?P<op_flag>s)?(\.(?P<op_size>{RE_SIZE}))?\s',
     'jump': rf'^j(mp)?(?P<jump_cond>{RE_COND})?\b',
     'label': r'\.?[a-z_]\w*\s*:',
     'id': r'\.?[a-z_]\w*',
@@ -59,7 +59,7 @@ class Assembler:
     def label(self, label, value):
         self.labels.append(label)
         self.new_data(Word, value)
-    def char(self, label, char):
+    def char(self, label, _, char):
         self.labels.append(label)
         self.new_data(Char, char)
     def string(self, label, string):
@@ -145,8 +145,8 @@ class Assembler:
                         
                     elif self.match('label', 'id'):
                         self.label(*self.values())
-                        
-                    elif self.match('label', 'char'):
+                    
+                    elif self.match('label', 'size', 'char'):
                         self.char(*self.values())
                         
                     elif self.match('label', 'string'):

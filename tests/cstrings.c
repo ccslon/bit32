@@ -1,7 +1,7 @@
 void print(char*);
 char* gptr = "Hello global*\n";
 char garr[16] = "Hello global[]\n";
-
+char c = 'c';
 int main() {
     char* ptr = "Hello stack*\n";
     char arr[] = "Hello stack[]\n";

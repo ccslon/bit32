@@ -14,15 +14,15 @@ from c_types import Char, Int, Float, Pointer, Array, Void
 class Expr(CNode):
     def __init__(self, type, token):
         self.type = type
-        self.size = type.size
+        self.width = type.width
         self.token = token
     def branch(self, vstr, n, _):
         self.generate(vstr, n)
     def compare(self, vstr, n, label):
-        vstr.binary(Op.CMPF if self.is_float() else Op.CMP, self.size, self.reduce(vstr, n), 0)
+        vstr.binary(Op.CMPF if self.is_float() else Op.CMP, self.width, self.reduce(vstr, n), 0)
         vstr.jump(Cond.EQ, f'.L{label}')
     def compare_inv(self, vstr, n, label):
-        vstr.binary(Op.CMPF if self.is_float() else Op.CMP, self.size, self.reduce(vstr, n), 0)
+        vstr.binary(Op.CMPF if self.is_float() else Op.CMP, self.width, self.reduce(vstr, n), 0)
         vstr.jump(Cond.NE, f'.L{label}')
     def branch_reduce(self, vstr, n, _):
         self.reduce(vstr, n)
@@ -31,7 +31,7 @@ class Expr(CNode):
     def float_reduce(self, vstr, n):
         self.reduce(vstr, n)
         if not self.is_float():
-            vstr.binary(Op.ITF, self.size, regs[n], regs[n])
+            vstr.binary(Op.ITF, Size.WORD, regs[n], regs[n])
         return regs[n]
     def list_reduce(self, vstr, n, _):
         return self.reduce(vstr, n)
@@ -99,7 +99,7 @@ class Decimal(Expr):
     def data(self, vstr):
         return self.value
     def reduce(self, vstr, n):
-        vstr.imm(self.size, regs[n], self.value)
+        vstr.imm(self.width, regs[n], self.value)
         return regs[n]
 
 class NumBase(Expr):
@@ -109,15 +109,15 @@ class NumBase(Expr):
         return self.value
     def reduce(self, vstr, n):
         if 0 <= self.value < 256:
-            vstr.binary(Op.MOV, self.size, regs[n], self.value)
+            vstr.binary(Op.MOV, self.width, regs[n], self.value)
         else:
-            vstr.imm(self.size, regs[n], self.value)
+            vstr.imm(self.width, regs[n], self.value)
         return regs[n]
     def num_reduce(self, vstr, n):
         if 0 <= self.value < 256:
             return self.value
         else:
-            vstr.imm(self.size, regs[n], self.value)
+            vstr.imm(self.width, regs[n], self.value)
         return regs[n]
 
 class EnumConst(NumBase):
@@ -138,9 +138,9 @@ class Num(NumBase):
 class NegNum(Num):
     def reduce(self, vstr, n):
         if 0 <= self.value < 256:
-            vstr.binary(Op.MVN, self.size, regs[n], self.value)
+            vstr.binary(Op.MVN, self.width, regs[n], self.value)
         else:
-            vstr.imm(self.size, regs[n], negative(-self.value, 32))
+            vstr.imm(self.width, regs[n], negative(-self.value, 32))
         return regs[n]
     def num_reduce(self, vstr, n):
         return self.reduce(vstr, n)
@@ -156,7 +156,7 @@ class Letter(Expr):
     def data(self, _):
         return self.token.lexeme
     def reduce(self, vstr, n):
-        vstr.binary(Op.MOV, self.size, regs[n], self.data(vstr))
+        vstr.binary(Op.MOV, self.width, regs[n], self.data(vstr))
         return regs[n]
     def num_reduce(self, vstr, n):
         return self.data(vstr)
@@ -176,6 +176,10 @@ class String(Expr):
         yield self.Char(r'\0')
     def __len__(self):
         return len(self.value)
+    def __getitem__(self, item):
+        if item == len(self.value):
+            return self.Char(r'\0')
+        return self.Char(escape(self.value[item]))
     def data(self, vstr):
         return vstr.string(self.token.lexeme)
     def reduce(self, vstr, n):
@@ -196,7 +200,7 @@ class Unary(OpExpr):
         super().__init__(unary.type, op)
         self.unary = unary
     def reduce(self, vstr, n):
-        vstr.unary(self.op, self.size, self.unary.reduce(vstr, n))
+        vstr.unary(self.op, self.width, self.unary.reduce(vstr, n))
         return regs[n]
 
 class Pre(Unary):
@@ -210,10 +214,10 @@ class Pre(Unary):
     def generate(self, vstr, n):
         self.unary.reduce(vstr, n)
         if self.is_float():
-            vstr.imm(self.size, regs[n+1], itf(1))
-            vstr.binay(self.op, self.size, regs[n], regs[n+1])
+            vstr.imm(self.width, regs[n+1], itf(1))
+            vstr.binay(self.op, self.width, regs[n], regs[n+1])
         else:
-            vstr.binary(self.op, self.size, regs[n], self.type.inc)
+            vstr.binary(self.op, self.width, regs[n], self.type.inc)
         self.unary.store(vstr, n)
 
 class AddrOf(Expr):
@@ -232,11 +236,11 @@ class Deref(Expr):
         return self.unary.reduce(vstr, n)
     def store(self, vstr, n):
         self.address(vstr, n+1)
-        vstr.store(self.size, regs[n], regs[n+1])
+        vstr.store(self.width, regs[n], regs[n+1])
         return regs[n]
     def reduce(self, vstr, n):
         self.address(vstr, n)
-        vstr.load(self.size, regs[n], regs[n])
+        vstr.load(self.width, regs[n], regs[n])
         return regs[n]
     def call(self, vstr, n):
         self.unary.call(vstr, n)
@@ -249,7 +253,7 @@ class Cast(Expr):
     def reduce(self, vstr, n):
         self.cast.reduce(vstr, n)
         if self.type.is_float() and not self.cast.is_float():
-            vstr.binary(Op.ITF, self.size, regs[n], regs[n])
+            vstr.binary(Op.ITF, Size.WORD, regs[n], regs[n])
         return regs[n]
     def data(self, vstr):
         return self.cast.data(vstr)
@@ -259,13 +263,13 @@ class Not(Expr):
         super().__init__(unary.type, token)
         self.unary = unary
     def compare(self, vstr, n, label):
-        vstr.binary(Op.CMPF if self.is_float() else Op.CMP, self.size, self.unary.reduce(vstr, n), 0)
+        vstr.binary(Op.CMPF if self.is_float() else Op.CMP, self.width, self.unary.reduce(vstr, n), 0)
         vstr.jump(Cond.NE, f'.L{label}')
     def compare_inv(self, vstr, n, label):
-        vstr.binary(Op.CMPF if self.is_float() else Op.CMP, self.size, self.unary.reduce(vstr, n), 0)
+        vstr.binary(Op.CMPF if self.is_float() else Op.CMP, self.width, self.unary.reduce(vstr, n), 0)
         vstr.jump(Cond.EQ, f'.L{label}')
     def reduce(self, vstr, n):
-        vstr.binary(Op.CMP, self.size, self.unary.reduce(vstr, n), 0)
+        vstr.binary(Op.CMP, self.width, self.unary.reduce(vstr, n), 0)
         vstr.mov(Cond.EQ, regs[n], 1)
         vstr.mov(Cond.NE, regs[n], 0)
         return regs[n]
@@ -276,7 +280,7 @@ def max_type(left, right):
     elif right.is_float():
         return right
     else:
-        return right if right.size > left.size else left
+        return right if right.width > left.width else left
 
 class Binary(OpExpr):
     OP = {'+' :Op.ADD,
@@ -328,9 +332,9 @@ class Binary(OpExpr):
         return self.left.is_float() or self.right.is_float()
     def reduce(self, vstr, n):
         if self.is_float():
-            vstr.binary(self.op, self.size, self.left.float_reduce(vstr, n), self.right.float_reduce(vstr, n+1))
+            vstr.binary(self.op, self.width, self.left.float_reduce(vstr, n), self.right.float_reduce(vstr, n+1))
         else:
-            vstr.binary(self.op, self.size, self.left.reduce(vstr, n), self.right.num_reduce(vstr, n+1))
+            vstr.binary(self.op, self.width, self.left.reduce(vstr, n), self.right.num_reduce(vstr, n+1))
         return regs[n]
 
 class Compare(Binary):
@@ -365,9 +369,9 @@ class Compare(Binary):
             self.inv = self.UINV.get(op.lexeme, self.INV[op.lexeme])
     def cmp(self, vstr, n):
         if self.is_float():
-            vstr.binary(Op.CMPF, self.size, self.left.float_reduce(vstr, n), self.right.float_reduce(vstr, n+1))
+            vstr.binary(Op.CMPF, self.width, self.left.float_reduce(vstr, n), self.right.float_reduce(vstr, n+1))
         else:
-            vstr.binary(Op.CMP, self.size, self.left.reduce(vstr, n), self.right.num_reduce(vstr, n+1))
+            vstr.binary(Op.CMP, self.width, self.left.reduce(vstr, n), self.right.num_reduce(vstr, n+1))
     def compare(self, vstr, n, label):
         self.cmp(vstr, n)
         vstr.jump(self.inv, f'.L{label}')
@@ -387,9 +391,9 @@ class Logic(Binary):
            '||':Op.OR}
     def cmp(self, vstr, n, expr):
         if self.is_float():
-            vstr.binary(Op.CMPF, self.size, expr.float_reduce(vstr, n), 0)
+            vstr.binary(Op.CMPF, self.width, expr.float_reduce(vstr, n), 0)
         else:
-            vstr.binary(Op.CMP, self.size, expr.reduce(vstr, n), 0)
+            vstr.binary(Op.CMP, self.width, expr.reduce(vstr, n), 0)
     def compare(self, vstr, n, label):
         if self.op == Op.AND:
             self.cmp(vstr, n, self.left)
@@ -505,8 +509,8 @@ class InitArrayString(Expr):
     def generate(self, vstr, n):
         self.array.address(vstr, n)
         for i, c in enumerate(self.string):
-            vstr.binary(Op.MOV, self.size, regs[n+1], c.data(vstr))
-            vstr.store(self.size, regs[n+1], regs[n], i)
+            vstr.binary(Op.MOV, Size.BYTE, regs[n+1], c.data(vstr))
+            vstr.store(Size.BYTE, regs[n+1], regs[n], i)
 
 class Block(UserList, Expr):
     def generate(self, vstr, n):
@@ -522,7 +526,7 @@ class Defn(Expr):
         preview = Visitor()
         preview.begin_func(self)
         self.block.generate(preview, self.max_args)
-        push = list(map(Reg, range(max(bool(self.size), len(self.params)), regs.max+1))) + [Reg.FP]
+        push = list(map(Reg, range(max(bool(self.type.width), len(self.params)), regs.max+1))) + [Reg.FP]
         
         vstr.begin_func(self)
         #start
@@ -540,14 +544,14 @@ class Defn(Expr):
             vstr.binary(Op.SUB, Size.WORD, Reg.SP, self.space)
         vstr.binary(Op.MOV, Size.WORD, Reg.FP, Reg.SP)
         for i, param in enumerate(self.params[:4]):
-            vstr.store(param.size, regs[i], Reg.FP, param.location)            
+            vstr.store(param.width, regs[i], Reg.FP, param.location)            
         #body
         self.block.generate(vstr, self.max_args)
         #epilogue
-        if self.size or self.returns:
+        if self.type.width or self.returns:
             vstr.append_label(f'.L{vstr.return_label}')
-        if self.max_args and self.size:
-            vstr.binary(Op.MOV, self.size, Reg.A, regs[self.max_args])
+        if self.max_args and self.type.width:
+            vstr.binary(Op.MOV, Size.WORD, Reg.A, regs[self.max_args])
         vstr.binary(Op.MOV, Size.WORD, Reg.SP, Reg.FP)
         if self.space:
             vstr.binary(Op.ADD, Size.WORD, Reg.SP, self.space)
@@ -582,10 +586,10 @@ class VarDefn(Defn):
         #body
         self.block.generate(vstr, self.max_args)
         #epilogue
-        if self.size or self.returns:
+        if self.type.width or self.returns:
             vstr.append_label(f'.L{vstr.return_label}')
-        if self.max_args and self.size:
-            vstr.binary(Op.MOV, self.size, Reg.A, regs[self.max_args])
+        if self.max_args and self.type.width:
+            vstr.binary(Op.MOV, Size.WORD, Reg.A, regs[self.max_args])
         vstr.binary(Op.MOV, Size.WORD, Reg.SP, Reg.FP)
         if self.space:
             vstr.binary(Op.ADD, Size.WORD, Reg.SP, self.space)        
@@ -611,10 +615,10 @@ class Post(OpExpr):
     def generate(self, vstr, n):
         self.postfix.reduce(vstr, n)
         if self.is_float():
-            vstr.imm(self.size, regs[n+2], itf(1))
-            vstr.ternary(self.op, self.size, regs[n+1], regs[n], regs[n+2])
+            vstr.imm(self.width, regs[n+2], itf(1))
+            vstr.ternary(self.op, self.width, regs[n+1], regs[n], regs[n+2])
         else:
-            vstr.ternary(self.op, self.size, regs[n+1], regs[n], self.type.inc)
+            vstr.ternary(self.op, self.width, regs[n+1], regs[n], self.type.inc)
         self.postfix.store(vstr, n+1)
 
 class Access(Expr):
@@ -674,14 +678,13 @@ class SubScr(Access):
             vstr.binary(Op.ADD, Size.WORD, regs[n], self.sub.num_reduce(vstr, n+1))
         return regs[n]
     def store(self, vstr, n):
-        vstr.store(self.size, regs[n], self.address(vstr, n+1))
+        vstr.store(self.width, regs[n], self.address(vstr, n+1))
         return regs[n]
     def reduce(self, vstr, n):        
-        vstr.load(self.size, self.address(vstr, n), regs[n])
+        vstr.load(self.width, self.address(vstr, n), regs[n])
         return regs[n]
     def call(self, vstr, n):
-        vstr.call(self.reduce(vstr, n))
-        
+        vstr.call(self.reduce(vstr, n))        
 
 class Call(Expr):
     def __init__(self, primary, args):
@@ -697,17 +700,17 @@ class Call(Expr):
             arg.reduce(vstr, reg+i)
             # self.primary.type.params[i].convert(vstr, reg+i, arg)
         for i, arg in enumerate(self.args[:4]):
-            vstr.binary(Op.MOV, arg.size, regs[i], regs[reg+i])
+            vstr.binary(Op.MOV, arg.width, regs[i], regs[reg+i])
         if self.primary.type.variable:
             for i, arg in reversed(list(enumerate(self.args[4:]))):
                 vstr.push(Size.WORD, regs[reg+4+i])
         else:
             for i, arg in reversed(list(enumerate(self.args[4:]))):
-                vstr.push(arg.size, regs[4+i])
+                vstr.push(arg.width, regs[reg+4+i])
         self.primary.call(vstr, reg)
         if self.primary.type.variable and len(self.args) > 4:
-            vstr.binary(Op.ADD, Size.WORD, Reg.SP, sum(arg.size for arg in self.args) - sum(param.size for param in self.primary.type.params))
-        if reg > 0 and self.size:
+            vstr.binary(Op.ADD, Size.WORD, Reg.SP, sum(arg.width for arg in self.args) - sum(param.width for param in self.primary.type.params))
+        if reg > 0 and self.width:
             vstr.binary(Op.MOV, Size.WORD, regs[reg], Reg.A)
 
 class Return(Expr):

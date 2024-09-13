@@ -731,9 +731,10 @@ class CParser:
                         self.expect('}')
                         self.end_func()
                         if variable:
-                            program.append(VarDefn(type, id, params, block, self.returns, self.calls, self.max_args, self.space))
+                            defn = VarDefn
                         else:
-                            program.append(Defn(type, id, params, block, self.returns, self.calls, self.max_args, self.space))
+                            defn = Defn
+                        program.append(defn(type, id, params, block, self.returns, self.calls, self.max_args, self.space))
                     else:
                         self.expect(';')
                         self.end_func()

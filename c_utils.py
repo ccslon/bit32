@@ -33,7 +33,7 @@ class Frame(UserDict):
         self.size = 0
     def __setitem__(self, name, obj):
         obj.location = self.size
-        self.size += obj.size
+        self.size += obj.type.size
         super().__setitem__(name, obj)
 
 class Visitor:
@@ -44,7 +44,7 @@ class Visitor:
         self.if_jump_end = False
         self.loop = Loop()
     def begin_func(self, defn):
-        if defn.size or defn.returns:
+        if defn.type.width or defn.returns:
             self.return_label = self.next_label()
         self.defn = defn
     def begin_loop(self):

@@ -9,9 +9,9 @@ from c_compiler import compile as ccompile
 
 if __name__ == '__main__':
     
-    # ccompile('std/stdio.h', sflag=False, fflag=True)
-    # # ccompile('std/stdio.h', sflag=True, fflag=True)
-    ccompile('tests/decls.c', sflag=True, fflag=False)
+    # ccompile('std/stdlib.h', sflag=False, fflag=True)
+    # ccompile('std/stdlib.h', sflag=True, fflag=False)
+    ccompile('tests/cstrings.c', sflag=True, fflag=True)
     # ccompile('tests/const.c', sflag=True, fflag=True)
     # ccompile('c/sec5.12.c', sflag=True, fflag=False)
-    # ccompile('c/funcptrs.c')
+    # ccompile('c/sort.c')
