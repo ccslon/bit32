@@ -11,5 +11,5 @@ int sum(int n, int (*f)(int)) {
 }
 
 int main() {
-    return sum(5, sqr);
+    return sum(5, &sqr);
 }

@@ -681,7 +681,7 @@
     </comp>
     <comp lib="0" loc="(470,1110)" name="Tunnel">
       <a name="facing" val="east"/>
-      <a name="label" val="Offset8"/>
+      <a name="label" val="Const8"/>
       <a name="labelfont" val="SansSerif bold 10"/>
       <a name="width" val="32"/>
     </comp>

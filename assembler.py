@@ -56,7 +56,7 @@ class Assembler:
             self.new_data(Half, value)
         else:
             self.new_data(Word, value)
-    def label(self, label, value):
+    def label(self, label, _, value):
         self.labels.append(label)
         self.new_data(Word, value)
     def char(self, label, _, char):
@@ -143,7 +143,7 @@ class Assembler:
                     elif self.match('label', 'size', 'const'):
                         self.const(*self.values())
                         
-                    elif self.match('label', 'id'):
+                    elif self.match('label', 'size', 'id'):
                         self.label(*self.values())
                     
                     elif self.match('label', 'size', 'char'):
@@ -165,7 +165,7 @@ class Assembler:
                     
                     elif self.match('id'):
                         self.new_data(Word, *self.values())
-                    elif self.match('size', 'const'):
+                    elif self.match('size', 'const') or self.match('size', 'id'):
                         size, value = self.values()
                         if size == Size.BYTE:
                             self.new_data(Byte, value)

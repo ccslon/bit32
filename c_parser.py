@@ -10,26 +10,26 @@ from c_utils import Frame
 from c_types import Void, Float, Int, Short, Char, Pointer, Struct, Union, Array, Func
 from c_exprs import Num, NegNum, EnumConst, Decimal, Letter, String
 from c_exprs import Post, Unary, Not, Pre, Binary, Compare, Logic
-from c_exprs import Local, Attr, Glob, Dot, SubScr, Arrow, Call, AddrOf, Deref, SizeOf, Cast, Condition
+from c_exprs import Local, Attr, Glob, Dot, SubScr, Arrow, Call, VarCall, AddrOf, Deref, SizeOf, Cast, Condition
 from c_exprs import InitAssign, Assign, InitListAssign, InitArrayString, Return, Block, Defn, VarDefn, Program
 from c_statements import Statement, If, Case, Switch, While, Do, For, Continue, Break, Goto, Label
 
 '''
 TODO
-[ ] Type checking
+[X] Type checking
 [X] '.' vs '->' checking
 [X] Cast
 [X] Allocating local arrays
 [X] Globals overhaul including global structs and arrays
-[ ] Init lists
+[X] Init lists
 [X] Proper ++/--
-[ ] Fix Unions
+[X] Fix Unions
 [X] Enums
 [X] peekn
 [X] Labels and goto
 [X] Division/Modulo
 [X] Fix void and void*
-[ ] Fix array strings e.g. char str[3] = "Hi";
+[X] Fix array strings e.g. char str[3] = "Hi";
 [ ] init Arrays of unknown size
 [X] Add negative numbers
 [X] Fix const
@@ -104,7 +104,11 @@ class CParser:
         while self.peek('(','[','++','--','.','->'):
             if self.accept('('):
                 assert isinstance(postfix.type, Func)
-                postfix = Call(postfix, self.args())
+                if postfix.type.variable:
+                    call_type = VarCall
+                else:
+                    call_type = Call
+                postfix = call_type(postfix, self.args())
                 self.expect(')')
                 self.calls = True
             elif self.peek('['):

@@ -8,21 +8,27 @@ from collections import UserDict
 from bit32 import Op, Size
 from c_utils import CNode, regs, Frame
 
-class Void(CNode):
+class Type(CNode):
+    def is_float(self):
+        return False
+    def cast(self, other):
+        return self == other
+
+class Void(Type):
     def __init__(self):
-        self.size = self.width = 0
+        self.size = self.width = 0    
     def __eq__(self, other):
         return isinstance(other, Void)
     def __str__(self):
         return 'void'
 
-class Type(CNode):
+class Value(Type):
     def __init__(self):
         self.const = False
         self.inc = 1
     def list_store(self, vstr, n, expr, loc):
         expr.reduce(vstr, n+1)
-        #expr.convert(...) #TODO
+        self.convert(vstr, n+1, expr)
         vstr.store(self.width, regs[n+1], regs[n], loc)
     @staticmethod
     def address(vstr, n, local, base):
@@ -59,22 +65,18 @@ class Type(CNode):
         else:
             vstr.space(glob.token.lexeme, glob.width)
 
-class Bin(Type):
+class Bin(Value):
     def __init__(self, signed):
         super().__init__()
         self.signed = signed
     def is_signed(self):
         return self.signed
-    def is_float(self):
-        return False
     @staticmethod
     def convert(vstr, reg, other):
-        if other.type.is_float(): #isinstance(other.type, Float):
+        if other.type.is_float():
             vstr.binary(Op.FTI, Size.WORD, regs[reg], regs[reg])
-    def cast(self, other):
-        return #TODO
     def __eq__(self, other):
-        return isinstance(other, Bin)
+        return isinstance(other, (Bin,Float))
 
 class Char(Bin):
     def __init__(self, signed=True):
@@ -97,7 +99,7 @@ class Int(Bin):
     def __str__(self):
         return 'int'
         
-class Float(Type):
+class Float(Value):
     def __init__(self):
         super().__init__()
         self.size = self.width = Size.WORD
@@ -108,7 +110,7 @@ class Float(Type):
         if not other.is_float():
             vstr.binary(Op.ITF, Size.WORD, regs[reg], regs[reg])
     def __eq__(self, other):
-        return isinstance(other, Float)
+        return isinstance(other, (Float,Bin))
     def __str__(self):
         return 'float'
 
@@ -124,7 +126,7 @@ class Pointer(Int):
         self.reduce(vstr, n, local, base)
         vstr.call(regs[n])
     def cast(self, other):
-        return isinstance(other, Int)
+        return isinstance(other, Bin)
     def __eq__(self, other):
         return isinstance(other, Pointer) and (self.to == other.to \
                                                or isinstance(self.to, Void) \
@@ -133,11 +135,11 @@ class Pointer(Int):
     def __str__(self):
         return f'ptr({self.to})'
 
-class Struct(Frame, Type):
+class Struct(Frame, Value):
     def __init__(self, name):
         super().__init__()
         self.const = False
-        self.name = name.lexeme
+        self.name = name.lexeme if name is not None else name
         self.width = Size.WORD
     def __iter__(self):
         for attr in self.data.values():
@@ -168,14 +170,12 @@ class Struct(Frame, Type):
             vstr.datas(glob.token.lexeme, glob.type.as_data(vstr, glob.init, []))
         else:
             vstr.space(glob.token.lexeme, glob.type.size)
-    def cast(self, other):
-        return self == other
     def __eq__(self, other):
         return isinstance(other, Struct) and self.name == other.name
     def __str__(self):
         return f'struct {self.name}'
 
-class Union(UserDict, Type): #TODO
+class Union(UserDict, Value): #TODO
     def __init__(self, name):
         super().__init__()
         self.const = False
@@ -187,7 +187,7 @@ class Union(UserDict, Type): #TODO
         self.size = max(self.size, attr.type.size)
         super().__setitem__(name, attr)
 
-class Array(Type):
+class Array(Value):
     def __init__(self, of, length):
         super().__init__()
         if length is None:
@@ -210,7 +210,7 @@ class Array(Type):
         return frame
     @staticmethod
     def glob_reduce(vstr, n, glob):
-        Type.glob_address(vstr, n, glob)
+        Value.glob_address(vstr, n, glob)
     @staticmethod
     def reduce(vstr, n, local, base):
         return Array.address(vstr, n, local, base)
@@ -220,14 +220,12 @@ class Array(Type):
             vstr.datas(glob.token.lexeme, glob.type.as_data(vstr, glob.init, []))
         else:
             vstr.space(glob.token.lexeme, glob.type.size)
-    def cast(self, other):
-        return self == other
     def __eq__(self, other):
         return isinstance(other, (Array,Pointer)) and self.of == other.of
     def __str__(self):
         return f'array({self.of})'
 
-class Func(Type):
+class Func(Value):
     def __init__(self, ret, params, variable):
         self.ret, self.params, self.variable = ret, params, variable
         self.size = 0

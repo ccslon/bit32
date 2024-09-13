@@ -45,7 +45,7 @@ struct Token charToken(char c) {
 void printToken(struct Token* token) {
     switch (token->type) {
         case STR: {
-            printf("(STR, '%s')", token->data.str);
+            printf("(STR, \"%s\")", token->data.str);
             break;
         }
         case NUM: {
@@ -58,7 +58,7 @@ void printToken(struct Token* token) {
     }
 }
 int main() {
-	struct Token t0 = strToken('c');
+	struct Token t0 = charToken('c');
     printToken(&t0);
     struct Token t1 = intToken(5);
     printToken(&t1);

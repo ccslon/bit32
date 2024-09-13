@@ -1,5 +1,5 @@
 .S0: "%u\n\0"
-.S1: "(STR, '%s')\0"
+.S1: "(STR, \"%s\")\0"
 .S2: "(NUM, %d)\0"
 .S3: "(CHAR, '%c')\0"
 .S4: "Hello!\0"
@@ -132,7 +132,7 @@ main:
   MOV FP, SP
   MOV.B B, 'c'
   MOV.B A, B
-  CALL strToken
+  CALL charToken
   MOV B, A
   ADD C, FP, 0
   LD.B D, [B, 0]

@@ -11,7 +11,7 @@ if __name__ == '__main__':
     
     # ccompile('std/stdlib.h', sflag=False, fflag=True)
     # ccompile('std/stdlib.h', sflag=True, fflag=False)
-    ccompile('tests/cstrings.c', sflag=True, fflag=True)
+    ccompile('tests/unions.c', sflag=True, fflag=True)
     # ccompile('tests/const.c', sflag=True, fflag=True)
-    # ccompile('c/sec5.12.c', sflag=True, fflag=False)
-    # ccompile('c/sort.c')
+    # ccompile('c/test.c', sflag=True, fflag=False)
+    # ccompile('c/testall.c')

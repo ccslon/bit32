@@ -196,7 +196,7 @@ class Unary(OpExpr):
           '~':Op.NOT}
     OPF = {'-':Op.NEGF}
     def __init__(self, op, unary):
-        # assert unary.type.cast(Word('int')), f'Line {op.line}: Cannot {op.lexeme} {unary.type}'
+        assert unary.type.cast(Int()), f'Line {op.line}: Cannot {op.lexeme} {unary.type}'
         super().__init__(unary.type, op)
         self.unary = unary
     def reduce(self, vstr, n):
@@ -247,7 +247,7 @@ class Deref(Expr):
 
 class Cast(Expr):
     def __init__(self, type, token, cast):
-        # assert type.cast(cast.type), f'Line {token.line}: Cannot cast {cast.type} to {type}'
+        assert type.cast(cast.type), f'Line {token.line}: Cannot cast {cast.type} to {type}'
         super().__init__(type, token)
         self.cast = cast
     def reduce(self, vstr, n):
@@ -322,8 +322,8 @@ class Binary(OpExpr):
            '&': Op.AND,
            '&=':Op.AND}
     def __init__(self, op, left, right):
-        # assert not isinstance(left, String) or not isinstance(right, String)
-        # assert left.type.cast(right.type), f'Line {op.line}: Cannot {left.type} {op.lexeme} {right.type}'
+        assert not isinstance(left, String) or not isinstance(right, String)
+        assert left.type.cast(right.type), f'Line {op.line}: Cannot {left.type} {op.lexeme} {right.type}'
         self.left, self.right = left, right
         super().__init__(max_type(left.type, right.type), op)
     def is_signed(self):
@@ -474,7 +474,7 @@ class Condition(Expr):
 
 class InitAssign(Expr):
     def __init__(self, token, left, right):
-        # assert left.type == right.type, f'Line {token.line}: {left.type} != {right.type}'
+        assert left.type == right.type, f'Line {token.line}: {left.type} != {right.type}'
         super().__init__(left.type, token)
         self.left, self.right = left, right
     def reduce(self, vstr, n):
@@ -606,7 +606,7 @@ class Post(OpExpr):
     OPF = {'++':Op.ADDF,
            '--':Op.SUBF}
     def __init__(self, op, postfix):
-        # assert postfix.type.cast(Int()), f'Line {op.line}: Cannot {op.lexeme} {postfix.type}'
+        assert postfix.type.cast(Int()), f'Line {op.line}: Cannot {op.lexeme} {postfix.type}'
         super().__init__(postfix.type, op)
         self.postfix = postfix
     def reduce(self, vstr, n):
@@ -688,37 +688,49 @@ class SubScr(Access):
 
 class Call(Expr):
     def __init__(self, primary, args):
-        # for i, param in enumerate(primary.type.params):
-        #     assert param == args[i].type, f'Line {primary.token.line}: Argument #{i+1} of {primary.token.lexeme} {param} != {args[i].type}'
+        for i, param in enumerate(primary.type.params):
+            assert param == args[i].type, f'Line {primary.token.line}: Argument #{i+1} of {primary.token.lexeme} {param} != {args[i].type}'
         super().__init__(primary.type.ret, primary.token)
         self.primary, self.args = primary, args
     def reduce(self, vstr, reg):
         self.generate(vstr, reg)
+        if reg > 0 and self.width:
+            vstr.binary(Op.MOV, Size.WORD, regs[reg], Reg.A)
         return regs[reg]
     def generate(self, vstr, reg):
         for i, arg in enumerate(self.args):
             arg.reduce(vstr, reg+i)
-            # self.primary.type.params[i].convert(vstr, reg+i, arg)
+            self.primary.type.params[i].convert(vstr, reg+i, arg)
         for i, arg in enumerate(self.args[:4]):
             vstr.binary(Op.MOV, arg.width, regs[i], regs[reg+i])
-        if self.primary.type.variable:
-            for i, arg in reversed(list(enumerate(self.args[4:]))):
-                vstr.push(Size.WORD, regs[reg+4+i])
-        else:
-            for i, arg in reversed(list(enumerate(self.args[4:]))):
-                vstr.push(arg.width, regs[reg+4+i])
+        for i, arg in reversed(list(enumerate(self.args[4:]))):
+            vstr.push(arg.width, regs[reg+4+i])
+        self.primary.call(vstr, reg)        
+            
+class VarCall(Call):
+    def __init__(self, primary, args):
+        super().__init__(primary, args)
+        self.params = primary.type.params
+    def generate(self, vstr, reg):        
+        for i, param in enumerate(self.params):
+            self.args[i].reduce(vstr, reg+i)
+            self.params[i].convert(vstr, reg+i, self.args[i])
+        for i, arg in enumerate(self.args[len(self.params):]):
+            arg.reduce(vstr, len(self.params)+reg+i)        
+        for i, arg in enumerate(self.args[:4]):
+            vstr.binary(Op.MOV, arg.width, regs[i], regs[reg+i])
+        for i, arg in reversed(list(enumerate(self.args[4:]))):
+            vstr.push(Size.WORD, regs[reg+4+i])
         self.primary.call(vstr, reg)
-        if self.primary.type.variable and len(self.args) > 4:
-            vstr.binary(Op.ADD, Size.WORD, Reg.SP, sum(arg.width for arg in self.args) - sum(param.width for param in self.primary.type.params))
-        if reg > 0 and self.width:
-            vstr.binary(Op.MOV, Size.WORD, regs[reg], Reg.A)
+        if len(self.args) > 4:
+            vstr.binary(Op.ADD, Size.WORD, Reg.SP, len(self.args[4:]) * Size.WORD) #sum(arg.width for arg in self.args) - sum(param.width for param in self.params))
 
 class Return(Expr):
     def __init__(self, token, expr):
         super().__init__(Void() if expr is None else expr.type, token)
         self.expr = expr
     def generate(self, vstr, n):
-        # assert vstr.defn.type.ret == self.type, f'Line {self.token.line}: {vstr.defn.type.ret} != {self.type} in {vstr.defn.token.lexeme}'
+        assert vstr.defn.type.ret == self.type, f'Line {self.token.line}: {vstr.defn.type.ret} != {self.type} in {vstr.defn.token.lexeme}'
         if self.expr:
             self.expr.reduce(vstr, n)
         vstr.jump(Cond.AL, f'.L{vstr.return_label}')
