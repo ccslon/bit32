@@ -86,7 +86,6 @@ class Glob(Local):
         self.type.glob_call(vstr, n, self)
     def union(self, attr):
         new = Glob(attr.type, attr.token)
-        # new.init = attr.init
         return new
     
 def itf(i):

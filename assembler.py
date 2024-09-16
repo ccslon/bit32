@@ -14,7 +14,7 @@ RE_COND = r'|'.join(cond.name for cond in Cond)
 
 TOKENS = {
     'const': r'-?(0x[0-9a-f]+|0b[01]+|\d+)',
-    'string': r'"[^"]*"',
+    'string': r'"(\\"|[^"])*"',
     'char': r"'\\?[^']'",
     # 'ldm': r'^(ldm)\b',
     'ld': rf'^ld(?P<ld_cond>{RE_COND})?(?P<ld_flag>s)?(\.(?P<ld_size>{RE_SIZE}))?\b',

@@ -48,7 +48,7 @@ void qsort(int* v, int left, int right, int (*cmp)(int, int)) {
 }
 int next = 0;
 int rand() {
-    next = 81 * next + 79; // % 2**16
+    next = (1103515245 * next + 12345) % 4294967296 //mod 2^31
     return next;
 }
 void srand(int seed) {
@@ -59,6 +59,22 @@ int atoi(const char* s) {
     for (i = 0; '0' <= s[i] && s[i] <= '9'; ++i)
         n = 10 * n + (s[i] - '0');
     return n;
+}
+float atof(const char* s) {
+    float val, pow;
+    int i = 0, sign;
+    sign = s[i] == '-' ? -1 : 1;
+    if (s[i] == '+' || s[i] == '-') 
+        i++;
+    for (val = 0.0; '0' <= s[i] && s[i] <= '9'; i++)
+        val = 10.0 * val + (s[i] - '0');
+    if (s[i] == '.')
+        i++;
+    for (pow = 1.0; '0' <= s[i] && s[i] <= '9'; i++) {
+        val = 10.0 * val + (s[i] - '0');
+        pow *= 10.0;
+    }
+    return sign * val / pow;
 }
 struct header {
     struct header *next;

@@ -49,20 +49,22 @@ struct Token charToken(char c) {
 void printToken(struct Token* token) {
     switch (token->type) {
         case STR: {
-            printf("(STR, '%s')", token->data.str);
+            printf("(STR, \"%s\")\n", token->data.str);
             break;
         }
         case NUM: {
-            printf("(NUM, %d)", token->data.num);
+            printf("(NUM, %d)\n", token->data.num);
             break;
         }
         case CHAR: {
-            printf("(CHAR, '%c')", token->data.chr);
+            printf("(CHAR, '%c')\n", token->data.chr);
         }
     }
 }
 int main() {
 	test_ip();
+    struct Token t0 = charToken('c');
+    printToken(&t0);
     struct Token t1 = intToken(5);
 	printToken(&t1);
     struct Token t2 = strToken("Hello!");

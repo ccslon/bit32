@@ -1,6 +1,14 @@
-const int CHAR_BIT = 16;
-const int CHAR_MAX = 65535;
-const int CHAR_MIN = 0;
-const int INT_MAX = 32767;
-//const int INT_MIN = -32768;
-const int UINT_MAX = 65535;
+#define CHAR_BIT    8
+#define CHAR_MAX    127
+#define CHAR_MIN    -128
+#define SCHAR_MAX   127
+#define SCHAR_MIN   -128
+#define UCHAR_MAX   255
+
+#define SHRT_MIN    -32768
+#define SHRT_MAX    32767
+#define USHRT_MAX   65535
+
+#define INT_MIN 	-2147483648
+#define INT_MAX 	2147483647
+#define UINT_MAX 	4294967295
