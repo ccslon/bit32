@@ -67,7 +67,7 @@ void main() {
     print_cat(&cat2);
     //sort
     for (i = 0; i < LEN; i++)
-        arr[i] = rand();
+        arr[i] = rand() % 1000;
     for (i = 0; i < LEN; i++)
         printf("%d ", arr[i]);
     putchar('\n');

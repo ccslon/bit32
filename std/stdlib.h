@@ -48,7 +48,7 @@ void qsort(int* v, int left, int right, int (*cmp)(int, int)) {
 }
 int next = 0;
 int rand() {
-    next = (1103515245 * next + 12345) % 4294967296 //mod 2^31
+    next = 1103515245 * next + 12345; //mod 2^31 - 1
     return next;
 }
 void srand(int seed) {

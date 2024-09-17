@@ -59,7 +59,7 @@ class Scope(Frame):
 
 class CParser:
 
-    TYPE = ('int','char','short','float','unsigned','signed','struct','void','const','union','enum')
+    TYPE = ('int','char','short','float','unsigned','signed','struct','void','const','union','enum','volatile')
 
     def resolve(self, name):
         if name in self.param_scope:
@@ -329,24 +329,9 @@ class CParser:
 
     def attr(self, spec, type):
         '''
-        ATTR -> {'*'} [id] {'[' num ']'}
-               |{'*'} '(' '*' [id] ')' '(' PARAMS ')'
+        ATTR -> DECLR
         '''
-        while self.accept('*'):
-            type = Pointer(type)
-        if self.accept('('):
-            self.expect('*')
-            id = self.accept('id')
-            self.expect(')')
-            self.expect('(')
-            params, variable = self.params()
-            type = Pointer(Func(type, [param.type for param in params], variable))
-            self.expect(')')
-        else:
-            id = self.accept('id')
-            while self.accept('['):
-                type = Array(type, Num(self.expect('num')))
-                self.expect(']')
+        type, id = self.declr(type)
         spec[id.lexeme] = Attr(type, id)
 
     def spec(self):
@@ -429,20 +414,17 @@ class CParser:
             qual = self.spec()
             qual.const = True
             return qual
-        elif self.accept('volatile'): #TODO
+        elif self.accept('volatile'):
             pass
         return self.spec()
 
     def type_name(self):
         '''
-        TYPE_NAME -> QUAL {'*'} {'[' num ']'}
+        TYPE_NAME -> QUAL ABS_DECLR
         '''
         type_name = self.qual()
-        while self.accept('*'):
-            type_name = Pointer(type_name)
-        while self.accept('['):
-            type_name = Array(type_name, Num(next(self)) if self.peek('num') else None)
-            self.expect(']')
+        type_name, id = self.declr(type_name)
+        assert id is None
         return type_name
     
     def _declr(self, types):
@@ -469,7 +451,7 @@ class CParser:
         while self.peek('(','['):
             if self.accept('('):
                 params, variable = self.params()
-                types.append((Func, ([param.type for param in params], variable)))
+                types.append((Func, (params, variable)))
                 self.expect(')')
             elif self.accept('['):
                 types.append((Array, (Num(next(self)) if self.peek('num') else None,)))
@@ -522,7 +504,7 @@ class CParser:
         '''
         INIT_LIST -> EXPR|'{' INIT_LIST {',' INIT_LIST} '}'
         '''
-        init = [] #List()
+        init = []
         if self.accept('{'):
             init.append(self.list())
             self.expect('}')
@@ -538,18 +520,11 @@ class CParser:
 
     def param(self):
         '''
-        PARAM -> QUAL [id] {'[' ']'}
-                |QUAL '(' '*' [id] ')' '(' PARAMS ')'
+        PARAM -> QUAL DECLR
         '''
         type = self.qual()
         type, id = self.declr(type)
-        param = Local(type, id)
-        if id:
-            if len(self.param_scope) >= 4:
-                self.stack_param_scope[id.lexeme] = param
-            else:                
-                self.param_scope[id.lexeme] = param
-        return param
+        return Local(type, id)
 
     def params(self):
         '''
@@ -712,46 +687,41 @@ class CParser:
                 self.expect(';')
             else:
                 type = self.qual()
-                while self.accept('*'):
-                    type = Pointer(type)
-                id = self.accept('id')
-                if self.accept('('):                    #Function
+                type, id = self.declr(type)
+                if id:
+                    self.globs[id.lexeme] = glob = Glob(type, id)
+                if self.accept('{'):
                     assert id is not None
+                    assert isinstance(type, Func)
+                    assert not any(param.token is None for param in type.params)
                     self.begin_func()
-                    params, variable = self.params()
-                    type = Func(type, [param.type for param in params], variable)
-                    self.expect(')')
-                    self.globs[id.lexeme] = Glob(type, id)
-                    if self.accept('{'):
-                        assert not any(param.token is None for param in params)
-                        if not variable:
-                            self.scope = self.param_scope
-                        block = self.block()
-                        self.expect('}')
-                        self.end_func()
-                        if variable:
-                            defn = VarDefn
-                        else:
-                            defn = Defn
-                        program.append(defn(type, id, params, block, self.returns, self.calls, self.max_args, self.space))
+                    for param in type.params[:4]:
+                        self.param_scope[param.token.lexeme] = param
+                    for param in type.params[4:]:
+                        self.stack_param_scope[param.token.lexeme] = param
+                    if type.variable:
+                        defn = VarDefn
                     else:
-                        self.expect(';')
-                        self.end_func()
+                        self.scope = self.param_scope
+                        defn = Defn
+                    block = self.block()
+                    
+                    self.end_func()
+                    program.append(defn(type, id, block, self.returns, self.calls, self.max_args, self.space))
+                    self.expect('}')
+                elif self.accept('='):
+                    assert id is not None
+                    assert not isinstance(type, Void)
+                    if self.accept('{'):
+                        assert isinstance(type, (Array,Struct))
+                        glob.init = self.list()
+                        self.expect('}')
+                    else:
+                        glob.init = self.const()
+                    program.append(glob)
+                    self.expect(';')
                 else:
-                    if id:                              #Global
-                        assert not isinstance(type, Void)
-                        while self.accept('['):
-                            type = Array(type, Num(self.expect('num')))
-                            self.expect(']')
-                        glob = Glob(type, id)
-                        if self.accept('='):
-                            if self.accept('{'):
-                                assert isinstance(glob.type, (Array,Struct))
-                                glob.init = self.list()
-                                self.expect('}')
-                            else:
-                                glob.init = self.const()
-                        self.globs[id.lexeme] = glob
+                    if id and type.size:
                         program.append(glob)
                     self.expect(';')
         return program

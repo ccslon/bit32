@@ -26,7 +26,7 @@ class Value(Type):
     def __init__(self):
         self.const = False
         self.inc = 1
-    def convert(self, vstr, reg, other):
+    def convert(self, vstr, n, other):
         pass
     def list_store(self, vstr, n, expr, loc):
         expr.reduce(vstr, n+1)
@@ -48,10 +48,10 @@ class Value(Type):
     def reduce(self, vstr, n, local, base):
         vstr.load(self.width, regs[n], regs[base], local.location, local.token.lexeme)
         return regs[n]
-    def glob_reduce(self, vstr, reg, glob):
-        vstr.load_glob(regs[reg], glob.token.lexeme)
-        vstr.load(self.width, regs[reg], regs[reg])
-        return regs[reg]
+    def glob_reduce(self, vstr, n, glob):
+        vstr.load_glob(regs[n], glob.token.lexeme)
+        vstr.load(self.width, regs[n], regs[n])
+        return regs[n]
     def as_data(self, vstr, expr, frame):
         frame.append((self.width, expr.data(vstr)))
     def glob(self, vstr, glob):
@@ -66,9 +66,9 @@ class Bin(Value):
         self.signed = signed
     def is_signed(self):
         return self.signed
-    def convert(self, vstr, reg, other):
+    def convert(self, vstr, n, other):
         if other.type.is_float():
-            vstr.binary(Op.FTI, Size.WORD, regs[reg], regs[reg])
+            vstr.binary(Op.FTI, Size.WORD, regs[n], regs[n])
     def __eq__(self, other):
         return isinstance(other, (Bin,Float))
 
@@ -99,9 +99,9 @@ class Float(Value):
         self.size = self.width = Size.WORD
     def is_float(self):
         return True
-    def convert(self, vstr, reg, other):
+    def convert(self, vstr, n, other):
         if not other.is_float():
-            vstr.binary(Op.ITF, Size.WORD, regs[reg], regs[reg])
+            vstr.binary(Op.ITF, Size.WORD, regs[n], regs[n])
     def __eq__(self, other):
         return isinstance(other, (Float,Bin))
     def __str__(self):

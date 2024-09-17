@@ -35,8 +35,8 @@ class Expr(CNode):
         return regs[n]
     def list_reduce(self, vstr, n, _):
         return self.reduce(vstr, n)
-    def convert(self, vstr, reg, other):
-        self.type.convert(vstr, reg, other)
+    def convert(self, vstr, n, other):
+        self.type.convert(vstr, n, other)
     def is_signed(self):
         return self.type.is_signed()
     def is_float(self):
@@ -517,9 +517,9 @@ class Block(UserList, Expr):
             statement.generate(vstr, n)
 
 class Defn(Expr):
-    def __init__(self, type, id, params, block, returns, calls, max_args, space):
+    def __init__(self, type, id, block, returns, calls, max_args, space):
         super().__init__(type, id)
-        self.params, self.block, self.returns, self.calls, self.max_args, self.space = params, block, returns, calls, max_args, space
+        self.params, self.block, self.returns, self.calls, self.max_args, self.space = type.params, block, returns, calls, max_args, space
     def generate(self, vstr):
         regs.clear()
         preview = Visitor()
@@ -688,41 +688,41 @@ class SubScr(Access):
 class Call(Expr):
     def __init__(self, primary, args):
         for i, param in enumerate(primary.type.params):
-            assert param == args[i].type, f'Line {primary.token.line}: Argument #{i+1} of {primary.token.lexeme} {param} != {args[i].type}'
+            assert param.type == args[i].type, f'Line {primary.token.line}: Argument #{i+1} of {primary.token.lexeme} {param.type} != {args[i].type}'
         super().__init__(primary.type.ret, primary.token)
         self.primary, self.args = primary, args
-    def reduce(self, vstr, reg):
-        self.generate(vstr, reg)
-        if reg > 0 and self.width:
-            vstr.binary(Op.MOV, Size.WORD, regs[reg], Reg.A)
-        return regs[reg]
-    def generate(self, vstr, reg):
+    def reduce(self, vstr, n):
+        self.generate(vstr, n)
+        if n > 0 and self.width:
+            vstr.binary(Op.MOV, Size.WORD, regs[n], Reg.A)
+        return regs[n]
+    def generate(self, vstr, n):
         for i, arg in enumerate(self.args):
-            arg.reduce(vstr, reg+i)
-            self.primary.type.params[i].convert(vstr, reg+i, arg)
+            arg.reduce(vstr, n+i)
+            self.primary.type.params[i].convert(vstr, n+i, arg)
         for i, arg in enumerate(self.args[:4]):
-            vstr.binary(Op.MOV, arg.width, regs[i], regs[reg+i])
+            vstr.binary(Op.MOV, arg.width, regs[i], regs[n+i])
         for i, arg in reversed(list(enumerate(self.args[4:]))):
-            vstr.push(arg.width, regs[reg+4+i])
-        self.primary.call(vstr, reg)        
+            vstr.push(arg.width, regs[n+4+i])
+        self.primary.call(vstr, n)        
             
 class VarCall(Call):
     def __init__(self, primary, args):
         super().__init__(primary, args)
         self.params = primary.type.params
-    def generate(self, vstr, reg):        
+    def generate(self, vstr, n):        
         for i, param in enumerate(self.params):
-            self.args[i].reduce(vstr, reg+i)
-            self.params[i].convert(vstr, reg+i, self.args[i])
+            self.args[i].reduce(vstr, n+i)
+            self.params[i].convert(vstr, n+i, self.args[i])
         for i, arg in enumerate(self.args[len(self.params):]):
-            arg.reduce(vstr, len(self.params)+reg+i)        
+            arg.reduce(vstr, len(self.params)+n+i)        
         for i, arg in enumerate(self.args[:4]):
-            vstr.binary(Op.MOV, arg.width, regs[i], regs[reg+i])
+            vstr.binary(Op.MOV, arg.width, regs[i], regs[n+i])
         for i, arg in reversed(list(enumerate(self.args[4:]))):
-            vstr.push(Size.WORD, regs[reg+4+i])
-        self.primary.call(vstr, reg)
+            vstr.push(Size.WORD, regs[n+4+i])
+        self.primary.call(vstr, n)
         if len(self.args) > 4:
-            vstr.binary(Op.ADD, Size.WORD, Reg.SP, len(self.args[4:]) * Size.WORD) #sum(arg.width for arg in self.args) - sum(param.width for param in self.params))
+            vstr.binary(Op.ADD, Size.WORD, Reg.SP, len(self.args[4:]) * Size.WORD)
 
 class Return(Expr):
     def __init__(self, token, expr):
