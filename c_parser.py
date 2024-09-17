@@ -429,6 +429,8 @@ class CParser:
             qual = self.spec()
             qual.const = True
             return qual
+        elif self.accept('volatile'): #TODO
+            pass
         return self.spec()
 
     def type_name(self):
@@ -443,7 +445,7 @@ class CParser:
             self.expect(']')
         return type_name
     
-    def declr(self, types):
+    def _declr(self, types):
         '''
         DECLR -> {'*'} DIR_DECLR
         '''
@@ -457,13 +459,13 @@ class CParser:
             
     def dir_declr(self, types):
         '''
-        DIR_DECLR -> ('(' DECLR ')'|[id]){'(' PARAMS ')'|'[' num ']'}
+        DIR_DECLR -> ('(' _DECLR ')'|[id]){'(' PARAMS ')'|'[' num ']'}
         '''
         if self.accept('('):
-            id = self.declr(types)
+            id = self._declr(types)
             self.expect(')')
         else:
-            id = self.expect('id')
+            id = self.accept('id')
         while self.peek('(','['):
             if self.accept('('):
                 params, variable = self.params()
@@ -474,14 +476,21 @@ class CParser:
                 self.expect(']')
         return id
 
+    def declr(self, type):
+        '''
+        DECLR -> _DECLR
+        '''
+        types=[]
+        id = self._declr(types)
+        for new_type, args in reversed(types):
+            type = new_type(type, *args)
+        return type, id
+
     def init(self, type):
         '''
         INIT -> DECLR ['=' (EXPR|'{' INIT_LIST '}')]
         '''
-        types = []
-        id = self.declr(types)
-        for new_type, args in reversed(types):
-            type = new_type(type, *args)
+        type, id = self.declr(type)        
         init = declr = Local(type, id)
         if self.peek('='):
             token = next(self)
@@ -533,21 +542,7 @@ class CParser:
                 |QUAL '(' '*' [id] ')' '(' PARAMS ')'
         '''
         type = self.qual()
-        while self.accept('*'):
-            type = Pointer(type)
-        if self.accept('('):
-            self.expect('*')
-            id = self.accept('id')
-            self.expect(')')
-            self.expect('(')
-            params, variable = self.params()
-            type = Pointer(Func(type, [param.type for param in params], variable))
-            self.expect(')')
-        else:
-            id = self.accept('id')
-            while self.accept('['):
-                type = Pointer(type)
-                self.expect(']')
+        type, id = self.declr(type)
         param = Local(type, id)
         if id:
             if len(self.param_scope) >= 4:
