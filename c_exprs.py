@@ -16,8 +16,8 @@ class Expr(CNode):
         self.type = type
         self.width = type.width
         self.token = token
-    def branch(self, vstr, n, _):
-        self.generate(vstr, n)
+    def is_signed(self):
+        return self.type.is_signed()
     def cmp(self):
         return Op.CMPF if self.type.is_float() else Op.CMP
     def compare(self, vstr, n, label):
@@ -28,6 +28,8 @@ class Expr(CNode):
         vstr.jump(Cond.NE, f'.L{label}')
     def branch_reduce(self, vstr, n, _):
         self.reduce(vstr, n)
+    def branch(self, vstr, n, _):
+        self.generate(vstr, n)
     def num_reduce(self, vstr, n):
         return self.reduce(vstr, n)
     def float_reduce(self, vstr, n):
@@ -35,20 +37,14 @@ class Expr(CNode):
         if not self.type.is_float():
             vstr.binary(Op.ITF, Size.WORD, reg[n], reg[n])
         return reg[n]
-    def list_reduce(self, vstr, n, _):
-        return self.reduce(vstr, n)
-    def convert(self, vstr, n, other):
-        self.type.convert(vstr, n, other)
-    def is_signed(self):
-        return self.type.is_signed()
 
 class Local(Expr):
-    def store(self, vstr, n):
-        return self.type.store(vstr, n, self, Reg.FP)
-    def reduce(self, vstr, n):
-        return self.type.reduce(vstr, n, self, Reg.FP)
     def address(self, vstr, n):
         return self.type.address(vstr, n, self, Reg.FP)
+    def reduce(self, vstr, n):
+        return self.type.reduce(vstr, n, self, Reg.FP)
+    def store(self, vstr, n):
+        return self.type.store(vstr, n, self, Reg.FP)
     def call(self, vstr, n):
         self.type.call(vstr, n, self, Reg.FP)
     def union(self, attr):
@@ -57,12 +53,12 @@ class Local(Expr):
         return new
 
 class Attr(Local):
-    def store(self, vstr, n):
-        return self.type.store(vstr, n, self, n+1)
-    def reduce(self, vstr, n):
-        return self.type.reduce(vstr, n, self, n)
     def address(self, vstr, n):
         return self.type.address(vstr, n, self, n)
+    def reduce(self, vstr, n):
+        return self.type.reduce(vstr, n, self, n)
+    def store(self, vstr, n):
+        return self.type.store(vstr, n, self, n+1)
     def call(self, vstr, n):
         self.type.call(vstr, n, self, n)
     def union(self, attr):
@@ -74,16 +70,16 @@ class Glob(Local):
     def __init__(self, type, token):
         super().__init__(type, token)
         self.init = None
-    def store(self, vstr, n):
-        return self.type.glob_store(vstr, n, self)
     def reduce(self, vstr, n):
         return self.type.glob_reduce(vstr, n, self)
     def address(self, vstr, n):
         return self.type.glob_address(vstr, n, self)
-    def generate(self, vstr):
-        self.type.glob_generate(vstr, self)
+    def store(self, vstr, n):
+        return self.type.glob_store(vstr, n, self)
     def call(self, vstr, n):
         self.type.glob_call(vstr, n, self)
+    def generate(self, vstr):
+        self.type.glob_generate(vstr, self)
     def union(self, attr):
         new = Glob(attr.type, attr.token)
         return new
@@ -233,13 +229,13 @@ class Deref(Expr):
         self.unary = unary
     def address(self, vstr, n):
         return self.unary.reduce(vstr, n)
-    def store(self, vstr, n):
-        self.address(vstr, n+1)
-        vstr.store(self.width, reg[n], reg[n+1])
-        return reg[n]
     def reduce(self, vstr, n):
         self.address(vstr, n)
         vstr.load(self.width, reg[n], reg[n])
+        return reg[n]
+    def store(self, vstr, n):
+        self.address(vstr, n+1)
+        vstr.store(self.width, reg[n], reg[n+1])
         return reg[n]
     def call(self, vstr, n):
         self.unary.call(vstr, n)
@@ -474,17 +470,18 @@ class InitAssign(Expr):
         assert left.type == right.type, f'Line {token.line}: {left.type} != {right.type}'
         super().__init__(left.type, token)
         self.left, self.right = left, right
-    def reduce(self, vstr, n):
-        return self.generate(vstr, n)
     def generate(self, vstr, n):
         self.right.reduce(vstr, n)
-        self.left.convert(vstr, n, self.right)
-        return self.left.store(vstr, n)
+        self.type.convert(vstr, n, self.right.type)
+        self.left.store(vstr, n)
 
 class Assign(InitAssign):
     def __init__(self, token, left, right):
         assert not left.type.const, 'Line {token.line}: Left is const'
         super().__init__(token, left, right)
+    def reduce(self, vstr, n):
+        self.generate(vstr, n)
+        return reg[n]
 
 class InitListAssign(Expr):
     def __init__(self, token, left, right):
@@ -630,12 +627,12 @@ class Dot(Access):
     def address(self, vstr, n):
         vstr.binary(Op.ADD, Size.WORD, self.postfix.address(vstr, n), self.attr.location)
         return reg[n]
-    def store(self, vstr, n):
-        self.postfix.address(vstr, n+1)
-        return self.attr.store(vstr, n)
     def reduce(self, vstr, n):
         self.postfix.address(vstr, n)
         return self.attr.reduce(vstr, n)
+    def store(self, vstr, n):
+        self.postfix.address(vstr, n+1)
+        return self.attr.store(vstr, n)
     def call(self, vstr, n):
         self.postfix.address(vstr, n)
         self.attr.call(vstr, n)
@@ -646,12 +643,12 @@ class Arrow(Dot):
     def address(self, vstr, n):
         vstr.binary(Op.ADD, Size.WORD, self.postfix.reduce(vstr, n), self.attr.location)
         return reg[n]
-    def store(self, vstr, n):
-        self.postfix.reduce(vstr, n+1)
-        return self.attr.store(vstr, n)
     def reduce(self, vstr, n):
         self.postfix.reduce(vstr, n)
         return self.attr.reduce(vstr, n)
+    def store(self, vstr, n):
+        self.postfix.reduce(vstr, n+1)
+        return self.attr.store(vstr, n)
     def call(self, vstr, n):
         self.postfix.reduce(vstr, n)
         self.attr.call(vstr, n)
@@ -674,11 +671,11 @@ class SubScr(Access):
         else:
             vstr.binary(Op.ADD, Size.WORD, reg[n], self.sub.num_reduce(vstr, n+1))
         return reg[n]
-    def store(self, vstr, n):
-        vstr.store(self.width, reg[n], self.address(vstr, n+1))
-        return reg[n]
     def reduce(self, vstr, n):
         vstr.load(self.width, self.address(vstr, n), reg[n])
+        return reg[n]
+    def store(self, vstr, n):
+        vstr.store(self.width, reg[n], self.address(vstr, n+1))
         return reg[n]
     def call(self, vstr, n):
         vstr.call(self.reduce(vstr, n))
@@ -688,7 +685,7 @@ class Call(Expr):
         for i, param in enumerate(primary.type.params):
             assert param.type == args[i].type, f'Line {primary.token.line}: Argument #{i+1} of {primary.token.lexeme} {param.type} != {args[i].type}'
         super().__init__(primary.type.ret, primary.token)
-        self.primary, self.args = primary, args
+        self.primary, self.args, self.params = primary, args, primary.type.params
     def reduce(self, vstr, n):
         self.generate(vstr, n)
         if n > 0 and self.width:
@@ -697,7 +694,7 @@ class Call(Expr):
     def generate(self, vstr, n):
         for i, arg in enumerate(self.args):
             arg.reduce(vstr, n+i)
-            self.primary.type.params[i].convert(vstr, n+i, arg)
+            self.params[i].type.convert(vstr, n+i, arg.type)
         for i, arg in enumerate(self.args[:4]):
             vstr.binary(Op.MOV, arg.width, reg[i], reg[n+i])
         for i, arg in reversed(list(enumerate(self.args[4:]))):
@@ -705,13 +702,10 @@ class Call(Expr):
         self.primary.call(vstr, n)
 
 class VarCall(Call):
-    def __init__(self, primary, args):
-        super().__init__(primary, args)
-        self.params = primary.type.params
     def generate(self, vstr, n):
         for i, param in enumerate(self.params):
             self.args[i].reduce(vstr, n+i)
-            self.params[i].convert(vstr, n+i, self.args[i])
+            self.params[i].type.convert(vstr, n+i, self.args[i].type)
         for i, arg in enumerate(self.args[len(self.params):]):
             arg.reduce(vstr, len(self.params)+n+i)
         for i, arg in enumerate(self.args[:4]):

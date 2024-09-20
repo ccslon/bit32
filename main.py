@@ -13,5 +13,5 @@ if __name__ == '__main__':
     # ccompile('std/stdlib.h', sflag=True, fflag=False)
     # ccompile('tests/fact.c', sflag=True, fflag=False)
     # ccompile('tests/const.c', sflag=True, fflag=True)
-    # ccompile('c/test.c', sflag=True, fflag=False)
-    ccompile('c/testall.c')
+    ccompile('c/gcd.c', sflag=True, fflag=False)
+    # ccompile('c/testall.c')

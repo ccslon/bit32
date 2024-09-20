@@ -39,7 +39,7 @@ class Value(Type):
         return reg[n]
     def list_generate(self, vstr, n, expr, loc):
         expr.reduce(vstr, n+1)
-        self.convert(vstr, n+1, expr)
+        self.convert(vstr, n+1, expr.type)
         vstr.store(self.width, reg[n+1], reg[n], loc)
     def glob_address(self, vstr, n, glob):
         vstr.load_glob(reg[n], glob.token.lexeme)
@@ -67,7 +67,7 @@ class Bin(Value):
     def is_signed(self):
         return self.signed
     def convert(self, vstr, n, other):
-        if other.type.is_float():
+        if other.is_float():
             vstr.binary(Op.FTI, Size.WORD, reg[n], reg[n])
     def __eq__(self, other):
         return isinstance(other, (Bin,Float))
@@ -100,7 +100,7 @@ class Float(Value):
     def is_float(self):
         return True
     def convert(self, vstr, n, other):
-        if not other.type.is_float():
+        if not other.is_float():
             vstr.binary(Op.ITF, Size.WORD, reg[n], reg[n])
     def __eq__(self, other):
         return isinstance(other, (Float,Bin))
