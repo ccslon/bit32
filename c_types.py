@@ -6,7 +6,7 @@ Created on Fri Sep  6 14:05:50 2024
 """
 from collections import UserDict
 from bit32 import Op, Size
-from c_utils import CNode, regs, Frame
+from c_utils import CNode, reg, Frame
 
 class Type(CNode):
     def is_float(self):
@@ -16,7 +16,7 @@ class Type(CNode):
 
 class Void(Type):
     def __init__(self):
-        self.size = self.width = 0    
+        self.size = self.width = 0
     def __eq__(self, other):
         return isinstance(other, Void)
     def __str__(self):
@@ -28,33 +28,33 @@ class Value(Type):
         self.inc = 1
     def convert(self, vstr, n, other):
         pass
-    def list_store(self, vstr, n, expr, loc):
+    def address(self, vstr, n, var, base):
+        vstr.ternary(Op.ADD, Size.WORD, reg[n], reg[base], var.location)
+        return reg[n]
+    def reduce(self, vstr, n, var, base):
+        vstr.load(self.width, reg[n], reg[base], var.location, var.token.lexeme)
+        return reg[n]
+    def store(self, vstr, n, var, base):
+        vstr.store(self.width, reg[n], reg[base], var.location, var.token.lexeme)
+        return reg[n]
+    def list_generate(self, vstr, n, expr, loc):
         expr.reduce(vstr, n+1)
         self.convert(vstr, n+1, expr)
-        vstr.store(self.width, regs[n+1], regs[n], loc)
-    def address(self, vstr, n, local, base):
-        vstr.ternary(Op.ADD, Size.WORD, regs[n], regs[base], local.location)
-        return regs[n]
+        vstr.store(self.width, reg[n+1], reg[n], loc)
     def glob_address(self, vstr, n, glob):
-        vstr.load_glob(regs[n], glob.token.lexeme)
-        return regs[n]
-    def store(self, vstr, n, local, base):
-        vstr.store(self.width, regs[n], regs[base], local.location, local.token.lexeme)
-        return regs[n]
-    def glob_store(self, vstr, n, glob):
-        vstr.load_glob(regs[n+1], glob.token.lexeme)
-        vstr.store(self.width, regs[n], regs[n+1])
-        return regs[n]
-    def reduce(self, vstr, n, local, base):
-        vstr.load(self.width, regs[n], regs[base], local.location, local.token.lexeme)
-        return regs[n]
+        vstr.load_glob(reg[n], glob.token.lexeme)
+        return reg[n]
     def glob_reduce(self, vstr, n, glob):
-        vstr.load_glob(regs[n], glob.token.lexeme)
-        vstr.load(self.width, regs[n], regs[n])
-        return regs[n]
-    def as_data(self, vstr, expr, frame):
-        frame.append((self.width, expr.data(vstr)))
-    def glob(self, vstr, glob):
+        vstr.load_glob(reg[n], glob.token.lexeme)
+        vstr.load(self.width, reg[n], reg[n])
+        return reg[n]
+    def glob_store(self, vstr, n, glob):
+        vstr.load_glob(reg[n+1], glob.token.lexeme)
+        vstr.store(self.width, reg[n], reg[n+1])
+        return reg[n]
+    def glob_data(self, vstr, expr, data):
+        data.append((self.width, expr.data(vstr)))
+    def glob_generate(self, vstr, glob):
         if glob.init:
             vstr.glob(glob.token.lexeme, self.width, glob.init.data(vstr))
         else:
@@ -68,7 +68,7 @@ class Bin(Value):
         return self.signed
     def convert(self, vstr, n, other):
         if other.type.is_float():
-            vstr.binary(Op.FTI, Size.WORD, regs[n], regs[n])
+            vstr.binary(Op.FTI, Size.WORD, reg[n], reg[n])
     def __eq__(self, other):
         return isinstance(other, (Bin,Float))
 
@@ -92,7 +92,7 @@ class Int(Bin):
         self.size = self.width = Size.WORD
     def __str__(self):
         return 'int'
-        
+
 class Float(Value):
     def __init__(self):
         super().__init__()
@@ -100,8 +100,8 @@ class Float(Value):
     def is_float(self):
         return True
     def convert(self, vstr, n, other):
-        if not other.is_float():
-            vstr.binary(Op.ITF, Size.WORD, regs[n], regs[n])
+        if not other.type.is_float():
+            vstr.binary(Op.ITF, Size.WORD, reg[n], reg[n])
     def __eq__(self, other):
         return isinstance(other, (Float,Bin))
     def __str__(self):
@@ -112,12 +112,12 @@ class Pointer(Int):
         super().__init__(False)
         self.to = self.of = type
         self.inc = self.to.size
+    def call(self, vstr, n, var, base):
+        self.reduce(vstr, n, var, base)
+        vstr.call(reg[n])
     def glob_call(self, vstr, n, glob):
         self.glob_reduce(vstr, n, glob)
-        vstr.call(regs[n])
-    def call(self, vstr, n, local, base):
-        self.reduce(vstr, n, local, base)
-        vstr.call(regs[n])
+        vstr.call(reg[n])
     def cast(self, other):
         return isinstance(other, Bin)
     def __eq__(self, other):
@@ -128,39 +128,63 @@ class Pointer(Int):
     def __str__(self):
         return f'ptr({self.to})'
 
-class Struct(Frame, Value):
+class List(Value):
+    def list_generate(self, vstr, n, right, loc):
+        vstr.ternary(Op.ADD, Size.WORD, reg[n+1], reg[n], loc)
+        for i, (loc, type) in enumerate(self):
+            type.list_generate(vstr, n+1, right[i], loc)
+    def glob_data(self, vstr, expr, data):
+        for i, (_, type) in enumerate(self):
+            type.glob_data(vstr, expr[i], data)
+        return data
+    def glob_generate(self, vstr, glob):
+        if glob.init:
+            vstr.datas(glob.token.lexeme, self.glob_data(vstr, glob.init, []))
+        else:
+            vstr.space(glob.token.lexeme, self.size)
+
+class Struct(Frame, List):
     def __init__(self, name):
         super().__init__()
         self.const = False
         self.name = name.lexeme if name is not None else name
         self.width = Size.WORD
+    def reduce(self, vstr, n, var, base):
+        return self.address(vstr, n, var, base)
+    def store(self, vstr, n, var, base):
+        self.address(vstr, n+1, var, base)
+        for loc, type in self:
+            vstr.load(type.width, reg[n+2], reg[n], loc)
+            vstr.store(type.width, reg[n+2], reg[n+1], loc)
     def __iter__(self):
         for attr in self.data.values():
             yield attr.location, attr.type
-    def list_store(self, vstr, n, right, loc):
-        vstr.ternary(Op.ADD, Size.WORD, regs[n+1], regs[n], loc)
-        for i, (loc, type) in enumerate(self):
-            type.list_store(vstr, n+1, right[i], loc)
-    def as_data(self, vstr, expr, frame):
-        for i, (_, type) in enumerate(self):
-            type.as_data(vstr, expr[i], frame)
-        return frame
-    def store(self, vstr, n, local, base):
-        self.address(vstr, n+1, local, base)
-        for loc, type in self:
-            vstr.load(type.width, regs[n+2], regs[n], loc)
-            vstr.store(type.width, regs[n+2], regs[n+1], loc)
-    def reduce(self, vstr, n, local, base):
-        return self.address(vstr, n, local, base)
-    def glob(self, vstr, glob):
-        if glob.init:
-            vstr.datas(glob.token.lexeme, self.as_data(vstr, glob.init, []))
-        else:
-            vstr.space(glob.token.lexeme, self.size)
     def __eq__(self, other):
         return isinstance(other, Struct) and self.name == other.name
     def __str__(self):
         return f'struct {self.name}'
+
+class Array(List):
+    def __init__(self, of, length):
+        super().__init__()
+        if length is None:
+            self.length = length
+        else:
+            self.size = of.size * length.value
+            self.length = length.value
+        self.of = of
+        self.width = Size.WORD
+    def glob_reduce(self, vstr, n, glob):
+        self.glob_address(vstr, n, glob)
+    def __iter__(self):
+        for i in range(self.length):
+            yield i*self.of.size, self.of
+    def reduce(self, vstr, n, var, base):
+        return self.address(vstr, n, var, base)
+    def __eq__(self, other):
+        return isinstance(other, (Array,Pointer)) and self.of == other.of
+    def __str__(self):
+        return f'array({self.of})'
 
 class Union(UserDict, Value):
     def __init__(self, name):
@@ -174,52 +198,17 @@ class Union(UserDict, Value):
         self.size = max(self.size, attr.type.size)
         super().__setitem__(name, attr)
 
-class Array(Value):
-    def __init__(self, of, length):
-        super().__init__()
-        if length is None:
-            self.length = length
-        else:            
-            self.size = of.size * length.value
-            self.length = length.value
-        self.of = of        
-        self.width = Size.WORD
-    def __iter__(self):
-        for i in range(self.length):
-            yield i*self.of.size, self.of
-    def list_store(self, vstr, n, right, loc):
-        vstr.ternary(Op.ADD, Size.WORD, regs[n+1], regs[n], loc)
-        for i, (loc, type) in enumerate(self):
-            type.list_store(vstr, n+1, right[i], loc)
-    def as_data(self, vstr, expr, frame):
-        for i, (_, type) in enumerate(self):
-            type.as_data(vstr, expr[i], frame)        
-        return frame
-    def glob_reduce(self, vstr, n, glob):
-        self.glob_address(vstr, n, glob)
-    def reduce(self, vstr, n, local, base):
-        return self.address(vstr, n, local, base)
-    def glob(self, vstr, glob):
-        if glob.init:
-            vstr.datas(glob.token.lexeme, self.as_data(vstr, glob.init, []))
-        else:
-            vstr.space(glob.token.lexeme, self.size)
-    def __eq__(self, other):
-        return isinstance(other, (Array,Pointer)) and self.of == other.of
-    def __str__(self):
-        return f'array({self.of})'
-
 class Func(Value):
     def __init__(self, ret, params, variable):
         self.ret, self.params, self.variable = ret, params, variable
         self.size = 0
         self.width = ret.width
+    def call(self, vstr, n, var, _):
+        vstr.call(var.token.lexeme)
     def glob_reduce(self, vstr, n, glob):
         return self.glob_address(vstr, n, glob)
     def glob_call(self, vstr, n, glob):
         vstr.call(glob.token.lexeme)
-    def call(self, vstr, n, local, _):
-        vstr.call(local.token.lexeme)
     def cast(self, other):
         return False
     def __eq__(self, other):

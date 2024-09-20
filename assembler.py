@@ -47,7 +47,7 @@ def lex(text):
     return [(match.lastgroup, match.group(), match) for match in RE.finditer(text)]
 
 class Assembler:
-    
+
     def const(self, label, size, value):
         self.labels.append(label)
         if size == Size.BYTE:
@@ -129,40 +129,40 @@ class Assembler:
             if line:
                 self.tokens = lex(line)
                 self.index = 0
-                
+
                 if self.match('id', '=', 'const'):
                     print(f'{self.line_no: >2}|{line}')
                     self.name(*self.values())
-                    
+
                 elif self.peek('label'):
                     print(f'{self.line_no: >2}|{line}')
-                    
+
                     if self.match('label'):
                         self.labels.append(*self.values())
-                    
+
                     elif self.match('label', 'size', 'const'):
                         self.const(*self.values())
-                        
+
                     elif self.match('label', 'size', 'id'):
                         self.label(*self.values())
-                    
+
                     elif self.match('label', 'size', 'char'):
                         self.char(*self.values())
-                        
+
                     elif self.match('label', 'string'):
                         self.string(*self.values())
-                        
+
                     elif self.match('label', 'space', 'const'):
                         self.space(*self.values())
-                        
+
                     else:
                         self.error()
                 else:
                     print(f'{self.line_no: >2}|  {line}')
-                    
+
                     if self.match('nop'):
                         self.jump(Cond.NV, 0)
-                    
+
                     elif self.match('id'):
                         self.new_data(Word, *self.values())
                     elif self.match('size', 'const') or self.match('size', 'id'):
@@ -175,22 +175,22 @@ class Assembler:
                             self.new_data(Word, value)
                     elif self.match('char'):
                         self.new_data(Char, *self.values())
-                        
+
                     elif self.match('jump', 'id'):
                         self.jump(*self.values())
-                    
+
                     elif self.match('op', 'reg'):
                         self.unary(*self.values())
-                    
+
                     elif self.match('op', 'reg', ',', 'reg'):
-                        self.binary(*self.values(), False)                        
+                        self.binary(*self.values(), False)
                     elif self.match('op', 'reg', ',', 'const'):
-                        self.binary(*self.values(), True)                        
+                        self.binary(*self.values(), True)
                     elif self.match('op', 'reg', ',', 'char'):
                         self.binary(*self.values(), True)
                     elif self.match('op', 'reg', ',', 'id'):
                         self.binary_w_name(*self.values())
-                    
+
                     elif self.match('op', 'reg', ',', 'reg', ',', 'reg'):
                         self.ternary(*self.values(), False)
                     elif self.match('op', 'reg', ',', 'reg', ',', 'const'):
@@ -199,31 +199,31 @@ class Assembler:
                         self.ternary(*self.values(), True)
                     elif self.match('op', 'reg', ',', 'reg', ',', 'id'):
                         self.ternary_w_name(*self.values())
-                        
+
                     elif self.match('ld', 'reg', ',', '[', 'reg', ',', 'reg', ']'):
-                        self.load(*self.values(), False)                            
+                        self.load(*self.values(), False)
                     elif self.match('ld', 'reg', ',', '[', 'reg', ']'):
-                        self.load(*self.values(), 0, True)                
+                        self.load(*self.values(), 0, True)
                     elif self.match('ld', 'reg', ',', '[', 'reg', ',', 'const', ']'):
                         self.load(*self.values(), True)
-                    
+
                     elif self.match('ld', '[', 'reg', ',', 'reg', ']', ',', 'reg'):
                         self.store(*self.values(), False)
                     elif self.match('ld', '[', 'reg', ']', ',', 'reg'):
                         self.store0(*self.values())
                     elif self.match('ld', '[', 'reg', ',', 'const', ']', ',', 'reg'):
                         self.store(*self.values(), True)
-                        
+
                     elif self.match('ld', 'reg', ',', 'const'):
                         self.immediate(*self.values())
                     elif self.match('ld', 'reg', ',', '=', 'id'):
                         self.immediate(*self.values())
-                        
+
                     elif self.match('push', 'rd'):
                         self.push(*self.values())
                     elif self.match('pop', 'rd'):
                         self.pop(*self.values())
-                        
+
                     elif self.accept('push'):
                         args = [self.expect('reg')]
                         while self.accept(','):
@@ -231,7 +231,7 @@ class Assembler:
                         self.expect('end')
                         for reg in args:
                             self.push(Cond.AL, False, Size.WORD, reg)
-                            
+
                     elif self.accept('pop'):
                         args = [self.expect('reg')]
                         while self.accept(','):
@@ -239,24 +239,24 @@ class Assembler:
                         self.expect('end')
                         for reg in reversed(args):
                             self.pop(Cond.AL, False, Size.WORD, reg)
-                                                
+
                     elif self.match('call', 'reg'):
                         self.ternary(Op.ADD, Cond.AL, False, Size.WORD, Reg.LR, Reg.PC, 4*2, True)
                         self.binary(Op.MOV, Cond.AL, False, Size.WORD, Reg.PC, *self.values(), False)
-                        
+
                     elif self.match('call', 'id'):
                         self.ternary(Op.ADD, Cond.AL, False, Size.WORD, Reg.LR, Reg.PC, 4*2, True)
                         self.jump(Cond.AL, *self.values())
-                        
+
                     elif self.match('ret'):
                         self.binary(Op.MOV, Cond.AL, False, Size.WORD, Reg.PC, Reg.LR, False)
-                        
+
                     elif self.match('halt'):
                         self.binary(Op.MOV, Cond.AL, False, Size.WORD, Reg.PC, Reg.PC, False)
-                        
+
                     else:
                         self.error()
-                        
+
         return self.inst + self.data
 
     def trans(self, type, value):
@@ -341,7 +341,6 @@ class Linker:
     def link(objects):
         targets = {}
         indices = set()
-        
         addr = 0
         for i, (labels, type, args) in enumerate(objects):
             for label in labels:
@@ -364,7 +363,7 @@ class Linker:
             contents.append(data.little_end())
             print('>>' if i in indices else '  ', f'{i:06x}', f'{data.str: <20}', f'| {data.format_dec(): <23}', f'{data.format_bin(): <42}', data.hex())
             i += type.size
-        print('\n', ' '.join(contents))
+        print('\n'+' '.join(contents))
         print(len(contents))
         return contents
 

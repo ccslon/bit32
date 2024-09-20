@@ -14,7 +14,7 @@ class Loop(UserList):
     def end(self):
         return self[-1][1]
 
-class Regs:
+class RegWrapper:
     def clear(self):
         self.max = -1
     def __getitem__(self, reg):
@@ -25,7 +25,7 @@ class Regs:
         self.max = max(self.max, reg)
         return Reg(reg)
 
-regs = Regs()
+reg = RegWrapper()
 
 class Frame(UserDict):
     def __init__(self):
@@ -69,9 +69,9 @@ class Visitor:
         pass
     def datas(self, label, datas):
         pass
-    def push(self, size, reg):
+    def push(self, size, rs):
         pass
-    def pop(self, size, reg):
+    def pop(self, size, rd):
         pass
     def pushm(self, calls, *regs):
         pass
@@ -98,7 +98,7 @@ class Visitor:
     def jump(self, cond, target):
         pass
     def mov(self, cond, rd, value):
-        pass    
+        pass
 
 class Emitter(Visitor):
     def clear(self):
@@ -127,19 +127,16 @@ class Emitter(Visitor):
         self.data.append(f'{label}:')
         for size, data in datas:
             self.data.append(f'  {size.name.lower()} {data}')
-    def push(self, size, reg):
-        self.add(f'PUSH{size.display()} {reg.name}')
-    def pop(self, size, reg):
-        self.add(f'POP{size.display()} {reg.name}')
+    def push(self, size, rs):
+        self.add(f'PUSH{size.display()} {rs.name}')
+    def pop(self, size, rd):
+        self.add(f'POP{size.display()} {rd.name}')
     def pushm(self, *regs):
         self.add('PUSH '+', '.join(reg.name for reg in regs))
     def popm(self, *regs):
         self.add('POP '+', '.join(reg.name for reg in regs))
     def call(self, proc):
-        if isinstance(proc, str):
-            self.add(f'CALL {proc}')
-        else:
-            self.add(f'CALL {proc.name}')
+        self.add(f'CALL {proc.name if isinstance(proc, Reg) else proc}')
     def ret(self):
         self.add('RET')
     def load_glob(self, rd, name):

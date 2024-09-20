@@ -37,6 +37,7 @@ class Reg(IntEnum):
     FP = 13
     SP = 14
     PC = 15
+        
 
 class Op(IntEnum):
     MOV = 0

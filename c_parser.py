@@ -13,7 +13,7 @@ from c_exprs import Post, Unary, Not, Pre, Binary, Compare, Logic
 from c_exprs import Local, Attr, Glob, Dot, SubScr, Arrow, Call, VarCall, AddrOf, Deref, SizeOf, Cast, Condition
 from c_exprs import InitAssign, Assign, InitListAssign, InitArrayString, Return, Block, Defn, VarDefn, Program
 from c_statements import Statement, If, Case, Switch, While, Do, For, Continue, Break, Goto, Label
-
+r'''( |\t)+$''' #to delete weird whitespace spyder adds
 '''
 TODO
 [X] Type checking
@@ -146,12 +146,12 @@ class CParser:
         '''
         UNARY -> POSTFIX
                 |('*'|'-'|'~'|'&'|'!') CAST
-                |('++'|'--') UNARY                
+                |('++'|'--') UNARY
                 |'sizeof' '(' TYPE_NAME ')'
                 |'sizeof' UNARY
         '''
         if self.peek('*'):
-            return Deref(next(self), self.cast())        
+            return Deref(next(self), self.cast())
         elif self.peekn('-', 'num'):
             next(self)
             return NegNum(next(self))
@@ -337,7 +337,7 @@ class CParser:
     def spec(self):
         '''
         TYPE_SPEC -> type
-                    |void
+                    |'void'
                     |id
                     |('struct'|'union') [id] '{' {QUAL ATTR {',' ATTR} ';'} '}'
                     |'enum' [id] '{' ENUM {',' ENUM}'}'
@@ -426,7 +426,7 @@ class CParser:
         type_name, id = self.declr(type_name)
         assert id is None
         return type_name
-    
+
     def _declr(self, types):
         '''
         DECLR -> {'*'} DIR_DECLR
@@ -438,7 +438,7 @@ class CParser:
         for _ in range(ns):
             types.append((Pointer, ()))
         return id
-            
+
     def dir_declr(self, types):
         '''
         DIR_DECLR -> ('(' _DECLR ')'|[id]){'(' PARAMS ')'|'[' num ']'}
@@ -472,7 +472,7 @@ class CParser:
         '''
         INIT -> DECLR ['=' (EXPR|'{' INIT_LIST '}')]
         '''
-        type, id = self.declr(type)        
+        type, id = self.declr(type)
         init = declr = Local(type, id)
         if self.peek('='):
             token = next(self)
@@ -486,7 +486,7 @@ class CParser:
                 init = InitAssign(token, declr, self.assign())
         self.scope[declr.token.lexeme] = declr
         return init
-    
+
     def decln(self):
         '''
         DECLN -> QUAL [INIT {',' INIT}] ';'
@@ -705,7 +705,6 @@ class CParser:
                         self.scope = self.param_scope
                         defn = Defn
                     block = self.block()
-                    
                     self.end_func()
                     program.append(defn(type, id, block, self.returns, self.calls, self.max_args, self.space))
                     self.expect('}')

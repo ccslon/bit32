@@ -5,7 +5,7 @@ Created on Fri Sep  6 14:25:05 2024
 @author: ccslon
 """
 from bit32 import Op, Cond
-from c_utils import CNode, regs
+from c_utils import CNode, reg
 from c_exprs import Block, Return
 
 class Statement(CNode):
@@ -54,7 +54,7 @@ class Switch(Statement):
         labels = []
         for case in self.cases:
             labels.append(vstr.next_label())
-            vstr.binary(Op.CMP, self.test.width, regs[n], case.const.num_reduce(vstr, n+1))
+            vstr.binary(Op.CMP, self.test.width, reg[n], case.const.num_reduce(vstr, n+1))
             vstr.jump(Cond.EQ, f'.L{labels[-1]}')
         if self.default:
             default = vstr.next_label()
