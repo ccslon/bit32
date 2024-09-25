@@ -1,5 +1,6 @@
 #define NULL (void*)0
 typedef int* FILE;
+typedef unsigned int size_t;
 FILE stdout = (int*)0x80000000;
 FILE stdin = (int*)0x80000001;
 char fgetc(FILE* stream) {

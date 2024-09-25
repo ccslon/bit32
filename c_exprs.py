@@ -486,6 +486,12 @@ class Assign(InitAssign):
 class InitListAssign(Expr):
     def __init__(self, token, left, right):
         super().__init__(left.type, token)
+        if isinstance(left.type, Array):
+            if left.type.length is None:
+                left.type.length = len(right)
+                left.type.size =  len(right) * left.type.of.size
+            else:
+                assert left.type.length >= len(right)
         self.left, self.right = left, right
     def generate(self, vstr, n):
         self.left.address(vstr, n)
@@ -495,7 +501,7 @@ class InitListAssign(Expr):
 class InitArrayString(Expr):
     def __init__(self, token, array, string):
         if array.type.length is None:
-            array.type.size = len(string) + 1
+            array.type.size = array.type.length = len(string) + 1
         else:
             assert array.type.size >= len(string) + 1
         self.array = array

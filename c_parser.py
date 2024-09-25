@@ -48,6 +48,11 @@ TODO
 [X] PREPROCESSING
     [X] Include header files
     [X] Macros
+    
+[ ] Proper typedef
+[ ] Proper preproc
+[ ] Assertion messages
+
 '''
 
 class Scope(Frame):
@@ -331,7 +336,10 @@ class CParser:
         '''
         ATTR -> DECLR
         '''
-        type, id = self.declr(type)
+        types = []
+        id = self.declr(types)
+        for new_type, args in reversed(types):
+            type = new_type(type, *args)
         spec[id.lexeme] = Attr(type, id)
 
     def spec(self):
@@ -408,7 +416,7 @@ class CParser:
 
     def qual(self):
         '''
-        TYPE_QUAL -> ['const'] SPEC
+        TYPE_QUAL -> ['const'|'volatile'] SPEC
         '''
         if self.accept('const'):
             qual = self.spec()
@@ -418,16 +426,36 @@ class CParser:
             pass
         return self.spec()
 
+    def storage(self):
+        '''
+        STORAGE -> ['typedef'|'extern'|'static'|'auto'|'register'] QUAL
+        '''
+        if self.accept('typedef'):
+            pass
+        elif self.accept('extern'):
+            pass
+        elif self.accept('static'):
+            pass
+        elif self.accept('auto'):
+            pass
+        elif self.accept('register'):
+            pass
+        else:
+            return self.qual()
+
     def type_name(self):
         '''
         TYPE_NAME -> QUAL ABS_DECLR
         '''
         type_name = self.qual()
-        type_name, id = self.declr(type_name)
+        types = []
+        id = self.declr(types)
         assert id is None
+        for new_type, args in reversed(types):
+            type_name = new_type(type_name, *args)
         return type_name
 
-    def _declr(self, types):
+    def declr(self, types):
         '''
         DECLR -> {'*'} DIR_DECLR
         '''
@@ -444,7 +472,7 @@ class CParser:
         DIR_DECLR -> ('(' _DECLR ')'|[id]){'(' PARAMS ')'|'[' num ']'}
         '''
         if self.accept('('):
-            id = self._declr(types)
+            id = self.declr(types)
             self.expect(')')
         else:
             id = self.accept('id')
@@ -458,21 +486,14 @@ class CParser:
                 self.expect(']')
         return id
 
-    def declr(self, type):
-        '''
-        DECLR -> _DECLR
-        '''
-        types=[]
-        id = self._declr(types)
-        for new_type, args in reversed(types):
-            type = new_type(type, *args)
-        return type, id
-
     def init(self, type):
         '''
         INIT -> DECLR ['=' (EXPR|'{' INIT_LIST '}')]
         '''
-        type, id = self.declr(type)
+        types = []
+        id = self.declr(types)
+        for new_type, args in reversed(types):
+            type = new_type(type, *args)
         init = declr = Local(type, id)
         if self.peek('='):
             token = next(self)
@@ -523,7 +544,13 @@ class CParser:
         PARAM -> QUAL DECLR
         '''
         type = self.qual()
-        type, id = self.declr(type)
+        types = []
+        id = self.declr(types)
+        for new_type, args in reversed(types):
+            if new_type is Array:
+                type = Pointer(type)
+            else:
+                type = new_type(type, *args)
         return Local(type, id)
 
     def params(self):
@@ -562,13 +589,11 @@ class CParser:
         '''
         if self.accept(';'):
             statement = Statement()
-
         elif self.accept('{'):
             self.begin_scope()
             statement = self.block()
             self.end_scope()
             self.expect('}')
-
         elif self.accept('if'):
             self.expect('(')
             expr = self.expr()
@@ -576,7 +601,6 @@ class CParser:
             statement = If(expr, self.statement())
             if self.accept('else'):
                 statement.false = self.statement()
-
         elif self.accept('switch'):
             self.expect('(')
             test = self.expr()
@@ -591,13 +615,11 @@ class CParser:
                 self.expect(':')
                 statement.default = self.statement()
             self.expect('}')
-
         elif self.accept('while'):
             self.expect('(')
             expr = self.expr()
             self.expect(')')
             statement = While(expr, self.statement())
-
         elif self.accept('for'):
             self.expect('(')
             inits = []
@@ -615,7 +637,6 @@ class CParser:
                     steps.append(self.expr())
                 self.expect(')')
             statement = For(inits, cond, steps, self.statement())
-
         elif self.accept('do'):
             statement = self.statement()
             self.expect('while')
@@ -623,7 +644,6 @@ class CParser:
             statement = Do(statement, self.expr())
             self.expect(')')
             self.expect(';')
-
         elif self.peek('return'):
             self.returns = True
             token = next(self)
@@ -632,23 +652,18 @@ class CParser:
             else:
                 statement = Return(token, self.expr())
                 self.expect(';')
-
         elif self.accept('break'):
             statement = Break()
             self.expect(';')
-
         elif self.accept('continue'):
             statement = Continue()
             self.expect(';')
-
         elif self.accept('goto'):
             statement = Goto(self.expect('id'))
             self.expect(';')
-
         elif self.peekn('id',':'):
             statement = Label(next(self))
             next(self)
-
         else:
             statement = self.expr()
             self.expect(';')
@@ -687,7 +702,10 @@ class CParser:
                 self.expect(';')
             else:
                 type = self.qual()
-                type, id = self.declr(type)
+                types=[]
+                id = self.declr(types)
+                for new_type, args in reversed(types):
+                    type = new_type(type, *args)
                 if id:
                     self.globs[id.lexeme] = glob = Glob(type, id)
                 if self.accept('{'):

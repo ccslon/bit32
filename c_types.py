@@ -124,7 +124,8 @@ class Pointer(Int):
         return isinstance(other, Pointer) and (self.to == other.to \
                                                or isinstance(self.to, Void) \
                                                or isinstance(other.to, Void)) \
-            or isinstance(other, Array) and self.of == other.of
+            or isinstance(other, Array) and self.of == other.of \
+            or isinstance(other, Func) and self.to == other
     def __str__(self):
         return f'ptr({self.to})'
 
@@ -214,4 +215,4 @@ class Func(Value):
     def __eq__(self, other):
         return isinstance(other, Func) and self.ret == other.ret #TODO
     def __str__(self):
-        return f'{self.ret}('+','.join(map(str, self.params))+')'
+        return f'{self.ret}('+','.join(map(str, (param.type for param in self.params)))+')'
