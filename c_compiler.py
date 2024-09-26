@@ -21,7 +21,7 @@ def compile(name, iflag=False, sflag=False, fflag=True):
             ast = c_parser.parse(text)
             asm = ast.generate()
             if sflag:
-                print(asm)
+                assembler.display(asm)
                 if fflag:
                     with open(f'{name[:-2]}.s', 'w+') as file:
                         file.write(asm)

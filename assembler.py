@@ -4,13 +4,15 @@ Created on Fri Aug 25 10:49:03 2023
 
 @author: ccslon
 """
-
+from enum import IntEnum
 import re
+
 from bit32 import Size, Reg, Op, Cond, Byte, Char, Half, Word, Jump, Unary, Binary, Ternary, LoadStore, PushPop, Immediate,  unescape
 
 RE_SIZE = r'B|H|W'
 RE_OP = r'|'.join(op.name for op in Op)
 RE_COND = r'|'.join(cond.name for cond in Cond)
+RE_REG = r'|'.join(reg.name for reg in Reg)
 
 TOKENS = {
     'const': r'-?(0x[0-9a-f]+|0b[01]+|\d+)',
@@ -26,7 +28,7 @@ TOKENS = {
     'halt': r'^(halt)\b',
     'size': r'\b(byte|half|word)\b',
     'space': r'\b(space)\b',
-    'reg': r'\b('+r'|'.join(reg.name for reg in Reg)+r')\b',
+    'reg': rf'\b({RE_REG})\b',
     'op': rf'^(?P<op_name>{RE_OP})(?P<op_cond>{RE_COND})?(?P<op_flag>s)?(\.(?P<op_size>{RE_SIZE}))?\s',
     'jump': rf'^j(mp)?(?P<jump_cond>{RE_COND})?\b',
     'label': r'\.?[a-z_]\w*\s*:',
@@ -368,6 +370,48 @@ class Linker:
         return contents
 
 assembler = Assembler()
+
+class Color(IntEnum):
+    ITAL = 3
+    GREY = 30
+    RED = 31
+    GREEN = 32
+    ORANGE = 33
+    BLUE = 34
+    PURPLE = 35
+    CYAN = 36
+    WHITE = 37
+    
+PATTERNS = {
+    r'"(\\"|[^"])*"': Color.GREEN, #string
+    r"'\\?[^']'": Color.GREEN, #char
+    r'\b-?(0x[0-9a-f]+|0b[01]+|\d+)\b': Color.ORANGE, #const
+    rf'\b({RE_REG})\b': Color.ITAL, #register
+    rf'\b(ld|nop|push|pop|call|ret|halt|{RE_OP}|j(mp)?)({RE_COND})?s?(\.({RE_SIZE}))?\s': Color.BLUE, #ops
+    r'\b(byte|half|word|space)\b': Color.BLUE, #size|space
+    r'\.?[a-z_]\w*': Color.CYAN, #id
+    r';.*$': Color.GREY #comment
+}
+
+def repl(match, color):
+    if color:
+        return f'\33[1;{color}m{match[0]}\33[0m'
+    return match[0]
+
+def display(asm):    
+    for line in asm.split('\n'):
+        new = ""
+        while line:
+            for pattern, color in PATTERNS.items():
+                match = re.match(pattern, line, re.I)
+                if match:
+                    new += repl(match, color)
+                    line = line[len(match[0]):]
+                    break
+            if match is None:
+                new += line[0]
+                line = line[1:]
+        print(new)
 
 def assemble(program, fflag=True, name='out'):
     if program.endswith('.s'):
