@@ -64,7 +64,7 @@ class Scope(Frame):
 
 class CParser:
 
-    TYPE = ('int','char','short','float','unsigned','signed','struct','void','const','union','enum','volatile')
+    TYPE = ('int','char','short','float','unsigned','signed','struct','void','typedef','const','union','enum','volatile')
 
     def resolve(self, name):
         if name in self.param_scope:
@@ -426,23 +426,6 @@ class CParser:
             pass
         return self.spec()
 
-    def storage(self):
-        '''
-        STORAGE -> ['typedef'|'extern'|'static'|'auto'|'register'] QUAL
-        '''
-        if self.accept('typedef'):
-            pass
-        elif self.accept('extern'):
-            pass
-        elif self.accept('static'):
-            pass
-        elif self.accept('auto'):
-            pass
-        elif self.accept('register'):
-            pass
-        else:
-            return self.qual()
-
     def type_name(self):
         '''
         TYPE_NAME -> QUAL ABS_DECLR
@@ -490,10 +473,7 @@ class CParser:
         '''
         INIT -> DECLR ['=' (EXPR|'{' INIT_LIST '}')]
         '''
-        types = []
-        id = self.declr(types)
-        for new_type, args in reversed(types):
-            type = new_type(type, *args)
+        type, id = self.translate_declr(type)            
         init = declr = Local(type, id)
         if self.peek('='):
             token = next(self)
@@ -508,17 +488,30 @@ class CParser:
         self.scope[declr.token.lexeme] = declr
         return init
 
+    def translate_declr(self, type):
+        types = []
+        id = self.declr(types)
+        for new_type, args in reversed(types):
+            type = new_type(type, *args)
+        return type, id
+
     def decln(self):
         '''
         DECLN -> QUAL [INIT {',' INIT}] ';'
         '''
-        type = self.qual()
         decln = []
-        if not self.accept(';'):
-            decln.append(self.init(type))
-            while self.accept(','):
-                decln.append(self.init(type))
+        if self.accept('typedef'):
+            type = self.qual()
+            type, id = self.translate_declr(type)
+            self.typedefs[id.lexeme] = type
             self.expect(';')
+        else:
+            type = self.qual()
+            if not self.accept(';'):
+                decln.append(self.init(type))
+                while self.accept(','):
+                    decln.append(self.init(type))
+                self.expect(';')
         return decln
 
     def list(self):
@@ -675,13 +668,6 @@ class CParser:
         BLOCK -> {'typedef' ('void'|QUAL) id ';'} {DECL} {STATE} [BLOCK]
         '''
         block = Block()
-        while self.accept('typedef'):
-            type = self.qual()
-            while self.accept('*'):
-                type = Pointer(type)
-            id = self.accept('id')
-            self.typedefs[id.lexeme] = type
-            self.expect(';')
         while self.peek(*self.TYPE) or self.peek_typedefs():
             block.extend(self.decln())
         while self.peek(';','{','(','id','*','++','--','return','if','switch','while','do','for','break','continue','goto') and not self.peek_typedefs():
@@ -695,17 +681,13 @@ class CParser:
         while not self.peek('end'):
             if self.accept('typedef'):
                 type = self.qual()
-                while self.accept('*'):
-                    type = Pointer(type)
-                id = self.accept('id')
+                type, id = self.translate_declr(type)
                 self.typedefs[id.lexeme] = type
                 self.expect(';')
             else:
+                self.accept('static')
                 type = self.qual()
-                types=[]
-                id = self.declr(types)
-                for new_type, args in reversed(types):
-                    type = new_type(type, *args)
+                type, id = self.translate_declr(type)
                 if id:
                     self.globs[id.lexeme] = glob = Glob(type, id)
                 if self.accept('{'):
