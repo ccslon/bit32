@@ -1,4 +1,5 @@
 #define NULL (void*)0
+typedef unsigned size_t;
 typedef struct _div_t_ {
     int quot;
     int rem;
@@ -80,6 +81,28 @@ float atof(const char* s) {
     }
     return sign * val / pow;
 }
+#define HEAPLEN 1024
+char heap[HEAPLEN];
+char* heapindex = 0;
+void* malloc(int bytes) {
+    if (heapindex >= HEAPLEN) 
+        return (void*)0;
+    void* p = &heap[heapindex];
+    heapindex += bytes;
+    return p;
+}
+void free(void* p) {}
+void* realloc(void* p, int size) {
+    void* memcpy(void*, const void*, size_t);
+    void* d = malloc(size);
+    memcpy(d, p, size);
+    free(p);
+    return d;
+}
+void* calloc(int n, int size) {
+    return malloc(n*size);
+}
+/*
 struct header {
     struct header *next;
     int size;
@@ -87,7 +110,6 @@ struct header {
 typedef struct header Header;
 Header *freep = NULL;
 Header base;
-void* calloc(int nitems, int size) {}
 void free(void* ptr) {
     Header *bp, *p;
     bp = (Header*)ptr - 1;
@@ -126,4 +148,4 @@ void* malloc(int size) {
         }
     }
 }
-void* realloc(void* ptr, int size) {}
+*/

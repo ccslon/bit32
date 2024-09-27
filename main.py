@@ -10,8 +10,8 @@ from c_compiler import compile as ccompile
 if __name__ == '__main__':
     
     # ccompile('std/stdlib.h', sflag=True, fflag=True)
-    ccompile('std/string.h', sflag=True, fflag=False)
+    # ccompile('std/string.h', sflag=True, fflag=False)
     # ccompile('tests/hello.c', sflag=True, fflag=False)
     # ccompile('tests/const.c', sflag=True, fflag=True)
-    # ccompile('c/gcd.c', sflag=True, fflag=False)
-    # ccompile('c/sort.c')
+    # ccompile('c/mem.c', sflag=True, fflag=False)
+    ccompile('c/mem.c')

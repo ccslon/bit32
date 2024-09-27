@@ -175,8 +175,9 @@ class Assembler:
                             self.new_data(Half, value)
                         else:
                             self.new_data(Word, value)
-                    elif self.match('char'):
-                        self.new_data(Char, *self.values())
+                    elif self.match('size', 'char'):
+                        size, char = self.values()
+                        self.new_data(Char, char)
 
                     elif self.match('jump', 'id'):
                         self.jump(*self.values())

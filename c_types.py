@@ -216,4 +216,4 @@ class Func(Value):
     def __eq__(self, other):
         return isinstance(other, Func) and self.ret == other.ret #TODO
     def __str__(self):
-        return f'{self.ret}('+','.join(map(str, (param.type for param in self.params)))+')'
+        return f'{self.ret} ('+','.join(map(str, (param.type for param in self.params)))+')'

@@ -61,9 +61,14 @@ void* memset(void* s, unsigned char v, size_t n) {
     return s;
 }
 void* memcpy(void* s, const void* t, size_t n) {
-    size_t i;
-    for (i = 0; i < n; i++) 
-        *(char*)(s+i) = *(char*)(t+i);
+    int words = n / sizeof(int);
+    int tail = n % sizeof(int);
+    int* i;
+    for (i = (int*)0; i < words; i++) 
+        *(int*)(s+i) = *(int*)(t+i);
+    char* c;
+    for (c = (char*)0; c < tail; c++)
+        *(char*)(s+i+c) = *(char*)(t+i+c);
     return s;
 }
 size_t memcmp(const void* s, const void* t, size_t n) {
