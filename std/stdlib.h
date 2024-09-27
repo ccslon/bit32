@@ -27,24 +27,28 @@ int bsearch(int x, int* v, int n, int (*cmp)(int, int)) {
     }
     return -1;
 }
-void swap(int* v, int i, int j) {
-    int t;
-    t = v[i];
-    v[i] = v[j];
-    v[j] = t;
+void swap(void* v, int i, int j, unsigned size) {
+    char t;
+    unsigned k;
+    for (k = 0; k < size; k++) {
+        t = *(char*)(v+i*size+k);
+        *(char*)(v+i*size+k) = *(char*)(v+j*size+k);
+        *(char*)(v+j*size+k) = t;
+    }
 }
-void qsort(int* v, int left, int right, int (*cmp)(int, int)) {
+void qsort(void* v, unsigned size, int left, int right, int (*cmp)(void*,void*)) {
     int i, last;
     if (left >= right)
         return;
-    swap(v, left, left + (right - left) / 2);
+    int mid = left + (right - left) / 2;
+    swap(v, left, mid, size);
     last = left;
     for (i = left+1; i <= right; i++)
-        if ((*cmp)(v[i], v[left]) < 0)
-            swap(v, ++last, i);
-    swap(v, left, last);
-    qsort(v, left, last-1, cmp);
-    qsort(v, last+1, right, cmp);
+        if ((*cmp)(v+i*size, v+left*size) < 0)
+            swap(v, ++last, i, size);
+    swap(v, left, last, size);
+    qsort(v, size, left, last-1, cmp);
+    qsort(v, size, last+1, right, cmp);
 }
 int next = 0;
 int rand() {
