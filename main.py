@@ -13,5 +13,5 @@ if __name__ == '__main__':
     # ccompile('std/string.h', sflag=True, fflag=False)
     # ccompile('tests/hello.c', sflag=True, fflag=False)
     # ccompile('tests/const.c', sflag=True, fflag=True)
-    # ccompile('c/mem.c', sflag=True, fflag=False)
-    ccompile('c/mem.c')
+    # ccompile('c/test_hex.c', sflag=True, fflag=False)
+    ccompile('c/test_hex.c')

@@ -58,10 +58,10 @@ void dprint(int n) {
 void xprint(unsigned int n, char uplo) {
     if (n / 16)
         xprint(n / 16, uplo);
-    if (n % 16 > 9) 
+    if (n % 16 > 9)
         putchar(n % 16 - 10 + uplo);
     else
-        putchar(n % 16 + '0');
+        putchar(n % 16 + '0');        
 }
 void fprint(float f, char prec) {
     if (f < 0) {
@@ -93,11 +93,11 @@ void printf(const char* format, ...) {
                     break;
                 }
                 case 'x': {
-                    xprint(((int)*ap++), 'a');
+                    xprint(((unsigned int)*ap++), 'a');
                     break;
                 }
                 case 'X': {
-                    xprint(((int)*ap++), 'A');
+                    xprint(((unsigned int)*ap++), 'A');
                     break;
                 }
                 case 's': {
