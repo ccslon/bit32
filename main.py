@@ -8,10 +8,9 @@ Created on Mon Aug 28 09:26:08 2023
 from c_compiler import compile as ccompile
 
 if __name__ == '__main__':
-    
-    # ccompile('std/stdlib.h', sflag=True, fflag=True)
+    # ccompile('std/stdio.h', sflag=True, fflag=True)
     # ccompile('std/string.h', sflag=True, fflag=False)
     # ccompile('tests/hello.c', sflag=True, fflag=False)
     # ccompile('tests/const.c', sflag=True, fflag=True)
-    # ccompile('c/test_hex.c', sflag=True, fflag=False)
-    ccompile('c/test_hex.c')
+    ccompile('c/sortfind.c', sflag=True, fflag=False)
+    # ccompile('c/hello.c')

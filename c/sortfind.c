@@ -24,12 +24,11 @@ struct Coord coords[LEN] = {
     {5,30},
     {6,21}
 };
-int cmpcoord(void* a, void* b) {
-    return (int)((struct Coord*)a)->y - (int)((struct Coord*)b)->y;
+int coordcmp(void* a, void* b) {
+    return ((struct Coord*)a)->y - ((struct Coord*)b)->y;
 }
 int ownercmp(void* a, void* b) {
-    //printf("%d %d\n", ((Owner*)a)->age, ((Owner*)b)->age);
-    return (int)((Owner*)a)->age - (int)((Owner*)b)->age;
+    return ((Owner*)a)->age - ((Owner*)b)->age;
 }
 int intcmp(void* a, void* b) {
     return *(int*)a - *(int*)b;
