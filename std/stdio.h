@@ -1,16 +1,19 @@
 #define NULL (void*)0
-typedef int* FILE;
 typedef unsigned int size_t;
-FILE stdout = (int*)0x80000000;
-FILE stdin = (int*)0x80000001;
+struct file {
+    char* next;
+};
+typedef struct file FILE;
+FILE stdout = {(char*)0x80000000};
+FILE stdin = {(char*)0x80000001};
 char fgetc(FILE* stream) {
-    return **stream;
+    return *stream->next;
 }
 #define getc() (fgetc(&stdin))
 char getchar() {
-    return *stdin;
+    return *stdin.next;
 }
-char* fgets(char* s, int n, FILE* stream) {
+char* fgets(char* s, size_t n, FILE* stream) {
     char c;
     char* cs = s;
     while (--n > 0 && (c = fgetc(stream))) // "enter"
@@ -23,12 +26,12 @@ char* gets(char* s) {
     return fgets(s, 0xff, &stdin);
 }
 int fputc(char c, FILE* stream) {
-    **stream = c;
+    *stream->next = c;
     return 0;
 }
 #define putc(c) (fputc(c, &stdout))
 int putchar(char c) {
-    *stdout = c;
+    *stdout.next = c;
     return 0;
 }
 int fputs(const char* s, FILE* stream) {
@@ -74,7 +77,7 @@ void fprint(float f, char prec) {
     int p;
     for (p = 1; prec > 0; --prec) p *= 10;
     int right = (f - left) * p;
-    dprint(right);    
+    dprint(right);
 }
 void printf(const char* format, ...) {
     int* ap;
