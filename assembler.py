@@ -382,7 +382,7 @@ class Color(IntEnum):
     PURPLE = 35
     CYAN = 36
     WHITE = 37
-    
+
 PATTERNS = {
     r'"(\\"|[^"])*"': Color.GREEN, #string
     r"'\\?[^']'": Color.GREEN, #char
@@ -399,7 +399,7 @@ def repl(match, color):
         return f'\33[1;{color}m{match[0]}\33[0m'
     return match[0]
 
-def display(asm):    
+def display(asm):
     for line in asm.split('\n'):
         new = ""
         while line:
@@ -426,4 +426,4 @@ def assemble(program, fflag=True, name='out'):
             file.write('v2.0 raw\n' + ' '.join(bit32))
 
 if __name__ == '__main__':
-    assemble('nop')
+    assemble('main:\nret')
