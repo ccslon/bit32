@@ -37,7 +37,7 @@ class Reg(IntEnum):
     FP = 13
     SP = 14
     PC = 15
-        
+
 
 class Op(IntEnum):
     MOV = 0
@@ -71,8 +71,8 @@ class Op(IntEnum):
     SHR = 28
     ASL = 29
     ROL = 30
-    ROR = 31    
-    
+    ROR = 31
+
 class Cond(IntEnum):
     NV = 0
     EQ = 1
@@ -96,18 +96,18 @@ class Cond(IntEnum):
     def display(self):
         return self.name if self != self.AL else ''
     def display_jump(self):
-        return self.name if self != self.AL else 'MP'    
-    
+        return self.name if self != self.AL else 'MP'
+
 ESCAPE = {
     '\0': r'\0',
     '\"': r'\"',
-    '\'': r'\'',    
+    '\'': r'\'',
     '\n': r'\n',
     '\t': r'\t',
     '\b': r'\b',
     '\\': r'\\'
 }
-UNESCAPE = {    
+UNESCAPE = {
     r'\0': '\0',
     r'\"': '\"',
     r'\'': '\'',
@@ -200,13 +200,13 @@ class Jump(Inst):
         if offset24 < 0:
             offset24 = negative(offset24, 24)
         self.bin = f'{cond:04b}','0','000',f'{offset24:024b}'
- 
+
 class Unary(Inst):
     def __init__(self, cond, flag, size, op, rd):
         self.str = f'{op.name}{cond.display()}{"S"*flag}.{size.name[0]} {rd.name}'
         self.dec = cond,int(flag),1,size,0,op,rd,rd,rd
-        self.bin = f'{cond:04b}',f'{flag:b}','001',f'{size>>1:02b}','0',f'{op:05b}','XXXX',f'{rd:04b}',f'{rd:04b}',f'{rd:04b}'       
- 
+        self.bin = f'{cond:04b}',f'{flag:b}','001',f'{size>>1:02b}','0',f'{op:05b}','XXXX',f'{rd:04b}',f'{rd:04b}',f'{rd:04b}'
+
 class Binary(Inst):
     def __init__(self, cond, flag, size, imm, op, src, rd):
         if imm:
