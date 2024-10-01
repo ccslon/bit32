@@ -723,11 +723,16 @@ class VarCall(Call):
             vstr.binary(Op.ADD, Size.WORD, Reg.SP, len(self.args[4:]) * Size.WORD)
 
 class Return(Expr):
-    def __init__(self, token, expr):
-        super().__init__(Void() if expr is None else expr.type, token)
+    def __init__(self, token, ret, expr):
+        if ret:
+            assert ret == expr.type
+            super().__init__(ret, token)
+            if isinstance(expr, OpExpr):
+                expr.width = ret.width
+        else:
+            super().__init__(Void(), token)        
         self.expr = expr
     def generate(self, vstr, n):
-        assert vstr.defn.type.ret == self.type, f'Line {self.token.line}: {vstr.defn.type.ret} != {self.type} in {vstr.defn.token.lexeme}'
         if self.expr:
             self.expr.reduce(vstr, n)
         vstr.jump(Cond.AL, f'.L{vstr.return_label}')

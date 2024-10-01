@@ -44,9 +44,8 @@ class Visitor:
         self.if_jump_end = False
         self.loop = Loop()
     def begin_func(self, defn):
-        if defn.type.width or defn.returns:
+        if defn.width or defn.returns:
             self.return_label = self.next_label()
-        self.defn = defn
     def begin_loop(self):
         self.loop.append((self.next_label(), self.next_label()))
     def end_loop(self):

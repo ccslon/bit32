@@ -48,8 +48,9 @@ TODO
 [X] PREPROCESSING
     [X] Include header files
     [X] Macros
-    
-[ ] Proper typedef
+
+[X] Proper typedef
+[X] Return width
 [ ] Proper preproc
 [ ] Assertion messages
 
@@ -473,7 +474,7 @@ class CParser:
         '''
         INIT -> DECLR ['=' (EXPR|'{' INIT_LIST '}')]
         '''
-        type, id = self.translate_declr(type)            
+        type, id = self.translate_declr(type)
         init = declr = Local(type, id)
         if self.peek('='):
             token = next(self)
@@ -641,9 +642,9 @@ class CParser:
             self.returns = True
             token = next(self)
             if self.accept(';'):
-                statement = Return(token, None)
+                statement = Return(token, None, None)
             else:
-                statement = Return(token, self.expr())
+                statement = Return(token, self.defn_ret_type, self.expr())
                 self.expect(';')
         elif self.accept('break'):
             statement = Break()
@@ -694,7 +695,7 @@ class CParser:
                     assert id is not None
                     assert isinstance(type, Func)
                     assert not any(param.token is None for param in type.params)
-                    self.begin_func()
+                    self.begin_func(type)
                     for param in type.params[:4]:
                         self.param_scope[param.token.lexeme] = param
                     for param in type.params[4:]:
@@ -729,7 +730,8 @@ class CParser:
         return self.peek('id', offset=offset) \
             and self.tokens[self.index+offset].lexeme in self.typedefs
 
-    def begin_func(self):
+    def begin_func(self, defn_type):
+        self.defn_ret_type = defn_type.ret
         self.space = 0
         self.returns = False
         self.calls = False
