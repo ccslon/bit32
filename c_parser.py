@@ -129,11 +129,7 @@ class CParser:
                 else:
                     postfix = Dot(next(self), postfix, postfix.type[self.expect('id').lexeme])
             elif self.peek('->'):
-                if isinstance(postfix.type, Union):
-                    next(self)
-                    postfix = postfix.union(postfix.type[self.expect('id').lexeme])
-                else:
-                    postfix = Arrow(next(self), postfix, postfix.type.to[self.expect('id').lexeme])
+                postfix = Arrow(next(self), postfix, postfix.type.to[self.expect('id').lexeme])
         return postfix
 
     def args(self):

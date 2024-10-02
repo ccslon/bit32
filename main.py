@@ -12,5 +12,5 @@ if __name__ == '__main__':
     # ccompile('std/string.h', sflag=True, fflag=False)
     # ccompile('tests/hello.c', sflag=True, fflag=False)
     # ccompile('tests/const.c', sflag=True, fflag=True)
-    ccompile('c/sortfind.c', sflag=True, fflag=False)
-    # ccompile('c/hello.c')
+    # ccompile('c/test_io.c', sflag=True, fflag=False)
+    ccompile('c/hello.c')

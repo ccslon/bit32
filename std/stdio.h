@@ -1,11 +1,11 @@
 #define NULL (void*)0
 typedef unsigned int size_t;
-struct file {
+union file {
     char* next;
 };
-typedef struct file FILE;
-FILE stdout = {(char*)0x80000000};
-FILE stdin = {(char*)0x80000001};
+typedef union file FILE;
+FILE stdout = (char*)0x80000000;
+FILE stdin = (char*)0x80000001;
 char fgetc(FILE* stream) {
     return *stream->next;
 }

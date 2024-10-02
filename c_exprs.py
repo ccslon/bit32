@@ -81,7 +81,7 @@ class Glob(Local):
     def generate(self, vstr):
         self.type.glob_generate(vstr, self)
     def union(self, attr):
-        new = Glob(attr.type, attr.token)
+        new = Glob(attr.type, self.token)
         return new
 
 def itf(i):
@@ -725,7 +725,7 @@ class VarCall(Call):
 class Return(Expr):
     def __init__(self, token, ret, expr):
         if ret:
-            assert ret == expr.type
+            assert ret == expr.type, f'Line {token.line}:'
             super().__init__(ret, token)
             if isinstance(expr, OpExpr):
                 expr.width = ret.width
