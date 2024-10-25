@@ -2,8 +2,8 @@ foo:
   PUSH LR, FP
   SUB SP, 12
   MOV FP, SP
-  LD [FP, 0], A
-  LD [FP, 4], B
+  ST [FP, 0], A
+  ST [FP, 4], B
   LD A, [FP, 0] ; a
   CMP A, 0
   JEQ .L1
@@ -15,7 +15,7 @@ foo:
 .L1:
   MOV A, 0
 .L2:
-  LD [FP, 8], A ; n
+  ST [FP, 8], A ; n
 .L3:
   CALL baz
   LD A, [FP, 0] ; a
@@ -43,8 +43,8 @@ bar:
   PUSH LR, FP
   SUB SP, 12
   MOV FP, SP
-  LD [FP, 0], A
-  LD [FP, 4], B
+  ST [FP, 0], A
+  ST [FP, 4], B
   LD A, [FP, 0] ; a
   CMP A, 0
   JNE .L8
@@ -57,7 +57,7 @@ bar:
 .L9:
   MOV A, 0
 .L10:
-  LD [FP, 8], A ; n
+  ST [FP, 8], A ; n
 .L11:
   CALL baz
   LD A, [FP, 0] ; a

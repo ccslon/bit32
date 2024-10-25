@@ -2,7 +2,7 @@ fib:
   PUSH LR, B, C, FP
   SUB SP, 4
   MOV FP, SP
-  LD [FP, 0], A
+  ST [FP, 0], A
   LD B, [FP, 0] ; n
   CMP B, 1
   JNE .L2
@@ -36,7 +36,7 @@ fib2:
   PUSH LR, B, C, FP
   SUB SP, 4
   MOV FP, SP
-  LD [FP, 0], A
+  ST [FP, 0], A
   LD B, [FP, 0] ; n
   CMP B, 1
   JEQ .L7

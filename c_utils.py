@@ -145,7 +145,7 @@ class Emitter(Visitor):
     def store(self, size, rd, rb, offset=None, name=None):
         self.add(f'ST{size.display()} [{rb.name}'+(f', {offset}' if offset is not None else '')+f'], {rd.name}'+(f' ; {name}' if name else ''))
     def imm(self, size, rd, value):
-        self.add(f'LD{size.display()} {rd.name}, {value}')
+        self.add(f'LDI{size.display()} {rd.name}, {value}')
     def unary(self, op, size, rd):
         self.add(f'{op.name}{size.display()} {rd.name}')
     def binary(self, op, size, rd, src):

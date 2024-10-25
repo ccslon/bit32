@@ -2,16 +2,16 @@ func:
   PUSH A, FP
   SUB SP, 12
   MOV FP, SP
-  LD A, 805306368
-  LD [FP, 0], A ; i
-  LD A, 300
-  LD.H [FP, 4], A ; s
+  LDI A, 805306368
+  ST [FP, 0], A ; i
+  LDI A, 300
+  ST.H [FP, 4], A ; s
   MOV A, 3
-  LD.B [FP, 6], A ; c
+  ST.B [FP, 6], A ; c
   MOV.B A, 'c'
-  LD.B [FP, 7], A ; l
-  LD A, 1069547520
-  LD [FP, 8], A ; f
+  ST.B [FP, 7], A ; l
+  LDI A, 1069547520
+  ST [FP, 8], A ; f
   MOV SP, FP
   ADD SP, 12
   POP A, FP

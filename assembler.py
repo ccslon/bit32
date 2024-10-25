@@ -395,7 +395,10 @@ PATTERNS = {
     r"'\\?[^']'": Color.GREEN, #char
     r'\b-?(0x[0-9a-f]+|0b[01]+|\d+)\b': Color.ORANGE, #const
     rf'\b({RE_REG})\b': Color.ITAL, #register
-    rf'\b(ld|nop|push|pop|call|ret|halt|{RE_OP}|j(mp)?)({RE_COND})?s?(\.({RE_SIZE}))?\b': Color.BLUE, #ops
+    r'\b(nop)\b': Color.BLUE,
+    rf'\b({RE_OP})({RE_COND})?s?(\.({RE_SIZE}))?\b': Color.BLUE, #ops
+    rf'\b(call|ret|halt|j(mp)?)({RE_COND})?\b': Color.BLUE, #ops
+    rf'\b(ldi|ld|st|push|pop)({RE_COND})?(\.({RE_SIZE}))?\b': Color.BLUE, #ops
     r'\b(byte|half|word|space)\b': Color.BLUE, #size|space
     r'\.?[a-z_]\w*': Color.CYAN, #id
     r';.*$': Color.GREY #comment
