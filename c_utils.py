@@ -21,7 +21,7 @@ class RegWrapper:
         if reg == Reg.FP:
             return reg
         elif reg > Reg.L:
-            raise SyntaxError('Not enough registers =(')
+            return f'?{reg}?' #raise SyntaxError('Not enough registers =(')
         self.max = max(self.max, reg)
         return Reg(reg)
 
