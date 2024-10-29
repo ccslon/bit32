@@ -10,20 +10,20 @@ func1:
   MOV C, 127
   ADD D, FP, 0
   ADD D, 0
-  LD.B [D], C
+  ST.B [D], C
   MOV C, 0
   ADD D, FP, 0
   ADD D, 1
-  LD.B [D], C
+  ST.B [D], C
   MOV C, 0
   ADD D, FP, 0
   ADD D, 2
-  LD.B [D], C
+  ST.B [D], C
   MOV C, 1
   ADD D, FP, 0
   ADD D, 3
-  LD.B [D], C
-  LD C, =.S0
+  ST.B [D], C
+  LDI C, =.S0
   LD D, [FP, 0] ; i
   MOV A, C
   MOV B, D
@@ -35,13 +35,13 @@ intToken:
   PUSH B, FP
   SUB SP, 9
   MOV FP, SP
-  LD [FP, 0], A
+  ST [FP, 0], A
   MOV A, 1
   ADD B, FP, 4
-  LD.B [B, 0], A ; type
+  ST.B [B, 0], A ; type
   LD A, [FP, 0] ; num
   ADD B, FP, 4
-  LD [B, 1], A ; num
+  ST [B, 1], A ; num
   ADD A, FP, 4
   JMP .L0
 .L0:
@@ -53,13 +53,13 @@ strToken:
   PUSH B, FP
   SUB SP, 9
   MOV FP, SP
-  LD [FP, 0], A
+  ST [FP, 0], A
   MOV A, 2
   ADD B, FP, 4
-  LD.B [B, 0], A ; type
+  ST.B [B, 0], A ; type
   LD A, [FP, 0] ; str
   ADD B, FP, 4
-  LD [B, 1], A ; str
+  ST [B, 1], A ; str
   ADD A, FP, 4
   JMP .L1
 .L1:
@@ -71,13 +71,13 @@ charToken:
   PUSH B, FP
   SUB SP, 6
   MOV FP, SP
-  LD.B [FP, 0], A
+  ST.B [FP, 0], A
   MOV A, 0
   ADD B, FP, 1
-  LD.B [B, 0], A ; type
+  ST.B [B, 0], A ; type
   LD.B A, [FP, 0] ; c
   ADD B, FP, 1
-  LD.B [B, 1], A ; chr
+  ST.B [B, 1], A ; chr
   ADD A, FP, 1
   JMP .L2
 .L2:
@@ -89,7 +89,7 @@ printToken:
   PUSH LR, B, C, D, FP
   SUB SP, 4
   MOV FP, SP
-  LD [FP, 0], A
+  ST [FP, 0], A
   LD C, [FP, 0] ; token
   LD.B C, [C, 0] ; type
   CMP.B C, 2
@@ -100,7 +100,7 @@ printToken:
   JEQ .L7
   JMP .L4
 .L5:
-  LD C, =.S1
+  LDI C, =.S1
   LD D, [FP, 0] ; token
   LD D, [D, 1] ; str
   MOV A, C
@@ -108,7 +108,7 @@ printToken:
   CALL printf
   JMP .L4
 .L6:
-  LD C, =.S2
+  LDI C, =.S2
   LD D, [FP, 0] ; token
   LD D, [D, 1] ; num
   MOV A, C
@@ -116,7 +116,7 @@ printToken:
   CALL printf
   JMP .L4
 .L7:
-  LD C, =.S3
+  LDI C, =.S3
   LD D, [FP, 0] ; token
   LD.B D, [D, 1] ; chr
   MOV A, C
@@ -136,9 +136,9 @@ main:
   MOV B, A
   ADD C, FP, 0
   LD.B D, [B, 0]
-  LD.B [C, 0], D
+  ST.B [C, 0], D
   LD D, [B, 1]
-  LD [C, 1], D
+  ST [C, 1], D
   ADD B, FP, 0
   MOV A, B
   CALL printToken
@@ -148,21 +148,21 @@ main:
   MOV B, A
   ADD C, FP, 5
   LD.B D, [B, 0]
-  LD.B [C, 0], D
+  ST.B [C, 0], D
   LD D, [B, 1]
-  LD [C, 1], D
+  ST [C, 1], D
   ADD B, FP, 5
   MOV A, B
   CALL printToken
-  LD B, =.S4
+  LDI B, =.S4
   MOV A, B
   CALL strToken
   MOV B, A
   ADD C, FP, 10
   LD.B D, [B, 0]
-  LD.B [C, 0], D
+  ST.B [C, 0], D
   LD D, [B, 1]
-  LD [C, 1], D
+  ST [C, 1], D
   ADD B, FP, 10
   MOV A, B
   CALL printToken

@@ -3,7 +3,7 @@ get_name:
   PUSH FP
   SUB SP, 4
   MOV FP, SP
-  LD [FP, 0], A
+  ST [FP, 0], A
   LD A, [FP, 0] ; cat
   LD A, [A, 0] ; name
   JMP .L0
@@ -16,7 +16,7 @@ sqr:
   PUSH B, FP
   SUB SP, 4
   MOV FP, SP
-  LD [FP, 0], A
+  ST [FP, 0], A
   LD A, [FP, 0] ; n
   LD B, [FP, 0] ; n
   MUL A, B
@@ -30,12 +30,12 @@ sum:
   PUSH LR, C, FP
   SUB SP, 16
   MOV FP, SP
-  LD [FP, 0], A
-  LD [FP, 4], B
+  ST [FP, 0], A
+  ST [FP, 4], B
   MOV B, 0
-  LD [FP, 8], B ; s
+  ST [FP, 8], B ; s
   MOV B, 0
-  LD [FP, 12], B ; i
+  ST [FP, 12], B ; i
 .L3:
   LD B, [FP, 12] ; i
   LD C, [FP, 0] ; n
@@ -48,11 +48,11 @@ sum:
   CALL C
   MOV C, A
   ADD B, C
-  LD [FP, 8], B ; s
+  ST [FP, 8], B ; s
 .L4:
   LD B, [FP, 12] ; i
   ADD C, B, 1
-  LD [FP, 12], C ; i
+  ST [FP, 12], C ; i
   JMP .L3
 .L5:
   LD B, [FP, 8] ; s
@@ -66,29 +66,29 @@ main:
   PUSH LR, B, C, D, FP
   SUB SP, 20
   MOV FP, SP
-  LD C, =.S0
+  LDI C, =.S0
   ADD D, FP, 0
-  LD [D, 0], C ; name
+  ST [D, 0], C ; name
   MOV C, 15
   ADD D, FP, 0
-  LD [D, 4], C ; age
-  LD C, =get_name
+  ST [D, 4], C ; age
+  LDI C, =get_name
   ADD D, FP, 0
-  LD [D, 8], C ; get_name
+  ST [D, 8], C ; get_name
   ADD C, FP, 0
   MOV A, C
   ADD C, FP, 0
   LD C, [C, 8] ; get_name
   CALL C
   MOV C, A
-  LD [FP, 12], C ; name
+  ST [FP, 12], C ; name
   MOV C, 10
-  LD D, =sqr
+  LDI D, =sqr
   MOV A, C
   MOV B, D
   CALL sum
   MOV C, A
-  LD [FP, 16], C ; n
+  ST [FP, 16], C ; n
   MOV C, 0
   JMP .L6
 .L6:

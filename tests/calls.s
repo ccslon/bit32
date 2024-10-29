@@ -2,8 +2,8 @@ baz:
   PUSH FP
   SUB SP, 8
   MOV FP, SP
-  LD [FP, 0], A
-  LD [FP, 4], B
+  ST [FP, 0], A
+  ST [FP, 4], B
   LD A, [FP, 0] ; y
   LD B, [FP, 4] ; z
   MUL A, B
@@ -17,8 +17,8 @@ bar:
   PUSH FP
   SUB SP, 8
   MOV FP, SP
-  LD [FP, 0], A
-  LD [FP, 4], B
+  ST [FP, 0], A
+  ST [FP, 4], B
   LD A, [FP, 0] ; x
   LD B, [FP, 4] ; y
   MUL A, B
@@ -32,9 +32,9 @@ foo:
   PUSH LR, D, E, FP
   SUB SP, 12
   MOV FP, SP
-  LD [FP, 0], A
-  LD [FP, 4], B
-  LD [FP, 8], C
+  ST [FP, 0], A
+  ST [FP, 4], B
+  ST [FP, 8], C
   LD C, [FP, 0] ; x
   LD D, [FP, 4] ; y
   MOV A, C

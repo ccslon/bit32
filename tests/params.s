@@ -11,7 +11,7 @@ params1:
   PUSH FP
   SUB SP, 4
   MOV FP, SP
-  LD [FP, 0], A
+  ST [FP, 0], A
   LD A, [FP, 0] ; foo
   JMP .L1
 .L1:
@@ -23,8 +23,8 @@ params2:
   PUSH FP
   SUB SP, 8
   MOV FP, SP
-  LD [FP, 0], A
-  LD [FP, 4], B
+  ST [FP, 0], A
+  ST [FP, 4], B
   LD A, [FP, 0] ; foo
   LD B, [FP, 4] ; bar
   ADD A, B
@@ -38,9 +38,9 @@ params3:
   PUSH FP
   SUB SP, 12
   MOV FP, SP
-  LD [FP, 0], A
-  LD [FP, 4], B
-  LD [FP, 8], C
+  ST [FP, 0], A
+  ST [FP, 4], B
+  ST [FP, 8], C
   LD A, [FP, 0] ; foo
   LD B, [FP, 4] ; bar
   ADD A, B
@@ -56,10 +56,10 @@ params4:
   PUSH FP
   SUB SP, 16
   MOV FP, SP
-  LD [FP, 0], A
-  LD [FP, 4], B
-  LD [FP, 8], C
-  LD [FP, 12], D
+  ST [FP, 0], A
+  ST [FP, 4], B
+  ST [FP, 8], C
+  ST [FP, 12], D
   LD A, [FP, 0] ; foo
   LD B, [FP, 4] ; bar
   ADD A, B
@@ -77,12 +77,12 @@ params5:
   PUSH FP
   SUB SP, 20
   MOV FP, SP
-  LD [FP, 0], A
-  LD [FP, 4], B
-  LD [FP, 8], C
-  LD [FP, 12], D
+  ST [FP, 0], A
+  ST [FP, 4], B
+  ST [FP, 8], C
+  ST [FP, 12], D
   MOV A, 10
-  LD [FP, 16], A ; i
+  ST [FP, 16], A ; i
   LD A, [FP, 0] ; a
   LD B, [FP, 4] ; b
   ADD A, B
@@ -102,14 +102,14 @@ params6:
   PUSH FP
   SUB SP, 16
   MOV FP, SP
-  LD [FP, 0], A
-  LD.H [FP, 4], B
-  LD.B [FP, 6], C
-  LD [FP, 7], D
+  ST [FP, 0], A
+  ST.H [FP, 4], B
+  ST.B [FP, 6], C
+  ST [FP, 7], D
   MOV A, 10
-  LD [FP, 11], A ; i
+  ST [FP, 11], A ; i
   MOV.B A, 'c'
-  LD.B [FP, 15], A ; l
+  ST.B [FP, 15], A ; l
   LD A, [FP, 0] ; a
   LD.H B, [FP, 4] ; b
   ADD A, B

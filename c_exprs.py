@@ -37,6 +37,8 @@ class Expr(CNode):
         if not self.type.is_float():
             vstr.binary(Op.ITF, Size.WORD, reg[n], reg[n])
         return reg[n]
+    def error(self, msg):
+        raise SyntaxError(f'Line {self.token.line}: {msg}')
 
 class Local(Expr):
     def address(self, vstr, n):
@@ -191,8 +193,8 @@ class Unary(OpExpr):
           '~':Op.NOT}
     OPF = {'-':Op.NEGF}
     def __init__(self, op, unary):
-        assert unary.type.cast(Int()), f'Line {op.line}: Cannot {op.lexeme} {unary.type}'
         super().__init__(unary.type, op)
+        assert unary.type.cast(Int()), self.error(f'Cannot {op.lexeme} {unary.type}')
         self.unary = unary
     def reduce(self, vstr, n):
         vstr.unary(self.op, self.width, self.unary.reduce(vstr, n))
@@ -223,9 +225,9 @@ class AddrOf(Expr):
         return self.unary.address(vstr, n)
 
 class Deref(Expr):
-    def __init__(self, token, unary):
-        assert hasattr(unary.type, 'to'), f'Line {token.line}: Cannot {token.lexeme} {unary.type}'
+    def __init__(self, token, unary):        
         super().__init__(unary.type.to, token)
+        assert hasattr(unary.type, 'to'), self.errr(f'Cannot {token.lexeme} {unary.type}')
         self.unary = unary
     def address(self, vstr, n):
         return self.unary.reduce(vstr, n)
@@ -242,8 +244,8 @@ class Deref(Expr):
 
 class Cast(Expr):
     def __init__(self, type, token, cast):
-        assert type.cast(cast.type), f'Line {token.line}: Cannot cast {cast.type} to {type}'
         super().__init__(type, token)
+        assert type.cast(cast.type), self.error(f'Cannot cast {cast.type} to {type}')
         self.cast = cast
     def reduce(self, vstr, n):
         self.cast.reduce(vstr, n)
@@ -317,10 +319,10 @@ class Binary(OpExpr):
            '&': Op.AND,
            '&=':Op.AND}
     def __init__(self, op, left, right):
-        assert not isinstance(left, String) or not isinstance(right, String)
-        assert left.type.cast(right.type), f'Line {op.line}: Cannot {left.type} {op.lexeme} {right.type}'
-        self.left, self.right = left, right
         super().__init__(max_type(left.type, right.type), op)
+        assert not isinstance(left, String) or not isinstance(right, String)
+        assert left.type.cast(right.type), self.error(f'Cannot {left.type} {op.lexeme} {right.type}')
+        self.left, self.right = left, right
     def is_signed(self):
         return self.left.is_signed() and self.right.is_signed()
     def reduce(self, vstr, n):
@@ -467,8 +469,8 @@ class Condition(Expr):
 
 class InitAssign(Expr):
     def __init__(self, token, left, right):
-        assert left.type == right.type, f'Line {token.line}: {left.type} != {right.type}'
         super().__init__(left.type, token)
+        assert left.type == right.type, self.error(f'{left.type} != {right.type}')
         self.left, self.right = left, right
     def generate(self, vstr, n):
         self.right.reduce(vstr, n)
@@ -477,8 +479,8 @@ class InitAssign(Expr):
 
 class Assign(InitAssign):
     def __init__(self, token, left, right):
-        assert not left.type.const, 'Line {token.line}: Left is const'
         super().__init__(token, left, right)
+        assert not left.type.const, self.error('Cannot assign to a const')
     def reduce(self, vstr, n):
         self.generate(vstr, n)
         return reg[n]
@@ -491,7 +493,7 @@ class InitListAssign(Expr):
                 left.type.length = len(right)
                 left.type.size =  len(right) * left.type.of.size
             else:
-                assert left.type.length >= len(right)
+                assert left.type.length >= len(right), self.error('Not large enough')
         self.left, self.right = left, right
     def generate(self, vstr, n):
         self.left.address(vstr, n)
@@ -500,10 +502,11 @@ class InitListAssign(Expr):
 
 class InitArrayString(Expr):
     def __init__(self, token, array, string):
+        super().__init__(array.type, token)
         if array.type.length is None:
             array.type.size = array.type.length = len(string) + 1
         else:
-            assert array.type.size >= len(string) + 1
+            assert array.type.size >= len(string) + 1, self.error('Not large enough')
         self.array = array
         self.string = string
     def generate(self, vstr, n):
@@ -606,7 +609,7 @@ class Post(OpExpr):
     OPF = {'++':Op.ADDF,
            '--':Op.SUBF}
     def __init__(self, op, postfix):
-        assert postfix.type.cast(Int()), f'Line {op.line}: Cannot {op.lexeme} {postfix.type}'
+        assert postfix.type.cast(Int()), self.error(f'Cannot {op.lexeme} {postfix.type}')
         super().__init__(postfix.type, op)
         self.postfix = postfix
     def reduce(self, vstr, n):
@@ -688,9 +691,9 @@ class SubScr(Access):
 
 class Call(Expr):
     def __init__(self, primary, args):
-        for i, param in enumerate(primary.type.params):
-            assert param.type == args[i].type, f'Line {primary.token.line}: Argument #{i+1} of {primary.token.lexeme} {param.type} != {args[i].type}'
         super().__init__(primary.type.ret, primary.token)
+        for i, param in enumerate(primary.type.params):
+            assert param.type == args[i].type, self.error(f'Argument #{i+1} of {primary.token.lexeme} {param.type} != {args[i].type}')
         self.primary, self.args, self.params = primary, args, primary.type.params
     def reduce(self, vstr, n):
         self.generate(vstr, n)
@@ -725,12 +728,12 @@ class VarCall(Call):
 class Return(Expr):
     def __init__(self, token, ret, expr):
         if ret:
-            assert ret == expr.type, f'Line {token.line}:'
             super().__init__(ret, token)
+            assert ret == expr.type, self.error('Return expression type != function type')
             if isinstance(expr, OpExpr):
                 expr.width = ret.width
         else:
-            super().__init__(Void(), token)        
+            super().__init__(Void(), token)
         self.expr = expr
     def generate(self, vstr, n):
         if self.expr:

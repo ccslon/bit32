@@ -10,12 +10,21 @@ import c_parser
 
 class TestCompiler(TestCase):
 
+    @classmethod
+    def setUpClass(cls):
+        cls.tests = []
+
+    @classmethod
+    def tearDownClass(cls):
+        print(cls.tests)
+
     def code_eq_asm(self, name):
         text = c_preprocessor.preprocess(f'tests/{name}.c')
         ast = c_parser.parse(text)
         out = ast.generate()
         with open(f'tests/{name}.s') as file:
             asm = file.read()
+        self.tests.append(name)
         self.assertEqual(out, asm)
 
     @expectedFailure

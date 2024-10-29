@@ -23,15 +23,15 @@ TODO
 [X] Globals overhaul including global structs and arrays
 [X] Init lists
 [X] Proper ++/--
-[X] Fix Unions
+[ ] Fix Unions
 [X] Enums
 [X] peekn
 [X] Labels and goto
 [X] Division/Modulo
 [X] Fix void and void*
 [X] Fix array strings e.g. char str[3] = "Hi";
-[ ] init Arrays of unknown size
-[X] Add negative numbers
+[X] init Arrays of unknown size
+[ ] Fix negative numbers
 [X] Fix const
 [X] Add unsigned
 [X] Add floats
@@ -52,7 +52,7 @@ TODO
 [X] Proper typedef
 [X] Return width
 [ ] Proper preproc
-[ ] Assertion messages
+[X] Assertion messages
 
 '''
 
@@ -65,7 +65,7 @@ class Scope(Frame):
 
 class CParser:
 
-    TYPE = ('int','char','short','float','unsigned','signed','struct','void','typedef','const','union','enum','volatile')
+    TYPE = ('int','char','short','float','unsigned','signed','struct','void','typedef','const','union','enum','volatile','static')
 
     def resolve(self, name):
         if name in self.param_scope:
@@ -109,7 +109,7 @@ class CParser:
         postfix = self.primary()
         while self.peek('(','[','++','--','.','->'):
             if self.accept('('):
-                assert isinstance(postfix.type, Func)
+                assert isinstance(postfix.type, Func), self.error(f'"{postfix.token.lexeme}" is not a function')
                 if postfix.type.variable:
                     call_type = VarCall
                 else:
@@ -295,14 +295,14 @@ class CParser:
         ASSIGN -> UNARY ['+'|'-'|'*'|'/'|'%'|'<<'|'>>'|'^'|'|'|'&']'=' ASSIGN
                  |COND
         '''
-        assign = self.cond()
-        if self.peek('='):
-            assert isinstance(assign, (Local,Glob,Dot,Arrow,SubScr,Deref)), f'Line {self.tokens[self.index].line}: {type(assign)}'
-            assign = Assign(next(self), assign, self.assign())
-        elif self.peek('+=','-=','*=','/=','%=','<<=','>>=','^=','|=','&=','/=','%='):
-            assert isinstance(assign, (Local,Glob,Dot,Arrow,SubScr,Deref))
-            token = next(self)
-            assign = Assign(token, assign, Binary(token, assign, self.assign()))
+        assign = self.cond()        
+        if self.peek('=','+=','-=','*=','/=','%=','<<=','>>=','^=','|=','&=','/=','%='):
+            assert isinstance(assign, (Local,Glob,Dot,Arrow,SubScr,Deref)), self.error(f'Cannot assign to {type(assign)}')
+            if self.peek('='):
+                assign = Assign(next(self), assign, self.assign())
+            else:
+                token = next(self)
+                assign = Assign(token, assign, Binary(token, assign, self.assign()))
         return assign
 
     def expr(self):
@@ -390,16 +390,16 @@ class CParser:
                     value = self.enum(value)
                 self.expect('}')
             else:
-                assert id and id.lexeme in self.enums
+                assert id, self.error("Did not specify enum name")
+                assert id.lexeme in self.enums, self.error(f'Enum name "{id.lexeme}" not found')
             spec = Char()
         elif self.accept('float'):
             spec = Float()
         else:
             if self.accept('unsigned'):
                 signed = False
-            elif self.accept('signed'):
-                signed = True
             else:
+                self.accept('signed')
                 signed = True
             if self.accept('char'):
                 spec = Char(signed)
@@ -419,8 +419,7 @@ class CParser:
             qual = self.spec()
             qual.const = True
             return qual
-        elif self.accept('volatile'):
-            pass
+        self.accept('volatile')
         return self.spec()
 
     def type_name(self):
@@ -430,7 +429,7 @@ class CParser:
         type_name = self.qual()
         types = []
         id = self.declr(types)
-        assert id is None
+        assert id is None, self.error(f'Did not expect name "{id.lexeme}" in TYPE NAME')
         for new_type, args in reversed(types):
             type_name = new_type(type_name, *args)
         return type_name
@@ -475,7 +474,7 @@ class CParser:
         if self.peek('='):
             token = next(self)
             if self.accept('{'):
-                assert isinstance(declr.type, (Array,Struct))
+                assert isinstance(declr.type, (Array,Struct)), self.error()
                 init = InitListAssign(token, declr, self.list())
                 self.expect('}')
             elif isinstance(declr.type, Array) and self.peek('string'):
@@ -688,9 +687,9 @@ class CParser:
                 if id:
                     self.globs[id.lexeme] = glob = Glob(type, id)
                 if self.accept('{'):
-                    assert id is not None
-                    assert isinstance(type, Func)
-                    assert not any(param.token is None for param in type.params)
+                    assert id is not None, self.error('Function definition needs a name')
+                    assert isinstance(type, Func), self.error(f'"{id.lexeme}" is not of function type')
+                    assert not any(param.token is None for param in type.params), self.error(f'"{id.lexeme}" cannot have abstract parameters')
                     self.begin_func(type)
                     for param in type.params[:4]:
                         self.param_scope[param.token.lexeme] = param
@@ -706,10 +705,10 @@ class CParser:
                     program.append(defn(type, id, block, self.returns, self.calls, self.max_args, self.space))
                     self.expect('}')
                 elif self.accept('='):
-                    assert id is not None
-                    assert not isinstance(type, Void)
+                    assert id is not None, self.error('Assigning to nothing')
+                    assert not isinstance(type, Void), self.error('Cannot assign a void type a value')
                     if self.accept('{'):
-                        assert isinstance(type, (Array,Struct))
+                        assert isinstance(type, (Array,Struct)), self.error('Cannot list assign to scalar')
                         glob.init = self.list()
                         self.expect('}')
                     else:

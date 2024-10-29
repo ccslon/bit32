@@ -3,9 +3,9 @@ get2:
   PUSH FP
   SUB SP, 12
   MOV FP, SP
-  LD [FP, 0], A
-  LD [FP, 4], B
-  LD [FP, 8], C
+  ST [FP, 0], A
+  ST [FP, 4], B
+  ST [FP, 8], C
   LD A, [FP, 0] ; g
   LD B, [FP, 4] ; i
   MUL B, 4
@@ -25,10 +25,10 @@ set2:
   PUSH FP
   SUB SP, 16
   MOV FP, SP
-  LD [FP, 0], A
-  LD [FP, 4], B
-  LD [FP, 8], C
-  LD [FP, 12], D
+  ST [FP, 0], A
+  ST [FP, 4], B
+  ST [FP, 8], C
+  ST [FP, 12], D
   LD A, [FP, 12] ; t
   LD B, [FP, 0] ; g
   LD C, [FP, 4] ; i
@@ -38,7 +38,7 @@ set2:
   LD C, [FP, 8] ; j
   MUL C, 4
   ADD B, C
-  LD [B], A
+  ST [B], A
   MOV SP, FP
   ADD SP, 16
   POP FP
@@ -47,9 +47,9 @@ getchar2:
   PUSH FP
   SUB SP, 12
   MOV FP, SP
-  LD [FP, 0], A
-  LD [FP, 4], B
-  LD [FP, 8], C
+  ST [FP, 0], A
+  ST [FP, 4], B
+  ST [FP, 8], C
   LD A, [FP, 0] ; c
   LD B, [FP, 4] ; i
   MUL B, 4
@@ -68,10 +68,10 @@ setchar2:
   PUSH FP
   SUB SP, 13
   MOV FP, SP
-  LD [FP, 0], A
-  LD [FP, 4], B
-  LD [FP, 8], C
-  LD.B [FP, 12], D
+  ST [FP, 0], A
+  ST [FP, 4], B
+  ST [FP, 8], C
+  ST.B [FP, 12], D
   LD.B A, [FP, 12] ; t
   LD B, [FP, 0] ; c
   LD C, [FP, 4] ; i
@@ -80,7 +80,7 @@ setchar2:
   LD B, [B]
   LD C, [FP, 8] ; j
   ADD B, C
-  LD.B [B], A
+  ST.B [B], A
   MOV SP, FP
   ADD SP, 13
   POP FP
@@ -89,9 +89,9 @@ getarray2:
   PUSH FP
   SUB SP, 8
   MOV FP, SP
-  LD [FP, 0], A
-  LD [FP, 4], B
-  LD A, =array
+  ST [FP, 0], A
+  ST [FP, 4], B
+  LDI A, =array
   LD B, [FP, 0] ; i
   MUL B, 40
   ADD A, B
@@ -109,18 +109,18 @@ setarray2:
   PUSH FP
   SUB SP, 12
   MOV FP, SP
-  LD [FP, 0], A
-  LD [FP, 4], B
-  LD [FP, 8], C
+  ST [FP, 0], A
+  ST [FP, 4], B
+  ST [FP, 8], C
   LD A, [FP, 8] ; t
-  LD B, =array
+  LDI B, =array
   LD C, [FP, 0] ; i
   MUL C, 40
   ADD B, C
   LD C, [FP, 4] ; j
   MUL C, 4
   ADD B, C
-  LD [B], A
+  ST [B], A
   MOV SP, FP
   ADD SP, 12
   POP FP
@@ -129,8 +129,8 @@ getstack:
   PUSH FP
   SUB SP, 108
   MOV FP, SP
-  LD [FP, 0], A
-  LD [FP, 4], B
+  ST [FP, 0], A
+  ST [FP, 4], B
   ADD A, FP, 8
   LD B, [FP, 0] ; i
   MUL B, 20
@@ -149,9 +149,9 @@ getstack:
   PUSH FP
   SUB SP, 112
   MOV FP, SP
-  LD [FP, 0], A
-  LD [FP, 4], B
-  LD [FP, 8], C
+  ST [FP, 0], A
+  ST [FP, 4], B
+  ST [FP, 8], C
   LD A, [FP, 8] ; t
   ADD B, FP, 12
   LD C, [FP, 0] ; i
@@ -160,7 +160,7 @@ getstack:
   LD C, [FP, 4] ; j
   MUL C, 4
   ADD B, C
-  LD [B], A
+  ST [B], A
 .L4:
   MOV SP, FP
   ADD SP, 112

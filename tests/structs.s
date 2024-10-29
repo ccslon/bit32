@@ -7,25 +7,25 @@ stack_cat:
   MOV FP, SP
   MOV A, 10
   ADD B, FP, 0
-  LD.B [B, 4], A ; age
-  LD A, =.S0
+  ST.B [B, 4], A ; age
+  LDI A, =.S0
   ADD B, FP, 0
-  LD [B, 0], A ; name
-  LD A, =.S1
-  ADD B, FP, 0
-  ADD B, 5
-  LD [B, 0], A ; name
-  LD A, =.S2
+  ST [B, 0], A ; name
+  LDI A, =.S1
   ADD B, FP, 0
   ADD B, 5
-  LD [B, 4], A ; email
+  ST [B, 0], A ; name
+  LDI A, =.S2
+  ADD B, FP, 0
+  ADD B, 5
+  ST [B, 4], A ; email
   ADD A, FP, 0
   LD.B A, [A, 4] ; age
-  LD.B [FP, 13], A ; age
+  ST.B [FP, 13], A ; age
   ADD A, FP, 0
   ADD A, 5
   LD A, [A, 0] ; name
-  LD [FP, 14], A ; name
+  ST [FP, 14], A ; name
   MOV SP, FP
   ADD SP, 18
   POP A, B, FP
@@ -34,28 +34,28 @@ heap_cat:
   PUSH B, FP
   SUB SP, 9
   MOV FP, SP
-  LD [FP, 0], A
-  LD A, =.S0
+  ST [FP, 0], A
+  LDI A, =.S0
   LD B, [FP, 0] ; cat
-  LD [B, 0], A ; name
+  ST [B, 0], A ; name
   MOV A, 15
   LD B, [FP, 0] ; cat
-  LD.B [B, 4], A ; age
-  LD A, =.S1
+  ST.B [B, 4], A ; age
+  LDI A, =.S1
   LD B, [FP, 0] ; cat
   ADD B, 5
-  LD [B, 0], A ; name
-  LD A, =.S2
+  ST [B, 0], A ; name
+  LDI A, =.S2
   LD B, [FP, 0] ; cat
   ADD B, 5
-  LD [B, 4], A ; email
+  ST [B, 4], A ; email
   LD A, [FP, 0] ; cat
   LD.B A, [A, 4] ; age
-  LD.B [FP, 4], A ; age
+  ST.B [FP, 4], A ; age
   LD A, [FP, 0] ; cat
   ADD A, 5
   LD A, [A, 0] ; name
-  LD [FP, 5], A ; name
+  ST [FP, 5], A ; name
   MOV SP, FP
   ADD SP, 9
   POP B, FP

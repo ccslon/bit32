@@ -10,40 +10,40 @@ stack_int:
   MOV FP, SP
   ADD A, FP, 0
   MOV B, 1
-  LD [A, 0], B
+  ST [A, 0], B
   MOV B, 2
-  LD [A, 4], B
+  ST [A, 4], B
   MOV B, 3
-  LD [A, 8], B
+  ST [A, 8], B
   ADD A, FP, 12
   ADD B, A, 0
   MOV C, 1
-  LD [B, 0], C
+  ST [B, 0], C
   MOV C, 2
-  LD [B, 4], C
+  ST [B, 4], C
   MOV C, 3
-  LD [B, 8], C
+  ST [B, 8], C
   ADD B, A, 12
   MOV C, 4
-  LD [B, 0], C
+  ST [B, 0], C
   MOV C, 5
-  LD [B, 4], C
+  ST [B, 4], C
   MOV C, 6
-  LD [B, 8], C
+  ST [B, 8], C
   ADD B, A, 24
   MOV C, 7
-  LD [B, 0], C
+  ST [B, 0], C
   MOV C, 8
-  LD [B, 4], C
+  ST [B, 4], C
   MOV C, 9
-  LD [B, 8], C
+  ST [B, 8], C
   ADD A, FP, 48
   MOV.B B, 'a'
-  LD.B [A, 0], B
+  ST.B [A, 0], B
   MOV.B B, 'b'
-  LD.B [A, 1], B
+  ST.B [A, 1], B
   MOV.B B, 'c'
-  LD.B [A, 2], B
+  ST.B [A, 2], B
 .L0:
   MOV SP, FP
   ADD SP, 51
@@ -54,10 +54,10 @@ stack_cat:
   SUB SP, 5
   MOV FP, SP
   ADD A, FP, 0
-  LD B, =.S0
-  LD [A, 0], B
+  LDI B, =.S0
+  ST [A, 0], B
   MOV B, 10
-  LD.B [A, 4], B
+  ST.B [A, 4], B
   MOV SP, FP
   ADD SP, 5
   POP A, B, FP
@@ -68,15 +68,15 @@ list_cat:
   MOV FP, SP
   ADD A, FP, 0
   ADD B, A, 0
-  LD C, =.S0
-  LD [B, 0], C
+  LDI C, =.S0
+  ST [B, 0], C
   MOV C, 10
-  LD.B [B, 4], C
+  ST.B [B, 4], C
   ADD B, A, 5
-  LD C, =.S1
-  LD [B, 0], C
+  LDI C, =.S1
+  ST [B, 0], C
   MOV C, 6
-  LD.B [B, 4], C
+  ST.B [B, 4], C
   MOV SP, FP
   ADD SP, 10
   POP A, B, C, FP
@@ -86,15 +86,15 @@ stack_person:
   SUB SP, 10
   MOV FP, SP
   ADD A, FP, 0
-  LD B, =.S2
-  LD [A, 0], B
+  LDI B, =.S2
+  ST [A, 0], B
   MOV B, 27
-  LD.B [A, 4], B
+  ST.B [A, 4], B
   ADD B, A, 5
-  LD C, =.S3
-  LD [B, 0], C
+  LDI C, =.S3
+  ST [B, 0], C
   MOV C, 15
-  LD.B [B, 4], C
+  ST.B [B, 4], C
   MOV SP, FP
   ADD SP, 10
   POP A, B, C, FP
@@ -105,25 +105,25 @@ list_person:
   MOV FP, SP
   ADD A, FP, 0
   ADD B, A, 0
-  LD C, =.S2
-  LD [B, 0], C
+  LDI C, =.S2
+  ST [B, 0], C
   MOV C, 27
-  LD.B [B, 4], C
+  ST.B [B, 4], C
   ADD C, B, 5
-  LD D, =.S3
-  LD [C, 0], D
+  LDI D, =.S3
+  ST [C, 0], D
   MOV D, 15
-  LD.B [C, 4], D
+  ST.B [C, 4], D
   ADD B, A, 10
-  LD C, =.S4
-  LD [B, 0], C
+  LDI C, =.S4
+  ST [B, 0], C
   MOV C, 24
-  LD.B [B, 4], C
+  ST.B [B, 4], C
   ADD C, B, 5
-  LD D, =.S5
-  LD [C, 0], D
+  LDI D, =.S5
+  ST [C, 0], D
   MOV D, 15
-  LD.B [C, 4], D
+  ST.B [C, 4], D
   MOV SP, FP
   ADD SP, 20
   POP A, B, C, D, FP

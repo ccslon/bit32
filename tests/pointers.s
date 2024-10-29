@@ -2,12 +2,12 @@ change:
   PUSH B, FP
   SUB SP, 4
   MOV FP, SP
-  LD [FP, 0], A
+  ST [FP, 0], A
   LD A, [FP, 0] ; n
   LD A, [A]
   ADD A, 10
   LD B, [FP, 0] ; n
-  LD [B], A
+  ST [B], A
   MOV SP, FP
   ADD SP, 4
   POP B, FP
@@ -16,10 +16,10 @@ foo:
   PUSH LR, B, FP
   SUB SP, 8
   MOV FP, SP
-  LD [FP, 0], A
+  ST [FP, 0], A
   LD B, [FP, 0] ; m
   MUL B, 5
-  LD [FP, 4], B ; n
+  ST [FP, 4], B ; n
   ADD B, FP, 4
   MOV A, B
   CALL change
@@ -30,8 +30,8 @@ bar:
   PUSH LR, C, FP
   SUB SP, 8
   MOV FP, SP
-  LD [FP, 0], A
-  LD [FP, 4], B
+  ST [FP, 0], A
+  ST [FP, 4], B
   LD B, [FP, 0] ; str
   MOV A, B
   CALL print

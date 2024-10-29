@@ -3,9 +3,9 @@ main:
   SUB SP, 5
   MOV FP, SP
   MOV A, 10
-  LD.B [FP, 0], A ; day
+  ST.B [FP, 0], A ; day
   MOV A, 4
-  LD [FP, 1], A ; today
+  ST [FP, 1], A ; today
   MOV A, 0
   JMP .L0
 .L0:

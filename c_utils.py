@@ -21,7 +21,7 @@ class RegWrapper:
         if reg == Reg.FP:
             return reg
         elif reg > Reg.L:
-            raise SyntaxError('Not enough registers =(')
+            return f'?{reg}?' #raise SyntaxError('Not enough registers =(')
         self.max = max(self.max, reg)
         return Reg(reg)
 
@@ -139,13 +139,13 @@ class Emitter(Visitor):
     def ret(self):
         self.add('RET')
     def load_glob(self, rd, name):
-        self.add(f'LD {rd.name}, ={name}')
+        self.add(f'LDI {rd.name}, ={name}')
     def load(self, size, rd, rb, offset=None, name=None):
         self.add(f'LD{size.display()} {rd.name}, [{rb.name}'+(f', {offset}' if offset is not None else '')+']'+(f' ; {name}' if name else ''))
     def store(self, size, rd, rb, offset=None, name=None):
-        self.add(f'LD{size.display()} [{rb.name}'+(f', {offset}' if offset is not None else '')+f'], {rd.name}'+(f' ; {name}' if name else ''))
+        self.add(f'ST{size.display()} [{rb.name}'+(f', {offset}' if offset is not None else '')+f'], {rd.name}'+(f' ; {name}' if name else ''))
     def imm(self, size, rd, value):
-        self.add(f'LD{size.display()} {rd.name}, {value}')
+        self.add(f'LDI{size.display()} {rd.name}, {value}')
     def unary(self, op, size, rd):
         self.add(f'{op.name}{size.display()} {rd.name}')
     def binary(self, op, size, rd, src):

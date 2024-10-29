@@ -2,7 +2,7 @@ sqr:
   PUSH B, FP
   SUB SP, 4
   MOV FP, SP
-  LD [FP, 0], A
+  ST [FP, 0], A
   LD A, [FP, 0] ; n
   LD B, [FP, 0] ; n
   MUL A, B
@@ -16,12 +16,12 @@ sum:
   PUSH LR, C, FP
   SUB SP, 16
   MOV FP, SP
-  LD [FP, 0], A
-  LD [FP, 4], B
+  ST [FP, 0], A
+  ST [FP, 4], B
   MOV B, 0
-  LD [FP, 8], B ; s
+  ST [FP, 8], B ; s
   MOV B, 0
-  LD [FP, 12], B ; i
+  ST [FP, 12], B ; i
 .L2:
   LD B, [FP, 12] ; i
   LD C, [FP, 0] ; n
@@ -34,11 +34,11 @@ sum:
   CALL C
   MOV C, A
   ADD B, C
-  LD [FP, 8], B ; s
+  ST [FP, 8], B ; s
 .L3:
   LD B, [FP, 12] ; i
   ADD C, B, 1
-  LD [FP, 12], C ; i
+  ST [FP, 12], C ; i
   JMP .L2
 .L4:
   LD B, [FP, 8] ; s
@@ -52,7 +52,7 @@ main:
   PUSH LR, B, C, D, FP
   MOV FP, SP
   MOV C, 5
-  LD D, =sqr
+  LDI D, =sqr
   MOV A, C
   MOV B, D
   CALL sum
