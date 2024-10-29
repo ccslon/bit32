@@ -1,5 +1,5 @@
 foo:
-  PUSH A, B, FP
+  PUSH A, FP
   SUB SP, 12
   MOV FP, SP
   MVN A, 3
@@ -10,11 +10,10 @@ foo:
   NEG A
   ST [FP, 4], A ; m
   MOV A, 3
-  MVN B, 4
-  ADD A, B
+  ADD A, -4
   NEG A
   ST [FP, 8], A ; o
   MOV SP, FP
   ADD SP, 12
-  POP A, B, FP
+  POP A, FP
   RET
