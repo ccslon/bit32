@@ -9,6 +9,8 @@ import re
 
 from bit32 import Size, Reg, Op, Cond, Byte, Char, Half, Word, Jump, Interrupt, Unary, Binary, Ternary, Load, PushPop, LoadImm, unescape
 
+DEBUG = False
+
 RE_SIZE = r'B|H|W'
 RE_OP = r'|'.join(op.name for op in Op)
 RE_COND = r'|'.join(cond.name for cond in Cond)
@@ -31,7 +33,7 @@ TOKENS = {
     'size': r'\b(byte|half|word)\b',
     'space': r'\b(space)\b',
     'reg': rf'\b({RE_REG})\b',
-    'op': rf'^(?P<op_name>{RE_OP})(?P<op_cond>{RE_COND})?(?P<flag>s)?(\.(?P<op_size>{RE_SIZE}))?\s',
+    'op': rf'^(?P<op_name>{RE_OP})(?P<flag>s)?(?P<op_cond>{RE_COND})?(\.(?P<op_size>{RE_SIZE}))?\s',
     'jump': rf'^j(mp)?(?P<jump_cond>{RE_COND})?\b',
     'label': r'\.?[a-z_]\w*\s*:',
     'id': r'\.?[a-z_]\w*',
@@ -347,35 +349,37 @@ class Assembler:
         etype, evalue, _ = self.tokens[self.index]
         raise SyntaxError(f'Unexpected {etype} token "{evalue}" at token #{self.index} in line {self.line_no}')
 
-class Linker:
-    def link(objects):
-        targets = {}
-        indices = set()
-        addr = 0
-        for i, (labels, type, args) in enumerate(objects):
-            for label in labels:
-                targets[label] = addr
-                indices.add(addr)
-            objects[i] = (type, args)
-            addr += type.size
-        print('-'*67)
-        contents = []
-        i = 0
-        for type, args in objects:
-            if args and type is not Char:
-                *args, last = args
-                if isinstance(last, str):
-                    last = targets[last]
-                    if type is Jump:
-                        last -= i
-                args = *args, last
-            data = type(*args)
-            contents.append(data.little_end())
-            print('>>' if i in indices else '  ', f'{i:06x}', f'{data.str: <20}', f'| {data.format_dec(): <23}', f'{data.format_bin(): <42}', data.hex())
-            i += type.size
-        print('\n'+' '.join(contents))
-        print(len(contents), 'items.', i, 'bytes')
-        return contents
+def link(objects):
+    targets = {}
+    indices = set()
+    addr = 0
+    for i, (labels, type, args) in enumerate(objects):
+        for label in labels:
+            targets[label] = addr
+            indices.add(addr)
+        objects[i] = (type, args)
+        addr += type.size
+    print('-'*67)
+    contents = []
+    i = 0
+    for type, args in objects:
+        if args and type is not Char:
+            *args, last = args
+            if isinstance(last, str):
+                last = targets[last]
+                if type is Jump:
+                    last -= i
+            args = *args, last
+        data = type(*args)
+        contents.append(data.little_end())
+        if DEBUG:
+            print('>>' if i in indices else '  ', f'{i:06x}:', f'{data.str: <20}', f'| {data.format_dec(): <22}', f'{data.format_bin(): <40}', data.hex())
+        else:
+            print('>>' if i in indices else '  ', f'{i:08x}:', f'{data.little_end(): <11}', f'| {data.str: <20}')
+        i += type.size
+    print('\n'+' '.join(contents))
+    print('\nSuccess!', len(contents), 'items.', i, 'bytes')
+    return contents
 
 assembler = Assembler()
 
@@ -430,13 +434,15 @@ def assemble(program, fflag=True, name='out'):
         with open(program) as file:
             program = file.read()
     objects = assembler.assemble(program)
-    bit32 = Linker.link(objects)
+    bit32 = link(objects)
     if fflag:
         with open(f'{name}.bit32', 'w+') as file:
             file.write('v2.0 raw\n' + ' '.join(bit32))
 
 if __name__ == '__main__':
     ASM = '''
+    lol: byte 'c'
+    lmao: half 1234
     foo:
         ret
     main:
@@ -453,6 +459,7 @@ if __name__ == '__main__':
         sub B, 1
         ld B, [sp, 0]
         add sp, 4
+        asl pc, lr, sp
         pop C
         pop pc
         jcs main
