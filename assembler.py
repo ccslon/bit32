@@ -53,7 +53,6 @@ def lex(text):
     return [(match.lastgroup, match.group(), match) for match in RE.finditer(text)]
 
 class Assembler:
-
     def const(self, label, size, value):
         self.labels.append(label)
         if size == Size.BYTE:
@@ -441,41 +440,12 @@ def assemble(program, fflag=True, name='out'):
 
 if __name__ == '__main__':
     ASM = '''
-    lol: byte 'c'
-    lmao: half 1234
-    foo:
-        ret
     main:
-        push lr
-        call foo
-        mov A, 5
-        add A, -3
-        int foo
-        mov B, 6
-        push B
-        sub sp, 4
-        add B, -2
-        st [sp, 0], B
-        sub B, 1
-        ld B, [sp, 0]
-        add sp, 4
-        asl pc, lr, sp
-        pop C
-        pop pc
-        jcs main
-        call main
-        int main
-        mov A, -3
-        add A, B
-        adc A, B, C
-        cmn A, B
-        sub A, 1
-        sbc A, B, 0xff
-        cmp A, 'c'
-        ld A, [FP, 3]
-        st [FP, 3], A
-        push A
-        ldi A, 100000
-        ret
+        call in
+        cmp.b A, '\0'
+        jeq end
+        call out
+    end:
+        jmp main
     '''
     assemble(ASM)

@@ -31,7 +31,7 @@ TODO
 [X] Fix void and void*
 [X] Fix array strings e.g. char str[3] = "Hi";
 [X] init Arrays of unknown size
-[ ] Fix negative numbers
+[X] Fix negative numbers
 [X] Fix const
 [X] Add unsigned
 [X] Add floats

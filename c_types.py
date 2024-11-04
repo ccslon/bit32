@@ -45,7 +45,7 @@ class Value(Type):
         vstr.load_glob(reg[n], glob.token.lexeme)
         return reg[n]
     def glob_reduce(self, vstr, n, glob):
-        vstr.load_glob(reg[n], glob.token.lexeme)
+        vstr.load_glob(reg[n], glob.token.lexeme) #TODO change to address
         vstr.load(self.width, reg[n], reg[n])
         return reg[n]
     def glob_store(self, vstr, n, glob):
