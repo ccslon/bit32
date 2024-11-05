@@ -13,5 +13,5 @@ if __name__ == '__main__':
     # ccompile('tests/hello.c', sflag=True, fflag=False)
     # ccompile('tests/neg_nums.c', sflag=True, fflag=True)
     # ccompile('tests/neg_nums.c')
-    ccompile('c/test_union2.c', sflag=True, fflag=False)
-    # ccompile('c/hello.c')
+    # ccompile('c/test_union2.c', sflag=True, fflag=False)
+    ccompile('c/hello.c')

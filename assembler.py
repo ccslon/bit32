@@ -27,8 +27,8 @@ TOKENS = {
     'nop': r'^(nop)\b',
     'push': rf'^push(?P<push_cond>{RE_COND})?(\.(?P<push_size>{RE_SIZE}))?\b',
     'pop': rf'^pop(?P<pop_cond>{RE_COND})?(\.(?P<pop_size>{RE_SIZE}))?\b',
-    'call': r'^(call)\b',
-    'ret': r'^(ret)\b',
+    'call': r'^call(?P<call_cond>{RE_COND})?\b',
+    'ret': r'^ret(?P<ret_cond>{RE_COND})?\b',
     'halt': r'^(halt)\b',
     'size': r'\b(byte|half|word)\b',
     'space': r'\b(space)\b',
@@ -248,14 +248,15 @@ class Assembler:
                             self.pop(Cond.AL, Size.WORD, reg)
 
                     elif self.match('call', 'reg'):
-                        self.ternary(Op.ADD, Cond.AL, False, Size.WORD, Reg.LR, Reg.PC, 4*2, True)
-                        self.binary(Op.MOV, Cond.AL, False, Size.WORD, Reg.PC, *self.values(), False)
+                        cond, reg = self.values()
+                        self.ternary(Op.ADD, cond, False, Size.WORD, Reg.LR, Reg.PC, 4*2, True)
+                        self.binary(Op.MOV, cond, False, Size.WORD, Reg.PC, reg, False)
 
                     elif self.match('call', 'id'):
-                        self.call(Cond.AL, *self.values())
+                        self.call(*self.values())
 
                     elif self.match('ret'):
-                        self.binary(Op.MOV, Cond.AL, False, Size.WORD, Reg.PC, Reg.LR, False)
+                        self.binary(Op.MOV, *self.values(), False, Size.WORD, Reg.PC, Reg.LR, False)
 
                     elif self.match('halt'):
                         self.binary(Op.MOV, Cond.AL, False, Size.WORD, Reg.PC, Reg.PC, False)
@@ -312,6 +313,10 @@ class Assembler:
             elif type == 'pop':
                 yield Cond.get(match['pop_cond'])
                 yield Size.get(match['pop_size'])
+            elif type == 'call':
+                yield Cond.get(match['call_cond'])
+            elif type == 'ret':
+                yield Cond.get(match['ret_cond'])
             elif type == 'size':
                 if value.lower() == 'word':
                     yield Size.WORD
