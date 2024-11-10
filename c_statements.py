@@ -15,7 +15,7 @@ class If(Statement):
     def __init__(self, cond, state):
         self.cond, self.true, self.false = cond, state, None
     def generate(self, vstr, n):
-        vstr.if_jump_end = False
+        vstr.if_jump_end.append(False)
         label = vstr.next_label()
         sublabel = vstr.next_label() if self.false else label
         self.cond.compare(vstr, n, sublabel)
@@ -23,21 +23,22 @@ class If(Statement):
         if self.false:
             if not (isinstance(self.true, Return) or (isinstance(self.true, Block) and self.true and isinstance(self.true[-1], Return))):
                 vstr.jump(Cond.AL, f'.L{label}')
-                vstr.if_jump_end = True
+                vstr.if_jump_end[-1] = True
             vstr.append_label(f'.L{sublabel}')
             self.false.branch(vstr, n, label)
-            if vstr.if_jump_end:
+            if vstr.if_jump_end[-1]:
                 vstr.append_label(f'.L{label}')
         else:
             vstr.append_label(f'.L{label}')
+        vstr.if_jump_end.pop()
     def branch(self, vstr, n, root):
-        sublabel = vstr.next_label()
+        sublabel = vstr.next_label() if self.false else root
         self.cond.compare(vstr, n, sublabel)
         self.true.generate(vstr, n)
         if self.false:
             if not (isinstance(self.true, Return) or (isinstance(self.true, Block) and self.true and isinstance(self.true[-1], Return))):
                 vstr.jump(Cond.AL, f'.L{root}')
-                vstr.if_jump_end = True
+                vstr.if_jump_end[-1] = True
             vstr.append_label(f'.L{sublabel}')
             self.false.branch(vstr, n, root)
 

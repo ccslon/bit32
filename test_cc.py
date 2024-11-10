@@ -114,5 +114,8 @@ class TestCompiler(TestCase):
     def test_cstrings(self):
         self.code_eq_asm('cstrings')
 
+    def test_ifs(self):
+        self.code_eq_asm('ifs')
+
 if __name__ == '__main__':
     main()

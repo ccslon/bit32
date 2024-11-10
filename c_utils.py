@@ -41,7 +41,7 @@ class Visitor:
         self.clear()
     def clear(self):
         self.n_labels = 0
-        self.if_jump_end = False
+        self.if_jump_end = []
         self.loop = Loop()
     def begin_func(self, defn):
         if defn.width or defn.returns:
