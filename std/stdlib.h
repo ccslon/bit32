@@ -1,6 +1,6 @@
 #define NULL (void*)0
 typedef unsigned size_t;
-typedef struct _div_t_ {
+typedef struct {
     int quot;
     int rem;
 } div_t;
@@ -12,29 +12,13 @@ int abs(int n) {
     if (n < 0) return -n;
     return n;
 }
-// int bsearch(int x, int* v, int n, int (*cmp)(int, int)) {
-//     int low = 0;
-//     int mid;
-//     int high = n - 1;
-//     while (low <= high) {
-//         mid = low + (high - low) / 2;
-//         int cond = (*cmp)(x, v[mid]);
-//         if (cond < 0)
-//             high = mid - 1;
-//         else if (cond > 0) 
-//             low = mid + 1;
-//         else
-//             return mid;
-//     }
-//     return -1;
-// }
-int bsearch(void* x, void* v[], unsigned size, unsigned n, int (*cmp)(void*,void*)) {
+int bsearch(void* x, void* v, size_t size, size_t n, int (*cmp)(void*,void*)) {
     int low = 0;
     int mid;
     int high = n - 1;
     while (low <= high) {
         mid = low + (high - low) / 2;
-        int cond = (*cmp)(x, v[mid*size]);
+        int cond = (*cmp)(x, &v[mid*size]);
         if (cond < 0)
             high = mid - 1;
         else if (cond > 0) 
@@ -44,7 +28,7 @@ int bsearch(void* x, void* v[], unsigned size, unsigned n, int (*cmp)(void*,void
     }
     return -1;
 }
-void swap(void* v, unsigned size, int i, int j) {
+void swap(void* v, size_t size, int i, int j) {
     char t;
     unsigned k;
     for (k = 0; k < size; k++) {
@@ -53,7 +37,7 @@ void swap(void* v, unsigned size, int i, int j) {
         *(char*)(v+j*size+k) = t;
     }
 }
-void qsort(void* v, unsigned size, int left, int right, int (*cmp)(void*,void*)) {
+void qsort(void* v, size_t size, int left, int right, int (*cmp)(void*,void*)) {
     int i, last;
     if (left >= right)
         return;
@@ -97,7 +81,6 @@ float atof(const char* s) {
     }
     return sign * val / pow;
 }
-
 #define HEAPLEN 1024
 char heap[HEAPLEN];
 char* heapindex = 0;
@@ -129,50 +112,3 @@ void* calloc(int n, int size) {
         *(char*)(p+i+c) = 0;
     return p;
 }
-/*
-struct header {
-    struct header *next;
-    int size;
-};
-typedef struct header Header;
-Header *freep = NULL;
-Header base;
-void free(void* ptr) {
-    Header *bp, *p;
-    bp = (Header*)ptr - 1;
-    for (p = freep; !(p < bp && bp < p->next); p = p->next)
-        if (p >= p->next && (p < bp || bp <p->next))
-            break;
-    if (bp + bp->size == p->next) {
-        bp->size += p->next->size;
-        bp->next = p->next->next;
-    } else 
-        bp->next = p->next;
-    if (p + p->next == bp) {
-        p->size += bp->size;
-        p->next = bp->next;
-    } else
-        p->next = bp;
-    freep = p;
-}
-void* malloc(int size) {
-    Header *p, *prevp;
-    if ((prevp = freep) == NULL) {
-        base.next = freep = prevp = &base;
-        base.size = 0;
-    }
-    for (p = prevp->next; 1; prevp = p, p = p->next) {
-        if (p->size >= size) {
-            if (p->size == size)
-                prevp->next = p->next;
-            else {
-                p->size -= size;
-                p += p->size;
-                p->size = size;
-            }
-            freep = prevp;
-            return (void*)(p+1);
-        }
-    }
-}
-*/

@@ -22,8 +22,23 @@ char* fgets(char* s, size_t n, FILE* stream) {
     *cs = '\0';
     return s;
 }
-char* gets(char* s) {
-    return fgets(s, 0xff, &stdin);
+char* gets(char* s, size_t n) {
+    char c;
+    size_t i = 0;
+    while ((c = getchar()) != '\n') {
+        if (c) {
+            if (c == '\b') {
+                putchar(c);
+                if (i > 0)
+                    i--;
+            } else if (i < size-1) {
+                putchar(c);
+                s[i++] = c;
+            }
+        }
+    }    
+    s[i] = '\0';
+    return i;
 }
 int fputc(char c, FILE* stream) {
     *stream->next = c;
