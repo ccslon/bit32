@@ -388,21 +388,21 @@ def link(objects):
 assembler = Assembler()
 
 class Color(IntEnum):
-    ITAL = 3
-    GREY = 30
-    RED = 31
-    GREEN = 32
-    ORANGE = 33
-    BLUE = 34
-    PURPLE = 35
-    CYAN = 36
-    WHITE = 37
+    GREY = 8
+    RED = 9
+    GREEN = 10
+    ORANGE = 11
+    BLUE = 12
+    PURPLE = 99
+    CYAN = 14
+    WHITE = 15
 
+# ANSI 8-bit color mode (look it up)
 PATTERNS = {
     r'"(\\"|[^"])*"': Color.GREEN, #string
     r"'\\?[^']'": Color.GREEN, #char
     r'\b-?(0x[0-9a-f]+|0b[01]+|\d+)\b': Color.ORANGE, #const
-    rf'\b({RE_REG})\b': Color.ITAL, #register
+    rf'\b({RE_REG})\b': Color.WHITE, #register
     r'\b(nop)\b': Color.BLUE,
     rf'\b({RE_OP})({RE_COND})?s?(\.({RE_SIZE}))?\b': Color.BLUE, #ops
     rf'\b(call|ret|halt|j(mp)?)({RE_COND})?\b': Color.BLUE, #ops
@@ -414,7 +414,7 @@ PATTERNS = {
 
 def repl(match, color):
     if color:
-        return f'\33[1;{color}m{match[0]}\33[0m'
+        return f'\33[38;5;{color}m{match[0]}\33[0m'
     return match[0]
 
 def display(asm):

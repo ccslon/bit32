@@ -22,6 +22,7 @@ def compile(name, iflag=False, sflag=False, fflag=True):
             asm = ast.generate()
             if sflag:
                 assembler.display(asm)
+                # print(asm)
                 if fflag:
                     with open(f'{name[:-2]}.s', 'w+') as file:
                         file.write(asm)

@@ -441,7 +441,6 @@ class Condition(Expr):
         self.type = true.type
         self.cond, self.true, self.false = cond, true, false
     def reduce(self, vstr, n):
-        vstr.if_jump_end = False
         label = vstr.next_label()
         sublabel = vstr.next_label() if self.false else label
         self.cond.compare(vstr, n, sublabel)
