@@ -11,12 +11,12 @@ def negative(num, base):
     return (-num ^ (2**base - 1)) + 1
 
 class Size(IntEnum):
-    BYTE = 1
-    HALF = 2
-    WORD = 4
+    BYTE = B = 1
+    HALF = H = 2
+    WORD = W = 4
     @classmethod
     def get(cls, name):
-        return {'B': cls.BYTE, 'H': cls.HALF, 'W': cls.WORD}.get(name.upper() if name else name, cls.WORD)
+        return cls[name.upper()] if name else cls.WORD
     def display(self):
         return f'.{self.name[0]}' if self != Size.WORD else ''
 

@@ -521,7 +521,6 @@ class Defn(Expr):
         preview.begin_func(self)
         self.block.generate(preview, self.max_args)
         push = list(map(Reg, range(max(bool(self.type.width), len(self.params)), reg.max+1))) + [Reg.FP]
-
         vstr.begin_func(self)
         #start
         vstr.append_label(self.token.lexeme)

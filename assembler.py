@@ -30,8 +30,8 @@ TOKENS = {
     'call': r'^call(?P<call_cond>{RE_COND})?\b',
     'ret': r'^ret(?P<ret_cond>{RE_COND})?\b',
     'halt': r'^(halt)\b',
-    'size': r'\b(byte|half|word)\b',
-    'space': r'\b(space)\b',
+    'size': r'\.(byte|half|word)\b',
+    'space': r'\.(space)\b',
     'reg': rf'\b({RE_REG})\b',
     'op': rf'^(?P<op_name>{RE_OP})(?P<flag>s)?(?P<op_cond>{RE_COND})?(\.(?P<op_size>{RE_SIZE}))?\s',
     'jump': rf'^j(mp)?(?P<jump_cond>{RE_COND})?\b',
@@ -318,11 +318,11 @@ class Assembler:
             elif type == 'ret':
                 yield Cond.get(match['ret_cond'])
             elif type == 'size':
-                if value.lower() == 'word':
+                if value.lower() == '.word':
                     yield Size.WORD
-                elif value.lower() == 'byte':
+                elif value.lower() == '.byte':
                     yield Size.BYTE
-                elif value.lower() == 'half':
+                elif value.lower() == '.half':
                     yield Size.HALF
 
     def match(self, *pattern):
@@ -407,7 +407,7 @@ PATTERNS = {
     rf'\b({RE_OP})({RE_COND})?s?(\.({RE_SIZE}))?\b': Color.BLUE, #ops
     rf'\b(call|ret|halt|j(mp)?)({RE_COND})?\b': Color.BLUE, #ops
     rf'\b(ldi|ld|st|push|pop)({RE_COND})?(\.({RE_SIZE}))?\b': Color.BLUE, #ops
-    r'\b(byte|half|word|space)\b': Color.BLUE, #size|space
+    r'\.(byte|half|word|space)\b': Color.BLUE, #size|space
     r'\.?[a-z_]\w*': Color.CYAN, #id
     r';.*$': Color.GREY #comment
 }
@@ -445,6 +445,8 @@ def assemble(program, fflag=True, name='out'):
 
 if __name__ == '__main__':
     ASM = '''
+    myc: .byte '4'
+    intint: .word 1000
     main:
         call in
         cmp.b A, '\0'

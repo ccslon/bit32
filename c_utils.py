@@ -119,13 +119,13 @@ class Emitter(Visitor):
         self.asm.append(f'  {asm}')
         self.labels.clear()
     def space(self, name, size):
-        self.data.append(f'{name}: space {size}')
+        self.data.append(f'{name}: .space {size}')
     def glob(self, name, size, value):
-        self.data.append(f'{name}: {size.name.lower()} {value}')
+        self.data.append(f'{name}: .{size.name.lower()} {value}')
     def datas(self, label, datas):
         self.data.append(f'{label}:')
         for size, data in datas:
-            self.data.append(f'  {size.name.lower()} {data}')
+            self.data.append(f'  .{size.name.lower()} {data}')
     def push(self, size, rs):
         self.add(f'PUSH{size.display()} {rs.name}')
     def pop(self, size, rd):
