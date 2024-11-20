@@ -85,10 +85,10 @@ class Cond(IntEnum):
     CC = LO = 8
     HI = 9
     LS = 10
-    LT = 11
-    GE = 12
-    LE = 13
-    GT = 14
+    LE = 11
+    LT = 12
+    GT = 13
+    GE = 14
     AL = 15
     @classmethod
     def get(cls, name):
