@@ -53,6 +53,10 @@ class Local(Expr):
         new = Local(attr.type, attr.token)
         new.location = self.location
         return new
+    def ptr_union(self, attr):
+        new = Local(Pointer(attr.type), attr.token)
+        new.location = self.location
+        return new
 
 class Attr(Local):
     def address(self, vstr, n):
@@ -65,6 +69,10 @@ class Attr(Local):
         self.type.call(vstr, n, self, n)
     def union(self, attr):
         new = Attr(attr.type, attr.token)
+        new.location = self.location
+        return new
+    def ptr_union(self, attr):
+        new = Attr(Pointer(attr.type), attr.token)
         new.location = self.location
         return new
 
@@ -84,6 +92,9 @@ class Glob(Local):
         self.type.glob_generate(vstr, self)
     def union(self, attr):
         new = Glob(attr.type, self.token)
+        return new
+    def ptr_union(self, attr):
+        new = Glob(Pointer(attr.type), self.token)
         return new
 
 def itf(i):
@@ -719,7 +730,7 @@ class Return(Expr):
     def __init__(self, token, ret, expr):
         if ret:
             super().__init__(ret, token)
-            assert ret == expr.type, self.error('Return expression type != function type')
+            assert ret == expr.type, self.error(f'Return expression type {ret} != function type {expr.type}')
             if isinstance(expr, OpExpr):
                 expr.width = ret.width
         else:
