@@ -49,6 +49,7 @@ TODO
     [X] Include header files
     [X] Macros
 
+[ ] Bit fields
 [X] Proper typedef
 [X] Return width
 [ ] Proper preproc
@@ -334,12 +335,11 @@ class CParser:
 
     def attr(self, spec, type):
         '''
-        ATTR -> DECLR
+        ATTR -> DECLR [':' num]
         '''
-        types = []
-        id = self.declr(types)
-        for new_type, args in reversed(types):
-            type = new_type(type, *args)
+        type, id = self.translate_declr(type)
+        if self.accept(':'):
+            self.expect('num')
         spec[id.lexeme] = Attr(type, id)
 
     def spec(self):
