@@ -1,23 +1,23 @@
 .S0: "Hello global*\n\0"
-gptr: word .S0
+gptr: .word .S0
 garr:
-  byte 'H'
-  byte 'e'
-  byte 'l'
-  byte 'l'
-  byte 'o'
-  byte ' '
-  byte 'g'
-  byte 'l'
-  byte 'o'
-  byte 'b'
-  byte 'a'
-  byte 'l'
-  byte '['
-  byte ']'
-  byte '\n'
-  byte '\0'
-c: byte 'c'
+  .byte 'H'
+  .byte 'e'
+  .byte 'l'
+  .byte 'l'
+  .byte 'o'
+  .byte ' '
+  .byte 'g'
+  .byte 'l'
+  .byte 'o'
+  .byte 'b'
+  .byte 'a'
+  .byte 'l'
+  .byte '['
+  .byte ']'
+  .byte '\n'
+  .byte '\0'
+c: .byte 'c'
 .S1: "Hello stack*\n\0"
 .S2: "Hello cstrings!\n\0"
 main:

@@ -1,4 +1,4 @@
-foo: word 9
+foo: .word 9
 test:
   PUSH A, FP
   SUB SP, 4

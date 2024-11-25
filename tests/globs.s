@@ -1,22 +1,22 @@
 foo:
-  byte 1
-  half 2
-  word 3
+  .byte 1
+  .half 2
+  .word 3
 globs:
-  word 1
-  word 2
-  word 3
+  .word 1
+  .word 2
+  .word 3
 .S0: "Colin\0"
 .S1: "Mom\0"
 owners:
-  word .S0
-  byte 34
-  word .S1
-  byte 21
-cats: space 27
+  .word .S0
+  .byte 34
+  .word .S1
+  .byte 21
+cats: .space 27
 .S2: "Cats Ya!\0"
-name: word .S2
-num: word 69
+name: .word .S2
+num: .word 69
 .S3: "Cloud\0"
 print_cat:
   PUSH FP

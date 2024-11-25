@@ -1,4 +1,4 @@
-array: space 40
+array: .space 40
 get:
   PUSH FP
   SUB SP, 8
