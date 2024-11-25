@@ -1,5 +1,5 @@
 #define NULL (void*)0
-typedef unsigned int size_t;
+typedef unsigned size_t;
 union file {
     char* next;
 };
@@ -23,6 +23,7 @@ char* fgets(char* s, size_t n, FILE* stream) {
     return s;
 }
 char* gets(char* s, size_t n) {
+    int putchar(char);
     char c;
     size_t i = 0;
     while ((c = getchar()) != '\n') {
@@ -31,14 +32,14 @@ char* gets(char* s, size_t n) {
                 putchar(c);
                 if (i > 0)
                     i--;
-            } else if (i < size-1) {
+            } else if (i < n-1) {
                 putchar(c);
                 s[i++] = c;
             }
         }
     }    
     s[i] = '\0';
-    return i;
+    return s;
 }
 int fputc(char c, FILE* stream) {
     *stream->next = c;
