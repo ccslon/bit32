@@ -14,7 +14,7 @@ class CPreProc:
     COMMENT = re.compile(r'''
                          /\*(.|\n)*?\*/     #multi line comment
                          |
-                         //.*\n             #single line comment
+                         //.*(\n|$)         #single line comment
                          ''', re.M | re.X)
     STD = re.compile(r'''
                      ^
@@ -99,10 +99,10 @@ class CPreProc:
     def defines(self, text):
         self.defined = {}
         for match in self.OBJ.finditer(text):
-            self.defined[match['name']] = None, match.group('expr')
+            self.defined[match['name']] = None, match['expr']
         text = self.OBJ.sub(self.repl, text)
         for match in self.FUNC.finditer(text):
-            self.defined[match.group('name')] = tuple(filter(len, map(str.strip, match.group('args').split(',')))), match.group('expr')
+            self.defined[match['name']] = tuple(filter(len, map(str.strip, match['args'].split(',')))), match['expr']
         text = self.FUNC.sub(self.repl, text)
         for defn, (args, expr)  in self.defined.items():
             if args is None:
@@ -126,7 +126,7 @@ class CPreProc:
         return text
 
     def repl(self, match):
-        return '\n' * match.group().count('\n')
+        return '\n' * match[0].count('\n')
 
     def repl_define(self, match):
         args, expr = self.defined[match['name']]
