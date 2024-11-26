@@ -70,7 +70,6 @@ class CLexer(LexerBase):
     RE_break = r'\b(break)\b'
     RE_continue = r'\b(continue)\b'
     RE_goto = r'\b(goto)\b'
-    RE_include = r'\b(include)\b'
     RE_id = r'[A-Za-z_]\w*'
     def RE_new_line(self, match):
         r'\n'
