@@ -5,7 +5,7 @@ Created on Fri Sep  8 14:37:22 2023
 @author: ccslon
 """
 from unittest import TestCase, main, expectedFailure
-import c_preprocessor
+import c_preproc
 import c_parser
 
 class TestCompiler(TestCase):
@@ -13,14 +13,15 @@ class TestCompiler(TestCase):
     @classmethod
     def setUpClass(cls):
         cls.tests = []
+        cls.preproc = c_preproc.CPreProcessor()
 
     @classmethod
     def tearDownClass(cls):
         print(cls.tests)
 
     def code_eq_asm(self, name):
-        text = c_preprocessor.preprocess(f'tests/{name}.c')
-        ast = c_parser.parse(text)
+        self.preproc.process(f'tests/{name}.c')
+        ast = c_parser.parse(self.preproc.stream())
         out = ast.generate()
         with open(f'tests/{name}.s') as file:
             asm = file.read()
@@ -29,8 +30,8 @@ class TestCompiler(TestCase):
 
     @expectedFailure
     def test_bad_const(self):
-        text = c_preprocessor.preprocess('tests/bad_const.c')
-        ast = c_parser.parse(text)
+        self.preproc.process('tests/bad_const.c')
+        ast = c_parser.parse(self.preproc.stream())
         ast.generate()
 
     def test_init(self):

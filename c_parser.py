@@ -5,7 +5,6 @@ Created on Mon Jul  3 19:47:39 2023
 @author: Colin
 """
 
-import c_lexer
 from c_utils import Frame
 from c_types import Void, Float, Int, Short, Char, Pointer, Struct, Union, Array, Func
 from c_exprs import Num, NegNum, EnumConst, Decimal, Letter, String
@@ -84,15 +83,15 @@ class CParser:
 
     def primary(self):
         '''
-        PRIMARY -> id|num|char|string|'(' EXPR ')'
+        PRIMARY -> id|number|character|string|'(' EXPR ')'
         '''
         if self.peek('id'):
             return self.resolve(next(self).lexeme)
         elif self.peek('decimal'):
             return Decimal(next(self))
-        elif self.peek('num'):
+        elif self.peek('number'):
             return Num(next(self))
-        elif self.peek('letter'):
+        elif self.peek('character'):
             return Letter(next(self))
         elif self.peek('string'):
             return String(next(self))
@@ -158,9 +157,13 @@ class CParser:
         '''
         if self.peek('*'):
             return Deref(next(self), self.cast())
-        elif self.peekn('-', 'num'):
+        elif self.peekn('-', 'number'):
             next(self)
             return NegNum(next(self))
+        elif self.peekn('-', 'decimal'):
+            decimal = next(self)
+            decimal.lexeme = '-'+decimal.lexeme
+            return Decimal
         elif self.peek('-','~'):
             return Unary(next(self), self.cast())
         elif self.peek('++','--'):
@@ -325,21 +328,21 @@ class CParser:
 
     def enum(self, value):
         '''
-        ENUM -> id ['=' num]
+        ENUM -> id ['=' number]
         '''
         id = self.expect('id')
         if self.accept('='):
-            value = Num(self.expect('num')).value
+            value = Num(self.expect('number')).value
         self.enum_consts[id.lexeme] = EnumConst(id, value)
         return value
 
     def attr(self, spec, type):
         '''
-        ATTR -> DECLR [':' num]
+        ATTR -> DECLR [':' number]
         '''
         type, id = self.translate_declr(type)
         if self.accept(':'):
-            self.expect('num')
+            self.expect('number')
         spec[id.lexeme] = Attr(type, id)
 
     def spec(self):
@@ -451,7 +454,7 @@ class CParser:
 
     def dir_declr(self, types):
         '''
-        DIR_DECLR -> ('(' _DECLR ')'|[id]){'(' PARAMS ')'|'[' num ']'}
+        DIR_DECLR -> ('(' _DECLR ')'|[id]){'(' PARAMS ')'|'[' number ']'}
         '''
         if self.accept('('):
             id = self.declr(types)
@@ -464,7 +467,7 @@ class CParser:
                 types.append((Func, (params, variable)))
                 self.expect(')')
             elif self.accept('['):
-                types.append((Array, (Num(next(self)) if self.peek('num') else None,)))
+                types.append((Array, (Num(next(self)) if self.peek('number') else None,)))
                 self.expect(']')
         return id
 
@@ -756,7 +759,7 @@ class CParser:
         self.space = max(self.space, self.scope.size)
         self.scope, self.structs, self.typedefs, self.unions, self.enums, self.enum_consts = self.stack.pop()
 
-    def parse(self, text):
+    def parse(self, tokens):
         self.stack = []
         self.structs = {}
         self.typedefs = {}
@@ -764,7 +767,7 @@ class CParser:
         self.enums = []
         self.enum_consts = {}
         self.globs = {}
-        self.tokens = c_lexer.lex(text)
+        self.tokens = tokens
         # for i, t in enumerate(self.tokens): print(i, t.type, t.lexeme)
         self.index = 0
         program = self.program()
@@ -778,7 +781,7 @@ class CParser:
 
     def peek(self, *symbols, offset=0):
         token = self.tokens[self.index+offset]
-        return token.type in symbols or not token.lexeme.isalnum() and token.lexeme in symbols
+        return token.type in symbols or token.type in ('keyword','symbol') and token.lexeme in symbols
 
     def peekn(self, *buckets):
         if self.index+len(buckets) < len(self.tokens)-1:
@@ -803,7 +806,6 @@ class CParser:
         error = self.tokens[self.index]
         raise SyntaxError(f'Line {error.line}: Unexpected {error.type} token "{error.lexeme}".'+(f' {msg}.' if msg is not None else ''))
 
-parser = CParser()
-
-def parse(text):
-    return parser.parse(text)
+def parse(tokens):
+    parser = CParser()
+    return parser.parse(tokens)

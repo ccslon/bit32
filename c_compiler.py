@@ -6,27 +6,29 @@ Created on Thu Aug 31 21:52:15 2023
 """
 
 import assembler
-import c_preprocessor
+import c_preproc
 import c_parser
 
-def compile(name, iflag=False, sflag=False, fflag=True):
-    if name.endswith('.c') or name.endswith('.h'):
-        text = c_preprocessor.preprocess(name)
+def compile(file_name, iflag=False, sflag=False, fflag=True):
+    if file_name.endswith('.c') or file_name.endswith('.h'):
+        preproc = c_preproc.CPreProcessor()
+        preproc.process(file_name)
         if iflag:
+            text = preproc.output()
             print(text)
             if fflag:
-                with open(f'{name[:-2]}.i', 'w+') as file:
+                with open(f'{file_name[:-2]}.i', 'w+') as file:
                     file.write(text)
         else:
-            ast = c_parser.parse(text)
+            ast = c_parser.parse(preproc.stream())
             asm = ast.generate()
             if sflag:
                 assembler.display(asm)
                 # print(asm)
                 if fflag:
-                    with open(f'{name[:-2]}.s', 'w+') as file:
+                    with open(f'{file_name[:-2]}.s', 'w+') as file:
                         file.write(asm)
             else:
-                assembler.assemble(asm, fflag, name[:-2])
+                assembler.assemble(asm, fflag, file_name[:-2])
     else:
         print("Wrong file type")
