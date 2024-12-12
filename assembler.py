@@ -19,7 +19,7 @@ RE_REG = r'|'.join(reg.name for reg in Reg)
 TOKENS = {
     'const': r'-?(0x[0-9a-f]+|0b[01]+|\d+)',
     'string': r'"(\\"|[^"])*"',
-    'char': r"'\\?[^']'",
+    'char': r"'(\\'|\\?[^'])'",
     'ldi': rf'^ldi(?P<ldi_cond>{RE_COND})?(\.(?P<ldi_size>{RE_SIZE}))?\b',
     'ld': rf'^ld(?P<ld_cond>{RE_COND})?(\.(?P<ld_size>{RE_SIZE}))?\b',
     'st': rf'^st(?P<st_cond>{RE_COND})?(\.(?P<st_size>{RE_SIZE}))?\b',
@@ -385,8 +385,6 @@ def link(objects):
     print('\nSuccess!', len(contents), 'items.', i, 'bytes')
     return contents
 
-assembler = Assembler()
-
 class Color(IntEnum):
     GREY = 8
     RED = 9
@@ -400,7 +398,7 @@ class Color(IntEnum):
 # ANSI 8-bit color mode (look it up)
 PATTERNS = {
     r'"(\\"|[^"])*"': Color.GREEN, #string
-    r"'\\?[^']'": Color.GREEN, #char
+    r"'(\\'|\\?[^'])'": Color.GREEN, #char
     r'\b-?(0x[0-9a-f]+|0b[01]+|\d+)\b': Color.ORANGE, #const
     rf'\b({RE_REG})\b': Color.WHITE, #register
     r'\b(nop)\b': Color.BLUE,
@@ -437,6 +435,7 @@ def assemble(program, fflag=True, name='out'):
         name = program[:-2]
         with open(program) as file:
             program = file.read()
+    assembler = Assembler()
     objects = assembler.assemble(program)
     bit32 = link(objects)
     if fflag:
