@@ -1,53 +1,49 @@
 #define NULL (void*)0
 typedef unsigned size_t;
-union file {
-    char* next;
-};
-typedef union file FILE;
-FILE stdout = (char*)0x80000000;
-FILE stdin = (char*)0x80000001;
+typedef struct {
+    char* buffer;
+    size_t read;
+    size_t write;
+    size_t size;
+} FILE;
+extern FILE stdin;
+extern FILE stdout;
 char fgetc(FILE* stream) {
-    return *stream->next;
+    while (stream->read == stream->write)
+        ;
+    char c = stream->buffer[stream->read];
+    stream->read = (stream->read + 1) % stream->size;
+    return c;
 }
 #define getc() (fgetc(&stdin))
 char getchar() {
-    return *stdin.next;
+    while (stdin.read == stdin.write)
+        ;
+    char c = stdin.buffer[stdin.read];
+    stdin.read = (stdin.read + 1) % stdin.size;
+    return c;
 }
 char* fgets(char* s, size_t n, FILE* stream) {
     char c;
     char* cs = s;
     while (--n > 0 && (c = fgetc(stream))) // "enter"
-        if ((*cs++ = c) == '\n')
+        if ((*cs++ = c) == '\0')
             break;
-    *cs = '\0';
+    //*cs = '\0';
     return s;
 }
 char* gets(char* s, size_t n) {
-    int putchar(char);
-    char c;
-    size_t i = 0;
-    while ((c = getchar()) != '\n') {
-        if (c) {
-            if (c == '\b') {
-                putchar(c);
-                if (i > 0)
-                    i--;
-            } else if (i < n-1) {
-                putchar(c);
-                s[i++] = c;
-            }
-        }
-    }    
-    s[i] = '\0';
-    return s;
+    return fgets(s, n, &stdin);
 }
 int fputc(char c, FILE* stream) {
-    *stream->next = c;
+    stream->buffer[stream->write] = c;
+    stream->write = (stream->write + 1) % stream->size;
     return 0;
 }
 #define putc(c) (fputc(c, &stdout))
 int putchar(char c) {
-    *stdout.next = c;
+    stdout.buffer[stdout.write] = c;
+    stdout.write = (stdout.write + 1) % stdout.size;
     return 0;
 }
 int fputs(const char* s, FILE* stream) {

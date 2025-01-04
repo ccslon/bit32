@@ -29,20 +29,27 @@ int bsearch(void* x, void* v, size_t size, size_t n, int (*cmp)(void*,void*)) {
     return -1;
 }
 void swap(void* v, size_t size, int i, int j) {
-    char t;
+    size_t words = size / sizeof(int);
+    size_t tail = size % sizeof(int);    
+    int t;
     unsigned k;
-    for (k = 0; k < size; k++) {
-        t = *(char*)(v+i*size+k);
-        *(char*)(v+i*size+k) = *(char*)(v+j*size+k);
-        *(char*)(v+j*size+k) = t;
+    for (k = 0; k < words; k += sizeof(int)) {
+        t = *(int*)(v+i*size+k);
+        *(int*)(v+i*size+k) = *(int*)(v+j*size+k);
+        *(int*)(v+j*size+k) = t;
+    }
+    char c;
+    for (c = 0; c < tail; c++) {
+        t = *(char*)(v+i*size+k+c);
+        *(char*)(v+i*size+k+c) = *(char*)(v+j*size+k+c);
+        *(char*)(v+j*size+k+c) = t;
     }
 }
 void qsort(void* v, size_t size, int left, int right, int (*cmp)(void*,void*)) {
     int i, last;
     if (left >= right)
         return;
-    int mid = left + (right - left) / 2;
-    swap(v, size, left, mid);
+    swap(v, size, left, left + (right - left) / 2);
     last = left;
     for (i = left+1; i <= right; i++)
         if ((*cmp)(&v[i*size], &v[left*size]) < 0)
@@ -51,13 +58,13 @@ void qsort(void* v, size_t size, int left, int right, int (*cmp)(void*,void*)) {
     qsort(v, size, left, last-1, cmp);
     qsort(v, size, last+1, right, cmp);
 }
-int next = 0;
+int next_rand = 0;
 int rand() {
-    next = 1103515245 * next + 12345; //mod 2^31 - 1
-    return next;
+    next_rand = 1103515245 * next_rand + 12345; //mod 2^31 - 1
+    return next_rand;
 }
 void srand(int seed) {
-    next = seed;
+    next_rand = seed;
 }
 int atoi(const char* s) {
     int i, n = 0;

@@ -17,6 +17,13 @@ char* strncpy(char* s, const char* t, size_t n) {
         ;
     return s;
 }
+char* strdup(char* s) {
+    void* malloc(unsigned);
+    char* p = malloc(strlen(s)+1);
+    if (p != (void*)0)
+        strncpy(p, s, strlen(s));
+    return p;
+}
 char* strcat(char* s, const char* t) {
     size_t i = strlen(s), j = 0;
     while((s[i++] = t[j++]) != '\0')
@@ -61,8 +68,8 @@ void* memset(void* s, unsigned char v, size_t n) {
     return s;
 }
 void* memcpy(void* s, const void* t, size_t n) {
-    int words = n / sizeof(int);
-    int tail = n % sizeof(int);
+    size_t words = n / sizeof(int);
+    size_t tail = n % sizeof(int);
     size_t i;
     for (i = 0; i < words; i++) 
         *(int*)(s+i) = *(int*)(t+i);
