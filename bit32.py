@@ -20,6 +20,14 @@ class Size(IntEnum):
     def display(self):
         return f'.{self.name[0]}' if self != Size.WORD else ''
 
+class Flag(IntEnum):
+    Z =         0b00000001
+    N =         0b00000010
+    V =         0b00000100
+    C =         0b00001000
+    HALT =      0b00010000
+    INT_EN =    0b00100000
+
 class Reg(IntEnum):
     A = 0
     B = 1
@@ -31,13 +39,12 @@ class Reg(IntEnum):
     H = 7
     I = 8
     J = 9
-    K = 10
-    L = 11
-    FP = 12
-    SP = 13
+    FP = K = 10
+    SP = 11
+    SR = 12
+    IL = 13
     LR = 14
     PC = 15
-
 
 class Op(IntEnum):
     MOV = 0
@@ -67,11 +74,11 @@ class Op(IntEnum):
     MUL = 24
     DIV = 25
     MOD = 26
-    SHL = 27
-    SHR = 28
+    SHR = 27
+    SHL = 28
     ASL = 29
-    ROL = 30
-    ROR = 31
+    ROR = 30
+    ROL = 31
 
 class Cond(IntEnum):
     NV = 0
@@ -213,10 +220,10 @@ class Jump(Inst):
             
 
 class Interrupt(Inst):
-    def __init__(self, cond, code24):
+    def __init__(self, cond, software, code24):
         super().__init__()
         self[31:28] = cond
-        self[27] = True
+        self[27] = software
         self[26:24] = InstOp.INT
         self[23:0] = code24
         self.str = f'INT{cond.display()} 0x{code24:06X}'
@@ -239,7 +246,7 @@ class Binary(Inst):
     def __init__(self, cond, flag, size, imm, op, src, rd):
         super().__init__()
         self[31:28] = cond
-        self[27] = flag
+        self[27] = flag if op != Op.CMPF else True
         self[26:24] = InstOp.ALU | imm
         self[23:22] = size >> 1
         self[21:17] = op
