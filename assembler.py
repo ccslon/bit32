@@ -4,12 +4,19 @@ Created on Fri Aug 25 10:49:03 2023
 
 @author: ccslon
 """
-from enum import IntEnum
+from enum import IntEnum, IntFlag
 import re
 
-from bit32 import Size, Reg, Op, Cond, Byte, Char, Half, Word, Jump, Interrupt, Unary, Binary, Ternary, Load, PushPop, LoadImm, unescape
+from bit32 import Size, Flag, Reg, Op, Cond, Byte, Char, Half, Word, Jump, Interrupt, Unary, Binary, Ternary, Load, PushPop, LoadImm, unescape
 
-DEBUG = False
+class Debug(IntFlag):
+    NONE = 0
+    OBJECT_FILE = 1
+    FULL = 2
+    SHORT = 4
+    PRINT_BYTES = 8    
+
+DEBUG = Debug.NONE | Debug.OBJECT_FILE
 
 RE_SIZE = r'B|H|W'
 RE_OP = r'|'.join(op.name for op in Op)
@@ -23,11 +30,12 @@ TOKENS = {
     'ldi': rf'^ldi(?P<ldi_cond>{RE_COND})?(\.(?P<ldi_size>{RE_SIZE}))?\b',
     'ld': rf'^ld(?P<ld_cond>{RE_COND})?(\.(?P<ld_size>{RE_SIZE}))?\b',
     'st': rf'^st(?P<st_cond>{RE_COND})?(\.(?P<st_size>{RE_SIZE}))?\b',
-    'int': rf'^int(?P<int_cond>{RE_COND})?\b',
+    'swi': rf'^swi(?P<int_cond>{RE_COND})?\b',
     'nop': r'^(nop)\b',
     'push': rf'^push(?P<push_cond>{RE_COND})?(\.(?P<push_size>{RE_SIZE}))?\b',
     'pop': rf'^pop(?P<pop_cond>{RE_COND})?(\.(?P<pop_size>{RE_SIZE}))?\b',
     'call': r'^call(?P<call_cond>{RE_COND})?\b',
+    'iret': r'\b(iret)\b',
     'ret': r'^ret(?P<ret_cond>{RE_COND})?\b',
     'halt': r'^(halt)\b',
     'size': r'\.(byte|half|word)\b',
@@ -82,7 +90,7 @@ class Assembler:
     def call(self, cond, label):
         self.new_inst(Jump, cond, True, label)
     def interrupt(self, cond, label):
-        self.new_inst(Interrupt, cond, label)
+        self.new_inst(Interrupt, cond, True, label)
     def unary(self, op, cond, flag, size, rd):
         assert op in [Op.NOT, Op.NEG, Op.NEGF]
         self.new_inst(Unary, cond, flag, size, op, rd)
@@ -90,7 +98,7 @@ class Assembler:
         assert op not in [Op.NOT, Op.NEG]
         self.new_inst(Binary, cond, flag, size, imm, op, src, rd)
     def ternary(self, op, cond, flag, size, rd, rs, src, imm):
-        assert op not in [Op.MOV, Op.MVN, Op.CMN, Op.CMP, Op.NOT, Op.NEG, Op.TST, Op.TEQ]
+        assert op not in [Op.MOV, Op.MVN, Op.CMN, Op.CMP, Op.NOT, Op.NEG, Op.TST, Op.TEQ, Op.CMPF]
         self.new_inst(Ternary, cond, flag, size, imm, op, src, rs, rd)
     def load(self, cond, size, rd, rb, offset, imm):
         self.new_inst(Load, cond, size, imm, False, rd, rb, offset)
@@ -106,7 +114,7 @@ class Assembler:
     def push(self, cond, size, rd):
         self.new_inst(PushPop, cond, size, True, rd)
     def binary_w_name(self, op, cond, flag, size, rd, value):
-        if 0 <= value < 256:
+        if -128 <= value < 256:
             assert op not in [Op.NOT, Op.NEG]
             self.new_inst(Binary, cond, flag, size, True, op, value, rd)
         else:
@@ -140,11 +148,11 @@ class Assembler:
                 self.index = 0
 
                 if self.match('id', '=', 'const'):
-                    print(f'{self.line_no: >2}|{line}')
+                    # print(f'{self.line_no: >2}|{line}')
                     self.name(*self.values())
 
                 elif self.peek('label'):
-                    print(f'{self.line_no: >2}|{line}')
+                    # print(f'{self.line_no: >2}|{line}')
 
                     if self.match('label'):
                         self.labels.append(*self.values())
@@ -161,7 +169,7 @@ class Assembler:
                     else:
                         self.error()
                 else:
-                    print(f'{self.line_no: >2}|  {line}')
+                    # print(f'{self.line_no: >2}|  {line}')
 
                     if self.match('nop'):
                         self.jump(Cond.NV, 0)
@@ -183,7 +191,7 @@ class Assembler:
                     elif self.match('jump', 'id'):
                         self.jump(*self.values())
                         
-                    elif self.match('int', 'id'):
+                    elif self.match('swi', 'id'):
                         self.interrupt(*self.values())
 
                     elif self.match('op', 'reg'):
@@ -249,7 +257,7 @@ class Assembler:
 
                     elif self.match('call', 'reg'):
                         cond, reg = self.values()
-                        self.ternary(Op.ADD, cond, False, Size.WORD, Reg.LR, Reg.PC, 4*2, True)
+                        self.ternary(Op.ADD, cond, False, Size.WORD, Reg.LR, Reg.PC, Size.WORD*2, True)
                         self.binary(Op.MOV, cond, False, Size.WORD, Reg.PC, reg, False)
 
                     elif self.match('call', 'id'):
@@ -257,9 +265,12 @@ class Assembler:
 
                     elif self.match('ret'):
                         self.binary(Op.MOV, *self.values(), False, Size.WORD, Reg.PC, Reg.LR, False)
+                        
+                    elif self.match('iret'):
+                        self.binary(Op.MOV, Cond.AL, False, Size.WORD, Reg.PC, Reg.IL, False)
 
                     elif self.match('halt'):
-                        self.binary(Op.MOV, Cond.AL, False, Size.WORD, Reg.PC, Reg.PC, False)
+                        self.binary(Op.OR, Cond.AL, False, Size.WORD, Reg.SR, Flag.HALT, True)
 
                     else:
                         self.error()
@@ -274,7 +285,7 @@ class Assembler:
                 return int(value, base=2)
             else:
                 return int(value)
-        elif type in ['string', 'char']:
+        elif type in ['string','char']:
             return unescape(value[1:-1])
         elif type == 'reg':
             return Reg[value.upper()]
@@ -351,7 +362,7 @@ class Assembler:
 
     def error(self):
         etype, evalue, _ = self.tokens[self.index]
-        raise SyntaxError(f'Unexpected {etype} token "{evalue}" at token #{self.index} in line {self.line_no}')
+        raise SyntaxError(f'Unexpected {etype} token "{evalue}" at token #{self.index} in line {self.line_no+1}')
 
 def link(objects):
     targets = {}
@@ -359,13 +370,16 @@ def link(objects):
     addr = 0
     for i, (labels, type, args) in enumerate(objects):
         for label in labels:
+            if label in targets:
+                print(f'Warning: label collision "{label}"')
             targets[label] = addr
             indices.add(addr)
         objects[i] = (type, args)
         addr += type.size
-    print('-'*67)
     contents = []
     i = 0
+    if DEBUG & Debug.OBJECT_FILE:
+        file =  open('asmlog.txt', 'w+')
     for type, args in objects:
         if args and type is not Char:
             *args, last = args
@@ -376,12 +390,18 @@ def link(objects):
             args = *args, last
         data = type(*args)
         contents.append(data.little_end())
-        if DEBUG:
-            print('>>' if i in indices else '  ', f'{i:06x}:', f'{data.str: <20}', f'| {data.format_dec(): <22}', f'{data.format_bin(): <40}', data.hex())
-        else:
+        if DEBUG & Debug.OBJECT_FILE:
+            print(f'{i:06x}:', data.str, file=file)
+        if DEBUG & Debug.FULL:            
+            print('>>' if i in indices else '  ', f'{i:06x}:', f'{data.str: <20}', f'| {data.format_dec(): <23}', f'{data.format_bin(): <40}', data.hex())
+        elif DEBUG & Debug.SHORT:
             print('>>' if i in indices else '  ', f'{i:08x}:', f'{data.little_end(): <11}', f'| {data.str: <20}')
         i += type.size
-    print('\n'+' '.join(contents))
+    if DEBUG & Debug.OBJECT_FILE:
+        file.close()
+    if DEBUG & Debug.PRINT_BYTES:
+        print('\n'+' '.join(contents))
+    print('Interrupt Vector:', '0x'+Interrupt(Cond.AL, False, targets['interrupt_handler']).hex())
     print('\nSuccess!', len(contents), 'items.', i, 'bytes')
     return contents
 
@@ -444,14 +464,9 @@ def assemble(program, fflag=True, name='out'):
 
 if __name__ == '__main__':
     ASM = '''
-    myc: .byte '4'
-    intint: .word 1000
     main:
-        call in
-        cmp.b A, '\0'
-        jeq end
-        call out
-    end:
-        jmp main
+    loop:
+        JMP loop
+        RET
     '''
     assemble(ASM)
