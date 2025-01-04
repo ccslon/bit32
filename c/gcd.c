@@ -8,7 +8,7 @@ int gcd(int a, int b) {
 typedef struct {
     int num, den;
 } frac;
-void printfrac(frac *f) {
+void printFrac(frac *f) {
     if (f->den == 1)
         printf("%d", f->num);
     printf("%d/%d", f->num, f->den);
@@ -27,5 +27,5 @@ frac mul(frac* a, frac* b) {
 
 int main() {
     frac f = Frac(1,2);
-    printfrac(&f);
+    printFrac(&f);
 }
