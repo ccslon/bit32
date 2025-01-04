@@ -43,8 +43,8 @@ class If(Statement):
             self.false.branch(vstr, n, root)
 
 class Case(Statement):
-    def __init__(self, const, statement):
-        self.const, self.statement = const, statement
+    def __init__(self, const, block):
+        self.const, self.block = const, block
 
 class Switch(Statement):
     def __init__(self, test):
@@ -64,7 +64,7 @@ class Switch(Statement):
             vstr.jump(Cond.AL, f'.L{vstr.loop.end()}')
         for i, case in enumerate(self.cases):
             vstr.append_label(f'.L{labels[i]}')
-            case.statement.generate(vstr, n)
+            case.block.generate(vstr, n)
         if self.default:
             vstr.append_label(f'.L{default}')
             self.default.generate(vstr, n)

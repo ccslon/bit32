@@ -22,7 +22,7 @@ TODO
 [X] Globals overhaul including global structs and arrays
 [X] Init lists
 [X] Proper ++/--
-[ ] Fix Unions
+[X] Fix Unions
 [X] Enums
 [X] peekn
 [X] Labels and goto
@@ -51,8 +51,12 @@ TODO
 [ ] Bit fields
 [X] Proper typedef
 [X] Return width
-[ ] Proper preproc
+[X] Proper preproc
 [X] Assertion messages
+[ ] Breakpoints in circuit
+[ ] fix interrupt on interrupt bug in circuit
+[X] Warn when global names collide
+[X] better debugging in ASM
 
 '''
 
@@ -108,13 +112,13 @@ class CParser:
         '''
         postfix = self.primary()
         while self.peek('(','[','++','--','.','->'):
-            if self.accept('('):
+            if self.peek('('):
                 assert isinstance(postfix.type, Func), self.error(f'"{postfix.token.lexeme}" is not a function')
                 if postfix.type.variable:
                     call_type = VarCall
                 else:
                     call_type = Call
-                postfix = call_type(postfix, self.args())
+                postfix = call_type(next(self), postfix, self.args())
                 self.expect(')')
                 self.calls = True
             elif self.peek('['):
@@ -123,16 +127,27 @@ class CParser:
             elif self.peek('++','--'):
                     postfix = Post(next(self), postfix)
             elif self.peek('.'):
+                token = next(self)
+                try:
+                    attr = postfix.type[self.expect('id').lexeme]
+                except KeyError as error:
+                    self.error(f'{error} is not an attribute of {postfix.type.to}')
                 if isinstance(postfix.type, Union):
-                    next(self)
-                    postfix = postfix.union(postfix.type[self.expect('id').lexeme])
+                    postfix = postfix.union(attr)
                 else:
-                    postfix = Dot(next(self), postfix, postfix.type[self.expect('id').lexeme])
+                    postfix = Dot(token, postfix, attr)
             elif self.peek('->'):
+                assert hasattr(postfix.type, 'to'), self.error(f'{postfix.type} is not pointer type')
+                token = next(self)
+                try:
+                    attr = postfix.type.to[self.expect('id').lexeme]
+                except KeyError as error:
+                    self.error(f'{error} is not an attribute of {postfix.type.to}')
                 if isinstance(postfix.type.to, Union):
-                    postfix = Deref(next(self), postfix.ptr_union(postfix.type.to[self.expect('id').lexeme]))
+                    postfix = Deref(token, postfix.ptr_union(attr))
                 else:
-                    postfix = Arrow(next(self), postfix, postfix.type.to[self.expect('id').lexeme])
+                    postfix = Arrow(token, postfix, attr)                    
+                        
         return postfix
 
     def args(self):
@@ -160,7 +175,8 @@ class CParser:
         elif self.peekn('-', 'number'):
             next(self)
             return NegNum(next(self))
-        elif self.peekn('-', 'decimal'):
+        elif self.peekn('-', 'decimal'): #TODO
+            next(self)
             decimal = next(self)
             decimal.lexeme = '-'+decimal.lexeme
             return Decimal
@@ -175,10 +191,10 @@ class CParser:
         elif self.peek('sizeof'):
             token = next(self)
             if self.accept('('):
-                unary = SizeOf(token, self.type_name())
+                unary = SizeOf(self.type_name(), token)
                 self.expect(')')
             else:
-                unary = SizeOf(token, self.unary().type)
+                unary = SizeOf(self.unary().type, token)
             return unary
         else:
             return self.postfix()
@@ -192,7 +208,7 @@ class CParser:
             token = next(self)
             type = self.type_name()
             self.expect(')')
-            return Cast(type, token, self.cast())
+            return Cast(token, type, self.cast())
         else:
             return self.unary()
 
@@ -293,8 +309,7 @@ class CParser:
         cond = self.logic_or()
         if self.accept('?'):
             expr = self.expr()
-            self.expect(':')
-            cond = Condition(cond, expr, self.cond())
+            cond = Condition(self.expect(':'), cond, expr, self.cond())
         return cond
 
     def assign(self):
@@ -333,6 +348,7 @@ class CParser:
         id = self.expect('id')
         if self.accept('='):
             value = Num(self.expect('number')).value
+        assert id.lexeme not in self.enum_consts, self.error(f'Redeclaration of enumerator "{id.lexeme}"')
         self.enum_consts[id.lexeme] = EnumConst(id, value)
         return value
 
@@ -343,7 +359,13 @@ class CParser:
         type, id = self.translate_declr(type)
         if self.accept(':'):
             self.expect('number')
-        spec[id.lexeme] = Attr(type, id)
+        if id is None and isinstance(type, Union):
+            for name, attr in type.items():
+                attr.location = spec.size
+                spec.data[name] = attr
+            spec.size += type.size
+        else:
+            spec[id.lexeme] = Attr(type, id)
 
     def spec(self):
         '''
@@ -370,6 +392,8 @@ class CParser:
                         self.attr(spec, type)
                     self.expect(';')
             else:
+                if id and id.lexeme not in self.structs:
+                    self.structs[id.lexeme] = Struct(id)
                 spec = self.structs[id.lexeme]
         elif self.accept('union'):
             id = self.accept('id')
@@ -384,6 +408,8 @@ class CParser:
                         self.attr(spec, type)
                     self.expect(';')
             else:
+                if id and id.lexeme not in self.unions:
+                    self.unions[id.lexeme] = Union(id)
                 spec = self.unions[id.lexeme]
         elif self.accept('enum'):
             id = self.accept('id')
@@ -605,10 +631,16 @@ class CParser:
             while self.accept('case'):
                 const = self.const()
                 self.expect(':')
-                statement.cases.append(Case(const, self.statement()))
+                block = Block()
+                while not self.peek('case','default','}'):
+                    block.append(self.statement())
+                statement.cases.append(Case(const, block))
             if self.accept('default'):
                 self.expect(':')
-                statement.default = self.statement()
+                block = Block()
+                while not self.peek('}'):
+                    block.append(self.statement())
+                statement.default = block
             self.expect('}')
         elif self.accept('while'):
             self.expect('(')
@@ -686,6 +718,11 @@ class CParser:
                 type, id = self.translate_declr(type)
                 self.typedefs[id.lexeme] = type
                 self.expect(';')
+            elif self.accept('extern'):
+                type = self.qual()
+                type, id = self.translate_declr(type)
+                if id:
+                    self.globs[id.lexeme] = glob = Glob(type, id)
             else:
                 self.accept('static')
                 type = self.qual()
