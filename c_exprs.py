@@ -158,7 +158,7 @@ class NegNum(Num):
             return reg[n]
 
 class SizeOf(NumBase):
-    def __init__(self, token, type):
+    def __init__(self, type, token):
         super().__init__(token)
         self.value = type.size
 
@@ -207,12 +207,12 @@ class Unary(OpExpr):
     OP = {'-':Op.NEG,
           '~':Op.NOT}
     OPF = {'-':Op.NEGF}
-    def __init__(self, op, unary):
-        super().__init__(unary.type, op)
-        assert unary.type.cast(Int()), self.error(f'Cannot {op.lexeme} {unary.type}')
-        self.unary = unary
+    def __init__(self, op, expr):
+        super().__init__(expr.type, op)
+        assert expr.type.cast(Int()), self.error(f'Cannot {op.lexeme} {expr.type}')
+        self.expr = expr
     def reduce(self, vstr, n):
-        vstr.unary(self.op, self.width, self.unary.reduce(vstr, n))
+        vstr.unary(self.op, self.width, self.expr.reduce(vstr, n))
         return reg[n]
 
 class Pre(Unary):
@@ -224,28 +224,28 @@ class Pre(Unary):
         self.generate(vstr, n)
         return reg[n]
     def generate(self, vstr, n):
-        self.unary.reduce(vstr, n)
+        self.expr.reduce(vstr, n)
         if self.type.is_float():
             vstr.imm(self.width, reg[n+1], itf(1))
             vstr.binay(self.op, self.width, reg[n], reg[n+1])
         else:
             vstr.binary(self.op, self.width, reg[n], self.type.inc)
-        self.unary.store(vstr, n)
+        self.expr.store(vstr, n)
 
 class AddrOf(Expr):
-    def __init__(self, token, unary):
-        super().__init__(Pointer(unary.type), token)
-        self.unary = unary
+    def __init__(self, token, expr):
+        super().__init__(Pointer(expr.type), token)
+        self.expr = expr
     def reduce(self, vstr, n):
-        return self.unary.address(vstr, n)
+        return self.expr.address(vstr, n)
 
 class Deref(Expr):
-    def __init__(self, token, unary):        
-        super().__init__(unary.type.to, token)
-        assert hasattr(unary.type, 'to'), self.errr(f'Cannot {token.lexeme} {unary.type}')
-        self.unary = unary
+    def __init__(self, token, expr):
+        super().__init__(expr.type.to, token)
+        assert hasattr(expr.type, 'to'), self.error(f'Cannot {token.lexeme} {expr.type}')
+        self.expr = expr
     def address(self, vstr, n):
-        return self.unary.reduce(vstr, n)
+        return self.expr.reduce(vstr, n)
     def reduce(self, vstr, n):
         self.address(vstr, n)
         vstr.load(self.width, reg[n], reg[n])
@@ -255,33 +255,33 @@ class Deref(Expr):
         vstr.store(self.width, reg[n], reg[n+1])
         return reg[n]
     def call(self, vstr, n):
-        self.unary.call(vstr, n)
+        self.expr.call(vstr, n)
 
 class Cast(Expr):
-    def __init__(self, type, token, cast):
-        super().__init__(type, token)
-        assert type.cast(cast.type), self.error(f'Cannot cast {cast.type} to {type}')
-        self.cast = cast
+    def __init__(self, token, cast_type, expr):
+        super().__init__(cast_type, token)
+        assert cast_type.cast(expr.type), self.error(f'Cannot cast {expr.type} to {type}')
+        self.expr = expr
     def reduce(self, vstr, n):
-        self.cast.reduce(vstr, n)
-        if self.type.is_float() and not self.cast.is_float():
+        self.expr.reduce(vstr, n)
+        if self.type.is_float() and not self.expr.is_float():
             vstr.binary(Op.ITF, Size.WORD, reg[n], reg[n])
         return reg[n]
     def data(self, vstr):
-        return self.cast.data(vstr)
+        return self.expr.data(vstr)
 
 class Not(Expr):
-    def __init__(self, token, unary):
-        super().__init__(unary.type, token)
-        self.unary = unary
+    def __init__(self, token, expr):
+        super().__init__(expr.type, token)
+        self.expr = expr
     def compare(self, vstr, n, label):
-        vstr.binary(self.cmp(), self.width, self.unary.reduce(vstr, n), 0)
+        vstr.binary(self.cmp(), self.width, self.expr.reduce(vstr, n), 0)
         vstr.jump(Cond.NE, f'.L{label}')
     def compare_inv(self, vstr, n, label):
-        vstr.binary(self.cmp(), self.width, self.unary.reduce(vstr, n), 0)
+        vstr.binary(self.cmp(), self.width, self.expr.reduce(vstr, n), 0)
         vstr.jump(Cond.EQ, f'.L{label}')
     def reduce(self, vstr, n):
-        vstr.binary(self.cmp(), self.width, self.unary.reduce(vstr, n), 0)
+        vstr.binary(self.cmp(), self.width, self.expr.reduce(vstr, n), 0)
         vstr.mov(Cond.EQ, reg[n], 1)
         vstr.mov(Cond.NE, reg[n], 0)
         return reg[n]
@@ -448,8 +448,8 @@ class Logic(Binary):
         return reg[n]
 
 class Condition(Expr):
-    def __init__(self, cond, true, false):
-        self.type = true.type
+    def __init__(self, token, cond, true, false):
+        super().__init__(true.type, token)
         self.cond, self.true, self.false = cond, true, false
     def reduce(self, vstr, n):
         label = vstr.next_label()
@@ -691,11 +691,14 @@ class SubScr(Access):
         vstr.call(self.reduce(vstr, n))
 
 class Call(Expr):
-    def __init__(self, primary, args):
-        super().__init__(primary.type.ret, primary.token)
+    def __init__(self, token, primary, args):
+        super().__init__(primary.type.ret, token)
+        assert len(args) >= len(primary.type.params), self.error(f'Not enough arguments provided in function call "{primary.token.lexeme}"')
         for i, param in enumerate(primary.type.params):
-            assert param.type == args[i].type, self.error(f'Argument #{i+1} of {primary.token.lexeme} {param.type} != {args[i].type}')
+            assert param.type == args[i].type, self.error(f'Argument #{i+1} of "{primary.token.lexeme}" {param.type} != {args[i].type}')
         self.primary, self.args, self.params = primary, args, primary.type.params
+    def calls(self):
+        return True
     def reduce(self, vstr, n):
         self.generate(vstr, n)
         if n > 0 and self.width:
