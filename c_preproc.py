@@ -7,11 +7,6 @@ Created on Tue Nov 26 11:14:05 2024
 import os
 import re
 from typing import NamedTuple
-
-# 1. replace comments
-# 2. tokenize (replace '\' also happens)
-# during include, repeat steps 1 - 2
-
 '''
 TODO:
     [X] #
@@ -56,10 +51,9 @@ class CLexer(LexerBase):
         return match[1:-1].strip()
     def RE_string(self, match):
         r'"(\\"|[^"])*"'
-        return match[1:-1]
-    
-    RE_keyword = r'\b(include|define|undef|typedef|const|static|volatile|void|char|short|int|float|unsigned|signed|struct|enum|union|sizeof|return|if|ifdef|ifndef|else|endif|switch|case|default|while|do|for|break|continue|goto)\b'
-    RE_symbol = r'[#]{2}|[#;:()\[\]{}]|\+\+|--|->|([+\-*/%\^\|&=!<>]|<<|>>)?=|<<|>>|(\|\|)|\&\&|[+\-*/%\^\|&=!<>?~]|\.\.\.|\.|,'
+        return match[1:-1]    
+    RE_keyword = r'\b(include|define|undef|typedef|const|static|volatile|extern|void|char|short|int|float|unsigned|signed|struct|enum|union|sizeof|return|if|ifdef|ifndef|else|endif|switch|case|default|while|do|for|break|continue|goto)\b'
+    RE_symbol = r'[#]{2}|[]#;:()[{}]|[+]{2}|--|->|(<<|>>|[+*/%^|&=!<>-])?=|<<|>>|[|]{2}|[&]{2}|[+*/%^|&=!<>?~-]|\.\.\.|\.|,'
     RE_id = r'[A-Za-z_]\w*'
     RE_space = r'[ \t]+'
     def RE_line_splice(self, match):
@@ -172,74 +166,90 @@ class CPreProcessor:
         start = self.index
         next(self)
         self.accept('space')
-        if self.accept('define'):
-            self.expect('space')
-            id = self.expect('id')                
-            if self.accept('('):
-                params = self.params()
-                self.expect(')')
-                self.accept('space')
-                body = self.index
-                if self.peek('##'):
-                    self.error()
-                while not self.peek('new_line','end'):
-                    if self.peek('#'):
-                        local_start = self.index
-                        next(self)
-                        local = self.expect('id')
-                        if local.lexeme in params:
-                            params[local.lexeme] = False
-                        self.tokens[local_start:self.index] = [Token('stringize',local.lexeme,local.line)]
-                        self.index = local_start
-                    else:
-                        self.accept('space')
-                        local_start = self.index
-                        left = next(self)
-                        self.accept('space')
-                        if self.accept('##'):
-                            self.accept('space')
-                            if self.peek('new_line','end'):
-                                self.error()
-                            right = next(self)
-                            if left.lexeme in params:
-                                params[left.lexeme] = False
-                            if right.lexeme in params:
-                                params[right.lexeme] = False
-                            self.tokens[local_start:self.index] = [Token(left.type,f'{left.lexeme}##{right.lexeme}',left.line)]
+        if self.directing is None:
+            if self.accept('define'):
+                self.expect('space')
+                id = self.expect('id')
+                if self.accept('('):
+                    params = self.params()
+                    self.expect(')')
+                    self.accept('space')
+                    body = self.index
+                    if self.peek('##'):
+                        self.error()
+                    while not self.peek('new_line','end'):
+                        if self.peek('#'):
+                            local_start = self.index
+                            next(self)
+                            local = self.expect('id')
+                            if local.lexeme in params:
+                                params[local.lexeme] = False
+                            self.tokens[local_start:self.index] = \
+                                [Token('stringize',local.lexeme,local.line)]
                             self.index = local_start
-            else:
-                params = None
+                        else:
+                            self.accept('space')
+                            local_start = self.index
+                            left = next(self)
+                            self.accept('space')
+                            if self.accept('##'):
+                                self.accept('space')
+                                if self.peek('new_line','end'):
+                                    self.error()
+                                right = next(self)
+                                if left.lexeme in params:
+                                    params[left.lexeme] = False
+                                if right.lexeme in params:
+                                    params[right.lexeme] = False
+                                self.tokens[local_start:self.index] = \
+                                    [Token(left.type,f'{left.lexeme}##{right.lexeme}',left.line)]
+                                self.index = local_start
+                else:
+                    params = None
+                    self.accept('space')
+                    body = self.index
+                    while not self.peek('new_line','end'):
+                        next(self)                    
+                self.defined[id.lexeme] = params, self.tokens[body:self.index]
+                del self.tokens[start:self.index]
+            elif self.accept('include'):
                 self.accept('space')
-                body = self.index
-                while not self.peek('new_line','end'):
-                    next(self)                    
-            self.defined[id.lexeme] = params, self.tokens[body:self.index]
-            del self.tokens[start:self.index]
-        elif self.accept('include'):
-            self.accept('space')
-            if self.peek('string'):
-                file_name = next(self).lexeme
-                file_path = os.path.sep.join([self.path, file_name])
-            elif self.peek('std'):
-                file_name = next(self).lexeme
-                file_path = os.path.sep.join([os.getcwd(), 'std', file_name])
+                if self.peek('string'):
+                    file_name = next(self).lexeme
+                    file_path = os.path.sep.join([self.path, file_name])
+                elif self.peek('std'):
+                    file_name = next(self).lexeme
+                    file_path = os.path.sep.join([os.getcwd(), 'std', file_name])
+                else:
+                    self.error()
+                if self.original.endswith(file_name):
+                    self.error(f'Circular dependency originating in {self.original}')
+                with open(file_path) as file:
+                    text = file.read()
+                text = self.repl_comments(text)
+                self.tokens[start:self.index] = self.lexer.lex(text)
+                self.defined[file_name.replace('.','_').upper()] = None
+            elif self.accept('ifndef'):
+                self.expect('space')
+                if self.expect('id').lexeme in self.defined:
+                    self.if_start = start
+                else:
+                    del self.tokens[start:self.index]
+            elif self.accept('endif'):            
+                del self.tokens[start:self.index]
+            elif self.accept('undef'):
+                self.expect('space')
+                del self.defined[self.expect('id').lexeme]
+                del self.tokens[start:self.index]
             else:
-                self.error()
-            if self.original.endswith(file_name):
-                self.error(f'Circular dependency originating in {self.original}')
-            with open(file_path) as file:
-                text = file.read()
-            text = self.repl_comments(text)
-            self.tokens[start:self.index] = self.lexer.lex(text)
-            self.defined[file_name.replace('.','_')] = None
-        elif self.accept('undef'):
-            self.expect('space')
-            del self.defined[self.expect('id').lexeme]
-            del self.tokens[start:self.index]
+                del self.tokens[start:self.index]
+            self.index = start
         else:
-            del self.tokens[start:self.index]
-        self.index = start
-    
+            if self.accept('endif'):
+                del self.tokens[self.if_start:self.index]
+                self.index = self.if_start
+                self.if_start = None
+
     def program(self):
         '''
         PROGRAM -> {TOKEN
@@ -260,7 +270,8 @@ class CPreProcessor:
                 self.accept('space')
                 if self.peek('string'):
                     right = next(self)
-                    self.tokens[start:self.index] = [Token('string',left.lexeme+right.lexeme,left.line)]
+                    self.tokens[start:self.index] = \
+                        [Token('string',left.lexeme+right.lexeme,left.line)]
                     self.index = start
             else:
                 next(self)
@@ -276,6 +287,7 @@ class CPreProcessor:
         # for i, token in enumerate(self.tokens): print(i, token.type, token.lexeme)
         self.index = 0
         self.defined = {}
+        self.directing = None
         self.program()        
 
     def stream(self):
@@ -317,5 +329,5 @@ class CPreProcessor:
 
 if __name__ == '__main__':
     p = CPreProcessor()
-    p.process('c/preproccat.c')
+    p.process('c/preprocA.c')
     print('||||||||||||||||\n', p.output(), '\b\n||||||||||||||||')
