@@ -20,7 +20,7 @@ class RegWrapper:
     def __getitem__(self, reg):
         if reg == Reg.FP:
             return reg
-        elif reg > Reg.L:
+        elif reg > Reg.J:
             return f'?{reg}?' #raise SyntaxError('Not enough registers =(')
         self.max = max(self.max, reg)
         return Reg(reg)
