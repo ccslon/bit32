@@ -45,7 +45,7 @@ class Value(Type):
         vstr.load_glob(reg[n], glob.token.lexeme)
         return reg[n]
     def glob_reduce(self, vstr, n, glob):
-        vstr.load_glob(reg[n], glob.token.lexeme) #TODO change to address
+        self.glob_address(vstr, n, glob)
         vstr.load(self.width, reg[n], reg[n])
         return reg[n]
     def glob_store(self, vstr, n, glob):
@@ -204,7 +204,7 @@ class Func(Value):
     def __init__(self, ret, params, variable):
         self.ret, self.params, self.variable = ret, params, variable
         self.size = 0
-        self.width = ret.width
+        self.width = Size.WORD
     def call(self, vstr, n, var, _):
         vstr.call(var.token.lexeme)
     def glob_reduce(self, vstr, n, glob):
@@ -214,6 +214,10 @@ class Func(Value):
     def cast(self, other):
         return False
     def __eq__(self, other):
-        return isinstance(other, Func) and self.ret == other.ret #TODO
+        return isinstance(other, Func) and self.ret == other.ret \
+            and len(self.params) == len(other.params) \
+                and self.variable == other.variable \
+                    and all(param.type == other.params[i].type \
+                            for i, param in enumerate(self.params))
     def __str__(self):
-        return f'{self.ret} ('+','.join(map(str, (param.type for param in self.params)))+')'
+        return f'{self.ret} func('+','.join(map(str, (param.type for param in self.params)))+')'
