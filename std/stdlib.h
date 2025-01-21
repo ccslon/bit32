@@ -89,24 +89,22 @@ float atof(const char* s) {
     return sign * val / pow;
 }
 #define HEAPLEN 1024
-char heap[HEAPLEN];
-char* heapindex = 0;
-void* malloc(int bytes) {
-    if (heapindex >= HEAPLEN) 
-        return NULL;
-    void* p = &heap[heapindex];
+extern void* stdheap;
+size_t heapindex = 0;
+void* malloc(size_t bytes) {
+    void* ptr = (&stdheap)+heapindex;
     heapindex += bytes;
-    return p;
+    return ptr;
 }
 void free(void* p) {}
-void* realloc(void* p, int size) {
+void* realloc(void* p, size_t size) {
     void* memcpy(void*, const void*, size_t);
     void* d = malloc(size);
-    //memcpy(d, p, size);
+    memcpy(d, p, size);
     free(p);
     return d;
 }
-void* calloc(int n, int size) {
+void* calloc(size_t n, size_t size) {
     size_t bytes = n*size;
     size_t words = bytes / sizeof(int);
     size_t tail = bytes % sizeof(int);
