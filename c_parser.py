@@ -7,7 +7,7 @@ Created on Mon Jul  3 19:47:39 2023
 
 from c_utils import Frame
 from c_types import Void, Float, Int, Short, Char, Pointer, Struct, Union, Array, Func
-from c_exprs import Num, NegNum, EnumConst, Decimal, Letter, String
+from c_exprs import Number, NegNumber, EnumNumber, Decimal, NegDecimal, Letter, String
 from c_exprs import Post, Unary, Not, Pre, Binary, Compare, Logic
 from c_exprs import Local, Attr, Glob, Dot, SubScr, Arrow, Call, VarCall, AddrOf, Deref, SizeOf, Cast, Condition
 from c_exprs import InitAssign, Assign, InitListAssign, InitArrayString, Return, Block, Defn, VarDefn, Program
@@ -94,7 +94,7 @@ class CParser:
         elif self.peek('decimal'):
             return Decimal(next(self))
         elif self.peek('number'):
-            return Num(next(self))
+            return Number(next(self))
         elif self.peek('character'):
             return Letter(next(self))
         elif self.peek('string'):
@@ -125,13 +125,13 @@ class CParser:
                 postfix = SubScr(next(self), postfix, self.expr())
                 self.expect(']')
             elif self.peek('++','--'):
-                    postfix = Post(next(self), postfix)
+                postfix = Post(next(self), postfix)
             elif self.peek('.'):
                 token = next(self)
                 try:
                     attr = postfix.type[self.expect('id').lexeme]
                 except KeyError as error:
-                    self.error(f'{error} is not an attribute of {postfix.type.to}')
+                    self.error(f'"{error}" is not an attribute of {postfix.type.to}')
                 if isinstance(postfix.type, Union):
                     postfix = postfix.union(attr)
                 else:
@@ -146,8 +146,7 @@ class CParser:
                 if isinstance(postfix.type.to, Union):
                     postfix = Deref(token, postfix.ptr_union(attr))
                 else:
-                    postfix = Arrow(token, postfix, attr)                    
-                        
+                    postfix = Arrow(token, postfix, attr)
         return postfix
 
     def args(self):
@@ -172,14 +171,12 @@ class CParser:
         '''
         if self.peek('*'):
             return Deref(next(self), self.cast())
-        elif self.peekn('-', 'number'):
+        elif self.peek2('-', 'number'):
             next(self)
-            return NegNum(next(self))
-        elif self.peekn('-', 'decimal'): #TODO
+            return NegNumber(next(self))
+        elif self.peek2('-', 'decimal'):
             next(self)
-            decimal = next(self)
-            decimal.lexeme = '-'+decimal.lexeme
-            return Decimal
+            return NegDecimal(next(self))
         elif self.peek('-','~'):
             return Unary(next(self), self.cast())
         elif self.peek('++','--'):
@@ -204,7 +201,7 @@ class CParser:
         CAST -> UNARY
                |'(' TYPE_NAME ')' CAST
         '''
-        if self.peekn('(', self.TYPE) or self.peek('(') and self.peek_typedefs(1):
+        if self.peek2('(', *self.TYPE) or self.peek('(') and self.peek_typedefs(1):
             token = next(self)
             type = self.type_name()
             self.expect(')')
@@ -335,11 +332,14 @@ class CParser:
         # while self.accept(','): #TODO
         #     self.assign()
 
-    def const(self): #TODO
+    def const(self):
         '''
         CONST -> COND
         '''
-        return self.cond()
+        const = self.cond()
+        assert const.is_const(), self.error('Must be a constant expression')
+        # TODO return const.eval()
+        return const
 
     def enum(self, value):
         '''
@@ -347,9 +347,9 @@ class CParser:
         '''
         id = self.expect('id')
         if self.accept('='):
-            value = Num(self.expect('number')).value
+            value = Number(self.expect('number')).value
         assert id.lexeme not in self.enum_consts, self.error(f'Redeclaration of enumerator "{id.lexeme}"')
-        self.enum_consts[id.lexeme] = EnumConst(id, value)
+        self.enum_consts[id.lexeme] = EnumNumber(id, value)
         return value
 
     def attr(self, spec, type):
@@ -493,7 +493,7 @@ class CParser:
                 types.append((Func, (params, variable)))
                 self.expect(')')
             elif self.accept('['):
-                types.append((Array, (Num(next(self)) if self.peek('number') else None,)))
+                types.append((Array, (Number(next(self)) if self.peek('number') else None,)))
                 self.expect(']')
         return id
 
@@ -688,7 +688,7 @@ class CParser:
         elif self.accept('goto'):
             statement = Goto(self.expect('id'))
             self.expect(';')
-        elif self.peekn('id',':'):
+        elif self.peek2('id',':'):
             statement = Label(next(self))
             next(self)
         else:
@@ -829,7 +829,10 @@ class CParser:
                     return False
             return True
         return False
-
+    
+    def peek2(self, first, *second):
+        return self.peek(first) and self.peek(*second, offset=1)
+    
     def accept(self, symbol):
         if self.peek(symbol):
             return next(self)

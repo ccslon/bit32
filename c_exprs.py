@@ -18,6 +18,8 @@ class Expr(CNode):
         self.token = token
     def is_signed(self):
         return self.type.is_signed()
+    def is_const(self):
+        return False
     def cmp(self):
         return Op.CMPF if self.type.is_float() else Op.CMP
     def compare(self, vstr, n, label):
@@ -104,15 +106,24 @@ class Decimal(Expr):
     def __init__(self, token):
         super().__init__(Float(), token)
         self.value = itf(token.lexeme)
+    def is_const(self):
+        return True
     def data(self, vstr):
         return self.value
     def reduce(self, vstr, n):
         vstr.imm(self.width, reg[n], self.value)
         return reg[n]
+    
+class NegDecimal(Decimal):
+    def __init__(self, token):
+        super().__init__(token)
+        self.value = -self.value
 
-class NumBase(Expr):
+class NumberBase(Expr):
     def __init__(self, token):
         super().__init__(Int(), token)
+    def is_const(self):
+        return True
     def data(self, vstr):
         return self.value
     def reduce(self, vstr, n):
@@ -124,16 +135,15 @@ class NumBase(Expr):
     def num_reduce(self, vstr, n):
         if 0 <= self.value < 256:
             return self.value
-        else:
-            vstr.imm(self.width, reg[n], self.value)
+        vstr.imm(self.width, reg[n], self.value)
         return reg[n]
 
-class EnumConst(NumBase):
+class EnumNumber(NumberBase):
     def __init__(self, token, value):
         super().__init__(token)
         self.value = value
 
-class Num(NumBase):
+class Number(NumberBase):
     def __init__(self, token):
         super().__init__(token)
         if token.lexeme.startswith('0x'):
@@ -143,7 +153,7 @@ class Num(NumBase):
         else:
             self.value = int(token.lexeme)
 
-class NegNum(Num):
+class NegNumber(Number):
     def reduce(self, vstr, n):
         if 0 <= self.value < 256:
             vstr.binary(Op.MVN, self.width, reg[n], self.value)
@@ -153,11 +163,10 @@ class NegNum(Num):
     def num_reduce(self, vstr, n):
         if 0 <= self.value <= 128:
             return -self.value
-        else:
-            vstr.imm(self.width, reg[n], negative(-self.value, 32))
-            return reg[n]
+        vstr.imm(self.width, reg[n], negative(-self.value, 32))
+        return reg[n]
 
-class SizeOf(NumBase):
+class SizeOf(NumberBase):
     def __init__(self, type, token):
         super().__init__(token)
         self.value = type.size
@@ -165,6 +174,8 @@ class SizeOf(NumBase):
 class Letter(Expr):
     def __init__(self, token):
         super().__init__(Char(), token)
+    def is_const(self):
+        return True
     def data(self, _):
         return self.token.lexeme
     def reduce(self, vstr, n):
@@ -192,6 +203,8 @@ class String(Expr):
         if item == len(self.value):
             return self.Char(r'\0')
         return self.Char(escape(self.value[item]))
+    def is_const(self):
+        return True
     def data(self, vstr):
         return vstr.string(self.token.lexeme)
     def reduce(self, vstr, n):
@@ -211,6 +224,8 @@ class Unary(OpExpr):
         super().__init__(expr.type, op)
         assert expr.type.cast(Int()), self.error(f'Cannot {op.lexeme} {expr.type}')
         self.expr = expr
+    def is_const(self):
+        return self.expr.is_const()
     def reduce(self, vstr, n):
         vstr.unary(self.op, self.width, self.expr.reduce(vstr, n))
         return reg[n]
@@ -262,10 +277,11 @@ class Cast(Expr):
         super().__init__(cast_type, token)
         assert cast_type.cast(expr.type), self.error(f'Cannot cast {expr.type} to {type}')
         self.expr = expr
+    def is_const(self):
+        return self.expr.is_const()
     def reduce(self, vstr, n):
         self.expr.reduce(vstr, n)
-        if self.type.is_float() and not self.expr.is_float():
-            vstr.binary(Op.ITF, Size.WORD, reg[n], reg[n])
+        self.type.convert(vstr, n, self.expr.type)
         return reg[n]
     def data(self, vstr):
         return self.expr.data(vstr)
@@ -274,6 +290,8 @@ class Not(Expr):
     def __init__(self, token, expr):
         super().__init__(expr.type, token)
         self.expr = expr
+    def is_const(self):
+        return self.expr.is_const()
     def compare(self, vstr, n, label):
         vstr.binary(self.cmp(), self.width, self.expr.reduce(vstr, n), 0)
         vstr.jump(Cond.NE, f'.L{label}')
@@ -289,10 +307,9 @@ class Not(Expr):
 def max_type(left, right):
     if left.is_float():
         return left
-    elif right.is_float():
+    if right.is_float():
         return right
-    else:
-        return right if right.width > left.width else left
+    return right if right.width > left.width else left
 
 class Binary(OpExpr):
     OP = {'+' :Op.ADD,
@@ -340,9 +357,16 @@ class Binary(OpExpr):
         self.left, self.right = left, right
     def is_signed(self):
         return self.left.is_signed() and self.right.is_signed()
+    def is_const(self):
+        return self.left.is_const() and self.right.is_const()
     def reduce(self, vstr, n):
         if self.type.is_float():
             vstr.binary(self.op, self.width, self.left.float_reduce(vstr, n), self.right.float_reduce(vstr, n+1))
+        elif isinstance(self.left.type, Pointer) and self.left.type.to.size > 1:
+            self.left.reduce(vstr, n)
+            self.right.reduce(vstr, n+1)
+            vstr.binary(Op.MUL, Size.WORD, reg[n+1], self.left.type.of.size)
+            vstr.binary(self.op, Size.WORD, reg[n], reg[n+1])
         else:
             vstr.binary(self.op, self.width, self.left.reduce(vstr, n), self.right.num_reduce(vstr, n+1))
         return reg[n]
@@ -531,7 +555,7 @@ class Defn(Expr):
         preview = Visitor()
         preview.begin_func(self)
         self.block.generate(preview, self.max_args)
-        push = list(map(Reg, range(max(bool(self.type.width), len(self.params)), reg.max+1))) + [Reg.FP]
+        push = list(map(Reg, range(max(bool(self.type.ret.width), len(self.params)), reg.max+1))) + [Reg.FP]
         vstr.begin_func(self)
         #start
         vstr.append_label(self.token.lexeme)
@@ -552,9 +576,9 @@ class Defn(Expr):
         #body
         self.block.generate(vstr, self.max_args)
         #epilogue
-        if self.type.width or self.returns:
+        if self.type.ret.width or self.returns:
             vstr.append_label(f'.L{vstr.return_label}')
-        if self.max_args and self.type.width:
+        if self.max_args and self.type.ret.width:
             vstr.binary(Op.MOV, Size.WORD, Reg.A, reg[self.max_args])
         vstr.binary(Op.MOV, Size.WORD, Reg.SP, Reg.FP)
         if self.space:
@@ -590,9 +614,9 @@ class VarDefn(Defn):
         #body
         self.block.generate(vstr, self.max_args)
         #epilogue
-        if self.type.width or self.returns:
+        if self.type.ret.width or self.returns:
             vstr.append_label(f'.L{vstr.return_label}')
-        if self.max_args and self.type.width:
+        if self.max_args and self.type.ret.width:
             vstr.binary(Op.MOV, Size.WORD, Reg.A, reg[self.max_args])
         vstr.binary(Op.MOV, Size.WORD, Reg.SP, Reg.FP)
         if self.space:
@@ -733,15 +757,16 @@ class Return(Expr):
     def __init__(self, token, ret, expr):
         if ret:
             super().__init__(ret, token)
-            assert ret == expr.type, self.error(f'Return expression type {ret} != function type {expr.type}')
+            assert ret == expr.type, self.error(f'Return expression type {expr.type} != function return type {ret}')
             if isinstance(expr, OpExpr):
                 expr.width = ret.width
         else:
             super().__init__(Void(), token)
-        self.expr = expr
+        self.ret, self.expr = ret, expr
     def generate(self, vstr, n):
         if self.expr:
             self.expr.reduce(vstr, n)
+            self.ret.convert(vstr, n, self.expr.type)
         vstr.jump(Cond.AL, f'.L{vstr.return_label}')
 
 class Program(UserList, CNode):
