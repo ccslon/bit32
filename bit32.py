@@ -150,7 +150,7 @@ class Data:
             self.dec.append((value, item.start-item.stop+1))
         else:
             self.bin |= (value or 0) << item
-            self.dec.append((value, 1))    
+            self.dec.append((value, 1))
     def little_end(self):
         return f'{self.bin & 0xff:02x} {self.bin>>8 & 0xff:02x} {self.bin>>16 & 0xff:02x} {self.bin>>24 & 0xff:02x}'
     def hex(self):
@@ -200,11 +200,11 @@ class Word(Data):
             word = negative(word, 32)
         self[31:0] = word
         self.str = f'0x{word:08x}'
-        
+
 class Inst(Data):
     pass
 
-class Jump(Inst):    
+class Jump(Inst):
     def __init__(self, cond, link, offset24):
         super().__init__()
         self[31:28] = cond
@@ -215,9 +215,9 @@ class Jump(Inst):
             self.str = f'{op} -0x{-offset24:06X}'
             offset24 = negative(offset24, 24)
         else:
-            self.str = f'{op} 0x{offset24:06X}'            
+            self.str = f'{op} 0x{offset24:06X}'
         self[23:0] = offset24
-            
+
 
 class Interrupt(Inst):
     def __init__(self, cond, software, code24):
@@ -268,7 +268,7 @@ class Binary(Inst):
             self[11:8] = src
             src = src.name
         self[7:4] = rd
-        self[3:0] = rd        
+        self[3:0] = rd
         self.str = f"{op.name}{cond.display()}{'S'*flag}.{size.name[0]} {rd.name}, {src}"
 
 class Ternary(Inst):
@@ -301,7 +301,7 @@ class Load(Inst):
         self[31:28] = cond
         self[27] = storing
         self[26:24] = InstOp.LOAD | imm
-        self[23:22] = size >> 1        
+        self[23:22] = size >> 1
         if imm:
             assert -128 <= offset < 256
             self[21:17] = None
@@ -321,7 +321,7 @@ class Load(Inst):
             self.str = f'ST{cond.display()}.{size.name[0]} [{rb.name}, {offset}], {rd.name}'
         else:
             self.str = f'LD{cond.display()}.{size.name[0]} {rd.name}, [{rb.name}, {offset}]'
-            
+
 class PushPop(Inst):
     def __init__(self, cond, size, pushing, rd):
         super().__init__()
@@ -340,7 +340,7 @@ class PushPop(Inst):
         self[7:4] = None
         self[3:0] = rd
         self.str = f'{op}{cond.display()}.{size.name[0]} {rd.name}'
-            
+
 class LoadImm(Inst):
     def __init__(self, cond, size, rd, link=None):
         super().__init__()
