@@ -84,6 +84,6 @@ stdout:
                 .word 0      ; read
                 .word 0      ; write
                 .word 1      ; size
-
+errno: .byte 0
 crash:
     HALT
