@@ -8,13 +8,13 @@ from enum import IntEnum, IntFlag
 import re
 
 from bit32 import Size, Flag, Reg, Op, Cond, Byte, Char, Half, Word, Jump, Interrupt, Unary, Binary, Ternary, Load, PushPop, LoadImm, unescape
-
+#TODO Maybe turn it back into a real parser?
 class Debug(IntFlag):
     NONE = 0
     OBJECT_FILE = 1
     FULL = 2
     SHORT = 4
-    PRINT_BYTES = 8    
+    PRINT_BYTES = 8
 
 DEBUG = Debug.NONE | Debug.OBJECT_FILE
 
@@ -27,6 +27,7 @@ TOKENS = {
     'const': r'-?(0x[0-9a-f]+|0b[01]+|\d+)',
     'string': r'"(\\"|[^"])*"',
     'char': r"'(\\'|\\?[^'])'",
+    'label': r'\.?[a-z_]\w*\s*:',
     'ldi': rf'^ldi(?P<ldi_cond>{RE_COND})?(\.(?P<ldi_size>{RE_SIZE}))?\b',
     'ld': rf'^ld(?P<ld_cond>{RE_COND})?(\.(?P<ld_size>{RE_SIZE}))?\b',
     'st': rf'^st(?P<st_cond>{RE_COND})?(\.(?P<st_size>{RE_SIZE}))?\b',
@@ -43,7 +44,6 @@ TOKENS = {
     'reg': rf'\b({RE_REG})\b',
     'op': rf'^(?P<op_name>{RE_OP})(?P<flag>s)?(?P<op_cond>{RE_COND})?(\.(?P<op_size>{RE_SIZE}))?\s',
     'jump': rf'^j(mp)?(?P<jump_cond>{RE_COND})?\b',
-    'label': r'\.?[a-z_]\w*\s*:',
     'id': r'\.?[a-z_]\w*',
     'equal': r'=',
     'lbrace': r'\[',
@@ -371,11 +371,13 @@ def link(objects):
     for i, (labels, type, args) in enumerate(objects):
         for label in labels:
             if label in targets:
-                print(f'Warning: label collision "{label}"')
+                print(f'{repl("Warning", Color.RED)}: label collision "{label}"')
             targets[label] = addr
             indices.add(addr)
         objects[i] = (type, args)
         addr += type.size
+    print(f'Heap starts at address 0x{addr:08x}')
+    targets['stdheap'] = addr
     contents = []
     i = 0
     if DEBUG & Debug.OBJECT_FILE:
@@ -430,10 +432,10 @@ PATTERNS = {
     r';.*$': Color.GREY #comment
 }
 
-def repl(match, color):
+def repl(text, color):
     if color:
-        return f'\33[38;5;{color}m{match[0]}\33[0m'
-    return match[0]
+        return f'\33[38;5;{color}m{text}\33[0m'
+    return text
 
 def display(asm):
     for line in asm.split('\n'):
@@ -442,7 +444,7 @@ def display(asm):
             for pattern, color in PATTERNS.items():
                 match = re.match(pattern, line, re.I)
                 if match:
-                    new += repl(match, color)
+                    new += repl(match[0], color)
                     line = line[len(match[0]):]
                     break
             if match is None:
