@@ -275,7 +275,7 @@ class Deref(Expr):
 class Cast(Expr):
     def __init__(self, token, cast_type, expr):
         super().__init__(cast_type, token)
-        assert cast_type.cast(expr.type), self.error(f'Cannot cast {expr.type} to {type}')
+        assert cast_type.cast(expr.type), self.error(f'Cannot cast {expr.type} to {cast_type}')
         self.expr = expr
     def is_const(self):
         return self.expr.is_const()
