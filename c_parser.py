@@ -4,7 +4,7 @@ Created on Mon Jul  3 19:47:39 2023
 
 @author: Colin
 """
-
+from copy import copy
 from c_utils import Frame
 from c_types import Void, Float, Int, Short, Char, Pointer, Struct, Union, Array, Func
 from c_exprs import Number, NegNumber, EnumNumber, Decimal, NegDecimal, Letter, String
@@ -126,27 +126,26 @@ class CParser:
                 self.expect(']')
             elif self.peek('++','--'):
                 postfix = Post(next(self), postfix)
-            elif self.peek('.'):
-                token = next(self)
-                try:
-                    attr = postfix.type[self.expect('id').lexeme]
-                except KeyError as error:
-                    self.error(f'"{error}" is not an attribute of {postfix.type.to}')
+            elif self.accept('.'):
+                assert isinstance(postfix.type, (Struct,Union)), self.error(f'"{postfix.token.lexeme}" is type {postfix.type}')
+                id = self.expect('id')
+                if id.lexeme not in postfix.type:
+                    self.error(f'"{id.lexeme}" is not an attribute of {postfix.type.to}')
+                attr = postfix.type[id.lexeme]
                 if isinstance(postfix.type, Union):
                     postfix = postfix.union(attr)
                 else:
-                    postfix = Dot(token, postfix, attr)
-            elif self.peek('->'):
+                    postfix = Dot(id, postfix, attr)
+            elif self.accept('->'):
                 assert hasattr(postfix.type, 'to'), self.error(f'{postfix.type} is not pointer type')
-                token = next(self)
-                try:
-                    attr = postfix.type.to[self.expect('id').lexeme]
-                except KeyError as error:
-                    self.error(f'{error} is not an attribute of {postfix.type.to}')
+                id = self.expect('id')
+                if id.lexeme not in postfix.type.to:
+                    self.error(f'"{id.lexeme}" is not an attribute of {postfix.type.to}')
+                attr = postfix.type.to[id.lexeme]
                 if isinstance(postfix.type.to, Union):
-                    postfix = Deref(token, postfix.ptr_union(attr))
+                    postfix = Deref(id, postfix.ptr_union(attr))
                 else:
-                    postfix = Arrow(token, postfix, attr)
+                    postfix = Arrow(id, postfix, attr)
         return postfix
 
     def args(self):
@@ -378,7 +377,10 @@ class CParser:
         if self.accept('void'):
             spec = Void()
         elif self.peek('id'):
-            spec = self.typedefs[next(self).lexeme]
+            token = next(self)
+            if token.lexeme not in self.typedefs:
+                self.error(f'typedef "{token.lexeme}" not found')
+            spec = copy(self.typedefs[token.lexeme])
         elif self.accept('struct'):
             id = self.accept('id')
             if self.accept('{'):
@@ -436,8 +438,12 @@ class CParser:
             if self.accept('char'):
                 spec = Char(signed)
             elif self.accept('short'):
+                self.accept('int')
                 spec = Short(signed)
             elif self.accept('int'):
+                spec = Int(signed)
+            elif self.accept('long'):
+                self.accept('int')
                 spec = Int(signed)
             else:
                 spec = Int(signed)
@@ -722,7 +728,8 @@ class CParser:
                 type = self.qual()
                 type, id = self.translate_declr(type)
                 if id:
-                    self.globs[id.lexeme] = glob = Glob(type, id)
+                    self.globs[id.lexeme] = Glob(type, id)
+                self.expect(';')
             else:
                 self.accept('static')
                 type = self.qual()
