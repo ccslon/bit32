@@ -8,7 +8,7 @@ from collections import UserList
 from struct import pack
 
 from bit32 import Size, Op, Reg, Cond, negative, escape, unescape
-from c_utils import CNode, Visitor, Emitter, reg
+from c_utils import CNode, Visitor, Emitter
 from c_types import Char, Int, Float, Pointer, Array, Void
 
 class Expr(CNode):
@@ -24,10 +24,10 @@ class Expr(CNode):
         return Op.CMPF if self.type.is_float() else Op.CMP
     def compare(self, vstr, n, label):
         vstr.binary(self.cmp(), self.width, self.reduce(vstr, n), 0)
-        vstr.jump(Cond.EQ, f'.L{label}')
+        vstr.jump(Cond.EQ, label)
     def compare_inv(self, vstr, n, label):
         vstr.binary(self.cmp(), self.width, self.reduce(vstr, n), 0)
-        vstr.jump(Cond.NE, f'.L{label}')
+        vstr.jump(Cond.NE, label)
     def branch_reduce(self, vstr, n, _):
         self.reduce(vstr, n)
     def branch(self, vstr, n, _):
@@ -37,8 +37,8 @@ class Expr(CNode):
     def float_reduce(self, vstr, n):
         self.reduce(vstr, n)
         if not self.type.is_float():
-            vstr.binary(Op.ITF, Size.WORD, reg[n], reg[n])
-        return reg[n]
+            vstr.binary(Op.ITF, Size.WORD, Reg(n), Reg(n))
+        return Reg(n)
     def error(self, msg):
         raise SyntaxError(f'Line {self.token.line}: {msg}')
 
@@ -111,8 +111,8 @@ class Decimal(Expr):
     def data(self, vstr):
         return self.value
     def reduce(self, vstr, n):
-        vstr.imm(self.width, reg[n], self.value)
-        return reg[n]
+        vstr.imm(self.width, Reg(n), self.value)
+        return Reg(n)
     
 class NegDecimal(Decimal):
     def __init__(self, token):
@@ -128,15 +128,15 @@ class NumberBase(Expr):
         return self.value
     def reduce(self, vstr, n):
         if 0 <= self.value < 256:
-            vstr.binary(Op.MOV, self.width, reg[n], self.value)
+            vstr.binary(Op.MOV, self.width, Reg(n), self.value)
         else:
-            vstr.imm(self.width, reg[n], self.value)
-        return reg[n]
+            vstr.imm(self.width, Reg(n), self.value)
+        return Reg(n)
     def num_reduce(self, vstr, n):
         if 0 <= self.value < 256:
             return self.value
-        vstr.imm(self.width, reg[n], self.value)
-        return reg[n]
+        vstr.imm(self.width, Reg(n), self.value)
+        return Reg(n)
 
 class EnumNumber(NumberBase):
     def __init__(self, token, value):
@@ -156,15 +156,15 @@ class Number(NumberBase):
 class NegNumber(Number):
     def reduce(self, vstr, n):
         if 0 <= self.value < 256:
-            vstr.binary(Op.MVN, self.width, reg[n], self.value)
+            vstr.binary(Op.MVN, self.width, Reg(n), self.value)
         else:
-            vstr.imm(self.width, reg[n], negative(-self.value, 32))
-        return reg[n]
+            vstr.imm(self.width, Reg(n), negative(-self.value, 32))
+        return Reg(n)
     def num_reduce(self, vstr, n):
         if 0 <= self.value <= 128:
             return -self.value
-        vstr.imm(self.width, reg[n], negative(-self.value, 32))
-        return reg[n]
+        vstr.imm(self.width, Reg(n), negative(-self.value, 32))
+        return Reg(n)
 
 class SizeOf(NumberBase):
     def __init__(self, type, token):
@@ -179,8 +179,8 @@ class Letter(Expr):
     def data(self, _):
         return self.token.lexeme
     def reduce(self, vstr, n):
-        vstr.binary(Op.MOV, self.width, reg[n], self.data(vstr))
-        return reg[n]
+        vstr.binary(Op.MOV, self.width, Reg(n), self.data(vstr))
+        return Reg(n)
     def num_reduce(self, vstr, n):
         return self.data(vstr)
 
@@ -208,8 +208,8 @@ class String(Expr):
     def data(self, vstr):
         return vstr.string(self.token.lexeme)
     def reduce(self, vstr, n):
-        vstr.load_glob(reg[n], self.data(vstr))
-        return reg[n]
+        vstr.load_glob(Reg(n), self.data(vstr))
+        return Reg(n)
 
 class OpExpr(Expr):
     def __init__(self, type, op):
@@ -228,7 +228,7 @@ class Unary(OpExpr):
         return self.expr.is_const()
     def reduce(self, vstr, n):
         vstr.unary(self.op, self.width, self.expr.reduce(vstr, n))
-        return reg[n]
+        return Reg(n)
 
 class Pre(Unary):
     OP = {'++':Op.ADD,
@@ -236,16 +236,16 @@ class Pre(Unary):
     OPF = {'++':Op.ADDF,
            '--':Op.SUBF}
     def reduce(self, vstr, n):
-        self.generate(vstr, n)
-        return reg[n]
-    def generate(self, vstr, n):
-        self.expr.reduce(vstr, n)
+        self.expr.reduce(vstr, 0)
         if self.type.is_float():
-            vstr.imm(self.width, reg[n+1], itf(1))
-            vstr.binay(self.op, self.width, reg[n], reg[n+1])
+            vstr.imm(self.width, Reg(n+1), itf(1))
+            vstr.binay(self.op, self.width, Reg(n), Reg(n+1))
         else:
-            vstr.binary(self.op, self.width, reg[n], self.type.inc)
-        self.expr.store(vstr, n)
+            vstr.binary(self.op, self.width, Reg(n), self.type.inc)
+        self.expr.store(vstr, 0)
+        return Reg(n)
+    def generate(self, vstr, n):
+        self.reduce(vstr, n)
 
 class AddrOf(Expr):
     def __init__(self, token, expr):
@@ -263,12 +263,12 @@ class Deref(Expr):
         return self.expr.reduce(vstr, n)
     def reduce(self, vstr, n):
         self.address(vstr, n)
-        vstr.load(self.width, reg[n], reg[n])
-        return reg[n]
+        vstr.load(self.width, Reg(n), Reg(n))
+        return Reg(n)
     def store(self, vstr, n):
         self.address(vstr, n+1)
-        vstr.store(self.width, reg[n], reg[n+1])
-        return reg[n]
+        vstr.store(self.width, Reg(n), Reg(n+1))
+        return Reg(n)
     def call(self, vstr, n):
         self.expr.call(vstr, n)
 
@@ -282,7 +282,7 @@ class Cast(Expr):
     def reduce(self, vstr, n):
         self.expr.reduce(vstr, n)
         self.type.convert(vstr, n, self.expr.type)
-        return reg[n]
+        return Reg(n)
     def data(self, vstr):
         return self.expr.data(vstr)
 
@@ -291,18 +291,18 @@ class Not(Expr):
         super().__init__(expr.type, token)
         self.expr = expr
     def is_const(self):
-        return self.expr.is_const()
+        return self.expr.is_const() 
     def compare(self, vstr, n, label):
         vstr.binary(self.cmp(), self.width, self.expr.reduce(vstr, n), 0)
-        vstr.jump(Cond.NE, f'.L{label}')
+        vstr.jump(Cond.NE, label)
     def compare_inv(self, vstr, n, label):
         vstr.binary(self.cmp(), self.width, self.expr.reduce(vstr, n), 0)
-        vstr.jump(Cond.EQ, f'.L{label}')
+        vstr.jump(Cond.EQ, label)
     def reduce(self, vstr, n):
         vstr.binary(self.cmp(), self.width, self.expr.reduce(vstr, n), 0)
-        vstr.mov(Cond.EQ, reg[n], 1)
-        vstr.mov(Cond.NE, reg[n], 0)
-        return reg[n]
+        vstr.mov(Cond.EQ, Reg(n), 1)
+        vstr.mov(Cond.NE, Reg(n), 0)
+        return Reg(n)
 
 def max_type(left, right):
     if left.is_float():
@@ -365,11 +365,11 @@ class Binary(OpExpr):
         elif isinstance(self.left.type, Pointer) and self.left.type.to.size > 1:
             self.left.reduce(vstr, n)
             self.right.reduce(vstr, n+1)
-            vstr.binary(Op.MUL, Size.WORD, reg[n+1], self.left.type.of.size)
-            vstr.binary(self.op, Size.WORD, reg[n], reg[n+1])
+            vstr.binary(Op.MUL, Size.WORD, Reg(n+1), self.left.type.of.size)
+            vstr.binary(self.op, Size.WORD, Reg(n), Reg(n+1))
         else:
             vstr.binary(self.op, self.width, self.left.reduce(vstr, n), self.right.num_reduce(vstr, n+1))
-        return reg[n]
+        return Reg(n)
 
 class Compare(Binary):
     OP = {'==':Cond.EQ,
@@ -408,15 +408,15 @@ class Compare(Binary):
             vstr.binary(Op.CMP, self.width, self.left.reduce(vstr, n), self.right.num_reduce(vstr, n+1))
     def compare(self, vstr, n, label):
         self.cmp(vstr, n)
-        vstr.jump(self.inv, f'.L{label}')
+        vstr.jump(self.inv, label)
     def compare_inv(self, vstr, n, label):
         self.cmp(vstr, n)
-        vstr.jump(self.op, f'.L{label}')
+        vstr.jump(self.op, label)
     def reduce(self, vstr, n):
         self.cmp(vstr, n)
-        vstr.mov(self.op, reg[n], 1)
-        vstr.mov(self.inv, reg[n], 0)
-        return reg[n]
+        vstr.mov(self.op, Reg(n), 1)
+        vstr.mov(self.inv, Reg(n), 0)
+        return Reg(n)
 
 class Logic(Binary):
     OP = {'&&':Op.AND,
@@ -436,13 +436,13 @@ class Logic(Binary):
             sublabel = vstr.next_label()
             self.left.compare_inv(vstr, n, sublabel)
             self.right.compare(vstr, n, label)
-            vstr.append_label(f'.L{sublabel}')
+            vstr.append_label(sublabel)
     def compare_inv(self, vstr, n, label):
         if self.op == Op.AND:
             sublabel = vstr.next_label()
             self.left.compare(vstr, n, sublabel)
             self.right.compare_inv(vstr, n, label)
-            vstr.append_label(f'.L{sublabel}')
+            vstr.append_label(sublabel)
         elif self.op == Op.OR:
             self.left.compare_inv(vstr, n, label)
             self.right.compare_inv(vstr, n, label)
@@ -452,24 +452,24 @@ class Logic(Binary):
             sublabel = vstr.next_label()
             self.left.compare(vstr, n, label)
             self.right.compare(vstr, n, label)   
-            vstr.binary(Op.MOV, Size.WORD, reg[n], 1)
-            vstr.jump(Cond.AL, f'.L{sublabel}')
-            vstr.append_label(f'.L{label}')
-            vstr.binary(Op.MOV, Size.WORD, reg[n], 0)
-            vstr.append_label(f'.L{sublabel}')
+            vstr.binary(Op.MOV, Size.WORD, Reg(n), 1)
+            vstr.jump(Cond.AL, sublabel)
+            vstr.append_label(label)
+            vstr.binary(Op.MOV, Size.WORD, Reg(n), 0)
+            vstr.append_label(sublabel)
         elif self.op == Op.OR:
             label = vstr.next_label()
             sublabel = vstr.next_label()
             subsublabel = vstr.next_label()
             self.left.compare_inv(vstr, n, label)
             self.right.compare(vstr, n, sublabel)
-            vstr.append_label(f'.L{label}')
-            vstr.binary(Op.MOV, Size.WORD, reg[n], 1)
-            vstr.jump(Cond.AL, f'.L{subsublabel}')
-            vstr.append_label(f'.L{sublabel}')
-            vstr.binary(Op.MOV, Size.WORD, reg[n], 0)
-            vstr.append_label(f'.L{subsublabel}')
-        return reg[n]
+            vstr.append_label(label)
+            vstr.binary(Op.MOV, Size.WORD, Reg(n), 1)
+            vstr.jump(Cond.AL, subsublabel)
+            vstr.append_label(sublabel)
+            vstr.binary(Op.MOV, Size.WORD, Reg(n), 0)
+            vstr.append_label(subsublabel)
+        return Reg(n)
 
 class Condition(Expr):
     def __init__(self, token, cond, true, false):
@@ -480,17 +480,17 @@ class Condition(Expr):
         sublabel = vstr.next_label() if self.false else label
         self.cond.compare(vstr, n, sublabel)
         self.true.reduce(vstr, n)
-        vstr.jump(Cond.AL, f'.L{label}')
-        vstr.append_label(f'.L{sublabel}')
+        vstr.jump(Cond.AL, label)
+        vstr.append_label(sublabel)
         self.false.branch_reduce(vstr, n, label)
-        vstr.append_label(f'.L{label}')
-        return reg[n]
-    def branch(self, vstr, n, root):
+        vstr.append_label(label)
+        return Reg(n)
+    def branch_reduce(self, vstr, n, root):
         sublabel = vstr.next_label()
         self.cond.compare(vstr, n, sublabel)
         self.true.reduce(vstr, n)
-        vstr.jump(Cond.AL, f'.L{root}')
-        vstr.append_label(f'.L{sublabel}')
+        vstr.jump(Cond.AL, root)
+        vstr.append_label(sublabel)
         self.false.branch_reduce(vstr, n, root)
 
 class InitAssign(Expr):
@@ -509,7 +509,7 @@ class Assign(InitAssign):
         assert not left.type.const, self.error('Cannot assign to a const')
     def reduce(self, vstr, n):
         self.generate(vstr, n)
-        return reg[n]
+        return Reg(n)
 
 class InitListAssign(Expr):
     def __init__(self, token, left, right):
@@ -538,8 +538,8 @@ class InitArrayString(Expr):
     def generate(self, vstr, n):
         self.array.address(vstr, n)
         for i, c in enumerate(self.string):
-            vstr.binary(Op.MOV, Size.BYTE, reg[n+1], c.data(vstr))
-            vstr.store(Size.BYTE, reg[n+1], reg[n], i)
+            vstr.binary(Op.MOV, Size.BYTE, Reg(n+1), c.data(vstr))
+            vstr.store(Size.BYTE, Reg(n+1), Reg(n), i)
 
 class Block(UserList, Expr):
     def generate(self, vstr, n):
@@ -551,11 +551,11 @@ class Defn(Expr):
         super().__init__(type, id)
         self.params, self.block, self.returns, self.calls, self.max_args, self.space = type.params, block, returns, calls, max_args, space
     def generate(self, vstr):
-        reg.clear()
         preview = Visitor()
         preview.begin_func(self)
         self.block.generate(preview, self.max_args)
-        push = list(map(Reg, range(max(bool(self.type.ret.width), len(self.params)), reg.max+1))) + [Reg.FP]
+        # print(preview.max_reg)
+        push = list(map(Reg, range(max(bool(self.type.ret.width), len(self.params)), preview.max_reg+1))) + [Reg.FP]
         vstr.begin_func(self)
         #start
         vstr.append_label(self.token.lexeme)
@@ -572,14 +572,14 @@ class Defn(Expr):
             vstr.binary(Op.SUB, Size.WORD, Reg.SP, self.space)
         vstr.binary(Op.MOV, Size.WORD, Reg.FP, Reg.SP)
         for i, param in enumerate(self.params[:4]):
-            vstr.store(param.width, reg[i], Reg.FP, param.location)
+            vstr.store(param.width, Reg(i), Reg.FP, param.location)
         #body
         self.block.generate(vstr, self.max_args)
         #epilogue
         if self.type.ret.width or self.returns:
-            vstr.append_label(f'.L{vstr.return_label}')
-        if self.max_args and self.type.ret.width:
-            vstr.binary(Op.MOV, Size.WORD, Reg.A, reg[self.max_args])
+            vstr.append_label(vstr.return_label)
+        if self.max_args > 0 and self.type.ret.width:
+            vstr.binary(Op.MOV, Size.WORD, Reg.A, Reg(self.max_args))
         vstr.binary(Op.MOV, Size.WORD, Reg.SP, Reg.FP)
         if self.space:
             vstr.binary(Op.ADD, Size.WORD, Reg.SP, self.space)
@@ -591,12 +591,10 @@ class Defn(Expr):
 
 class VarDefn(Defn):
     def generate(self, vstr):
-        reg.clear()
         preview = Visitor()
         preview.begin_func(self)
         self.block.generate(preview, self.max_args)
-        push = list(map(Reg, range(4, reg.max+1))) + [Reg.FP]
-
+        push = list(map(Reg, range(max(bool(self.type.ret.width), len(self.params)), preview.max_reg+1))) + [Reg.FP]
         vstr.begin_func(self)
         #start
         vstr.append_label(self.token.lexeme)
@@ -615,9 +613,9 @@ class VarDefn(Defn):
         self.block.generate(vstr, self.max_args)
         #epilogue
         if self.type.ret.width or self.returns:
-            vstr.append_label(f'.L{vstr.return_label}')
-        if self.max_args and self.type.ret.width:
-            vstr.binary(Op.MOV, Size.WORD, Reg.A, reg[self.max_args])
+            vstr.append_label(vstr.return_label)
+        if self.max_args > 0 and self.type.ret.width:
+            vstr.binary(Op.MOV, Size.WORD, Reg.A, Reg(self.max_args))
         vstr.binary(Op.MOV, Size.WORD, Reg.SP, Reg.FP)
         if self.space:
             vstr.binary(Op.ADD, Size.WORD, Reg.SP, self.space)
@@ -638,16 +636,16 @@ class Post(OpExpr):
         super().__init__(postfix.type, op)
         self.postfix = postfix
     def reduce(self, vstr, n):
-        self.generate(vstr, n)
-        return reg[n]
-    def generate(self, vstr, n):
         self.postfix.reduce(vstr, n)
         if self.type.is_float():
-            vstr.imm(self.width, reg[n+2], itf(1))
-            vstr.ternary(self.op, self.width, reg[n+1], reg[n], reg[n+2])
+            vstr.imm(self.width, Reg(n+2), itf(1))
+            vstr.ternary(self.op, self.width, Reg(n+1), Reg(n), Reg(n+2))
         else:
-            vstr.ternary(self.op, self.width, reg[n+1], reg[n], self.type.inc)
+            vstr.ternary(self.op, self.width, Reg(n+1), Reg(n), self.type.inc)
         self.postfix.store(vstr, n+1)
+        return Reg(n)
+    def generate(self, vstr, n):
+        self.reduce(vstr, n)
 
 class Access(Expr):
     def __init__(self, type, token, postfix):
@@ -660,7 +658,7 @@ class Dot(Access):
         self.attr = attr
     def address(self, vstr, n):
         vstr.binary(Op.ADD, Size.WORD, self.postfix.address(vstr, n), self.attr.location)
-        return reg[n]
+        return Reg(n)
     def reduce(self, vstr, n):
         self.postfix.address(vstr, n)
         return self.attr.reduce(vstr, n)
@@ -676,7 +674,7 @@ class Dot(Access):
 class Arrow(Dot):
     def address(self, vstr, n):
         vstr.binary(Op.ADD, Size.WORD, self.postfix.reduce(vstr, n), self.attr.location)
-        return reg[n]
+        return Reg(n)
     def reduce(self, vstr, n):
         self.postfix.reduce(vstr, n)
         return self.attr.reduce(vstr, n)
@@ -700,17 +698,17 @@ class SubScr(Access):
             self.postfix.address(vstr, n)
         if isinstance(self.postfix.type, (Array,Pointer)) and self.postfix.type.of.size > 1:
             self.sub.reduce(vstr, n+1)
-            vstr.binary(Op.MUL, Size.WORD, reg[n+1], self.postfix.type.of.size)
-            vstr.binary(Op.ADD, Size.WORD, reg[n], reg[n+1])
+            vstr.binary(Op.MUL, Size.WORD, Reg(n+1), self.postfix.type.of.size)
+            vstr.binary(Op.ADD, Size.WORD, Reg(n), Reg(n+1))
         else:
-            vstr.binary(Op.ADD, Size.WORD, reg[n], self.sub.num_reduce(vstr, n+1))
-        return reg[n]
+            vstr.binary(Op.ADD, Size.WORD, Reg(n), self.sub.num_reduce(vstr, n+1))
+        return Reg(n)
     def reduce(self, vstr, n):
-        vstr.load(self.width, self.address(vstr, n), reg[n])
-        return reg[n]
+        vstr.load(self.width, self.address(vstr, n), Reg(n))
+        return Reg(n)
     def store(self, vstr, n):
-        vstr.store(self.width, reg[n], self.address(vstr, n+1))
-        return reg[n]
+        vstr.store(self.width, Reg(n), self.address(vstr, n+1))
+        return Reg(n)
     def call(self, vstr, n):
         vstr.call(self.reduce(vstr, n))
 
@@ -721,21 +719,19 @@ class Call(Expr):
         for i, param in enumerate(primary.type.params):
             assert param.type == args[i].type, self.error(f'Argument #{i+1} of "{primary.token.lexeme}" {param.type} != {args[i].type}')
         self.primary, self.args, self.params = primary, args, primary.type.params
-    def calls(self):
-        return True
     def reduce(self, vstr, n):
         self.generate(vstr, n)
         if n > 0 and self.width:
-            vstr.binary(Op.MOV, Size.WORD, reg[n], Reg.A)
-        return reg[n]
+            vstr.binary(Op.MOV, Size.WORD, Reg(n), Reg.A)
+        return Reg(n)
     def generate(self, vstr, n):
         for i, arg in enumerate(self.args):
             arg.reduce(vstr, n+i)
             self.params[i].type.convert(vstr, n+i, arg.type)
         for i, arg in enumerate(self.args[:4]):
-            vstr.binary(Op.MOV, arg.width, reg[i], reg[n+i])
+            vstr.binary(Op.MOV, arg.width, Reg(i), Reg(n+i))
         for i, arg in reversed(list(enumerate(self.args[4:]))):
-            vstr.push(arg.width, reg[n+4+i])
+            vstr.push(arg.width, Reg(n+4+i))
         self.primary.call(vstr, n)
 
 class VarCall(Call):
@@ -746,9 +742,9 @@ class VarCall(Call):
         for i, arg in enumerate(self.args[len(self.params):]):
             arg.reduce(vstr, len(self.params)+n+i)
         for i, arg in enumerate(self.args[:4]):
-            vstr.binary(Op.MOV, arg.width, reg[i], reg[n+i])
+            vstr.binary(Op.MOV, arg.width, Reg(i), Reg(n+i))
         for i, arg in reversed(list(enumerate(self.args[4:]))):
-            vstr.push(Size.WORD, reg[n+4+i])
+            vstr.push(Size.WORD, Reg(n+4+i))
         self.primary.call(vstr, n)
         if len(self.args) > 4:
             vstr.binary(Op.ADD, Size.WORD, Reg.SP, len(self.args[4:]) * Size.WORD)
@@ -767,11 +763,10 @@ class Return(Expr):
         if self.expr:
             self.expr.reduce(vstr, n)
             self.ret.convert(vstr, n, self.expr.type)
-        vstr.jump(Cond.AL, f'.L{vstr.return_label}')
+        vstr.jump(Cond.AL, vstr.return_label)
 
 class Program(UserList, CNode):
     def generate(self):
-        reg.clear()
         emitter = Emitter()
         for statement in self:
             statement.generate(emitter)

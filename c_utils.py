@@ -4,28 +4,9 @@ Created on Sat Sep  7 01:02:16 2024
 
 @author: Colin
 """
-from collections import UserList, UserDict
+from collections import UserDict
 
 from bit32 import Reg
-
-class Loop(UserList):
-    def start(self):
-        return self[-1][0]
-    def end(self):
-        return self[-1][1]
-
-class RegWrapper:
-    def clear(self):
-        self.max = -1
-    def __getitem__(self, reg):
-        if reg == Reg.FP:
-            return reg
-        elif reg > Reg.J:
-            return f'?{reg}?' #raise SyntaxError('Not enough registers =(')
-        self.max = max(self.max, reg)
-        return Reg(reg)
-
-reg = RegWrapper()
 
 class Frame(UserDict):
     def __init__(self):
@@ -40,20 +21,22 @@ class Visitor:
     def __init__(self):
         self.clear()
     def clear(self):
-        self.n_labels = 0
+        self.max_reg = 0
         self.if_jump_end = []
-        self.loop = Loop()
     def begin_func(self, defn):
-        if defn.type.ret.width or defn.returns:
-            self.return_label = self.next_label()
+        self.return_label = None
     def begin_loop(self):
-        self.loop.append((self.next_label(), self.next_label()))
+        pass
+    def loop_head(self):
+        pass
+    def loop_tail(self):
+        pass
     def end_loop(self):
-        self.loop.pop()
+        pass
     def next_label(self):
-        label = self.n_labels
-        self.n_labels += 1
-        return label
+        pass
+    def maximize(self, *regs):
+        self.max_reg = max((self.max_reg, *(reg for reg in regs if isinstance(reg, Reg) and reg < Reg.FP)))
     def append_label(self, label):
         pass
     def string(self, string):
@@ -69,43 +52,60 @@ class Visitor:
     def datas(self, label, datas):
         pass
     def push(self, size, rs):
-        pass
+        self.maximize(rs)
     def pop(self, size, rd):
-        pass
+        self.maximize(rd)
     def pushm(self, calls, *regs):
         pass
     def popm(self, calls, *regs):
         pass
     def call(self, proc):
-        pass
+        self.maximize(proc)
     def ret(self):
         pass
     def load_glob(self, rd, name):
-        pass
+        self.maximize(rd)
     def load(self, size, rd, rb, offset=None, name=None):
-        pass
+        self.maximize(rd, rb, offset)  
     def store(self, size, rd, rb, offset=None, name=None):
-        pass
+        self.maximize(rd, rb, offset)        
     def imm(self, size, rd, value):
-        pass
+        self.maximize(rd)
     def unary(self, op, size, rd):
-        pass
+        self.maximize(rd)
     def binary(self, op, size, rd, src):
-        pass
+        self.maximize(rd, src)
     def ternary(self, op, size, rd, rs, src):
-        pass
+        self.maximize(rd, rs, src)
     def jump(self, cond, target):
         pass
     def mov(self, cond, rd, value):
-        pass
+        self.maximize(rd)
 
 class Emitter(Visitor):
     def clear(self):
-        super().clear()
+        self.n_labels = 0
+        self.if_jump_end = []
+        self.loop = []
         self.labels = []
         self.asm = []
         self.data = []
         self.strings = []
+    def begin_func(self, defn):
+        if defn.type.ret.width or defn.returns:
+            self.return_label = self.next_label()
+    def begin_loop(self):
+        self.loop.append((self.next_label(), self.next_label()))
+    def loop_head(self):
+        return self.loop[-1][0]
+    def loop_tail(self):
+        return self.loop[-1][1]
+    def end_loop(self):
+        self.loop.pop()
+    def next_label(self):
+        label = self.n_labels
+        self.n_labels += 1
+        return f'.L{label}'
     def append_label(self, label):
         self.labels.append(label)
     def string(self, string):

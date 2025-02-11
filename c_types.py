@@ -5,8 +5,8 @@ Created on Fri Sep  6 14:05:50 2024
 @author: ccslon
 """
 from collections import UserDict
-from bit32 import Op, Size
-from c_utils import CNode, reg, Frame
+from bit32 import Op, Size, Reg
+from c_utils import CNode, Frame
 
 class Type(CNode):
     def is_float(self):
@@ -29,29 +29,29 @@ class Value(Type):
     def convert(self, vstr, n, other):
         pass
     def address(self, vstr, n, var, base):
-        vstr.ternary(Op.ADD, Size.WORD, reg[n], reg[base], var.location)
-        return reg[n]
+        vstr.ternary(Op.ADD, Size.WORD, Reg(n), Reg(base), var.location)
+        return Reg(n)
     def reduce(self, vstr, n, var, base):
-        vstr.load(self.width, reg[n], reg[base], var.location, var.token.lexeme)
-        return reg[n]
+        vstr.load(self.width, Reg(n), Reg(base), var.location, var.token.lexeme)
+        return Reg(n)
     def store(self, vstr, n, var, base):
-        vstr.store(self.width, reg[n], reg[base], var.location, var.token.lexeme)
-        return reg[n]
+        vstr.store(self.width, Reg(n), Reg(base), var.location, var.token.lexeme)
+        return Reg(n)
     def list_generate(self, vstr, n, expr, loc):
         expr.reduce(vstr, n+1)
         self.convert(vstr, n+1, expr.type)
-        vstr.store(self.width, reg[n+1], reg[n], loc)
+        vstr.store(self.width, Reg(n+1), Reg(n), loc)
     def glob_address(self, vstr, n, glob):
-        vstr.load_glob(reg[n], glob.token.lexeme)
-        return reg[n]
+        vstr.load_glob(Reg(n), glob.token.lexeme)
+        return Reg(n)
     def glob_reduce(self, vstr, n, glob):
         self.glob_address(vstr, n, glob)
-        vstr.load(self.width, reg[n], reg[n])
-        return reg[n]
+        vstr.load(self.width, Reg(n), Reg(n))
+        return Reg(n)
     def glob_store(self, vstr, n, glob):
-        vstr.load_glob(reg[n+1], glob.token.lexeme)
-        vstr.store(self.width, reg[n], reg[n+1])
-        return reg[n]
+        vstr.load_glob(Reg(n+1), glob.token.lexeme)
+        vstr.store(self.width, Reg(n), Reg(n+1))
+        return Reg(n)
     def glob_data(self, vstr, expr, data):
         data.append((self.width, expr.data(vstr)))
     def glob_generate(self, vstr, glob):
@@ -68,7 +68,7 @@ class Bin(Value):
         return self.signed
     def convert(self, vstr, n, other):
         if other.is_float():
-            vstr.binary(Op.FTI, Size.WORD, reg[n], reg[n])
+            vstr.binary(Op.FTI, Size.WORD, Reg(n), Reg(n))
     def __eq__(self, other):
         return isinstance(other, (Bin,Float))
 
@@ -101,7 +101,7 @@ class Float(Value):
         return True
     def convert(self, vstr, n, other):
         if not other.is_float():
-            vstr.binary(Op.ITF, Size.WORD, reg[n], reg[n])
+            vstr.binary(Op.ITF, Size.WORD, Reg(n), Reg(n))
     def __eq__(self, other):
         return isinstance(other, (Float,Bin))
     def __str__(self):
@@ -114,12 +114,12 @@ class Pointer(Int):
         self.inc = self.to.size
     def call(self, vstr, n, var, base):
         self.reduce(vstr, n, var, base)
-        vstr.call(reg[n])
+        vstr.call(Reg(n))
     def glob_call(self, vstr, n, glob):
         self.glob_reduce(vstr, n, glob)
-        vstr.call(reg[n])
+        vstr.call(Reg(n))
     def cast(self, other):
-        return isinstance(other, Bin)
+        return isinstance(other, Bin) or isinstance(other, Array)
     def __eq__(self, other):
         return isinstance(other, Pointer) and (self.to == other.to \
                                                or isinstance(self.to, Void) \
@@ -132,7 +132,7 @@ class Pointer(Int):
 
 class List(Value):
     def list_generate(self, vstr, n, right, loc):
-        vstr.ternary(Op.ADD, Size.WORD, reg[n+1], reg[n], loc)
+        vstr.ternary(Op.ADD, Size.WORD, Reg(n+1), Reg(n), loc)
         for i, (loc, type) in enumerate(self):
             type.list_generate(vstr, n+1, right[i], loc)
     def glob_data(self, vstr, expr, data):
@@ -156,8 +156,8 @@ class Struct(Frame, List):
     def store(self, vstr, n, var, base):
         self.address(vstr, n+1, var, base)
         for loc, type in self:
-            vstr.load(type.width, reg[n+2], reg[n], loc)
-            vstr.store(type.width, reg[n+2], reg[n+1], loc)
+            vstr.load(type.width, Reg(n+2), Reg(n), loc)
+            vstr.store(type.width, Reg(n+2), Reg(n+1), loc)
     def __iter__(self):
         for attr in self.data.values():
             yield attr.location, attr.type

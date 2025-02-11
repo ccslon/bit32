@@ -118,9 +118,9 @@ class CParser:
                     call_type = VarCall
                 else:
                     call_type = Call
+                self.calls = True
                 postfix = call_type(next(self), postfix, self.args())
                 self.expect(')')
-                self.calls = True
             elif self.peek('['):
                 postfix = SubScr(next(self), postfix, self.expr())
                 self.expect(']')
