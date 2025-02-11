@@ -26,7 +26,9 @@ interrupt_handler:
     SUB SP, 1
     MOV FP, SP
     MOV.B A, 0
-    ST.B [FP, 0], A
+    ST.B [FP, 0], A    
+    LDI B, =.stdin_buf
+    LDI C, =.stdin_write
 .i0:
     LD.B A, [FP, 0]
     CMP.B A, 8
@@ -35,8 +37,6 @@ interrupt_handler:
     CMP.B A, '\0'
     JEQ .i1
     CALL out
-    LDI B, =.stdin
-    LDI C, =stdin_write
     CMP.B A, '\n'
     JEQ .i2
     CMP.B A, '\b'
@@ -74,16 +74,19 @@ interrupt_handler:
     AND SR, 0b11011111 ; enable interrupts
     IRET
 
-.stdin:         .space 32
-stdin:          .word .stdin
-stdin_read:     .word 0
-stdin_write:    .word 0
-stdin_size:     .word 32
-stdout:
+.stdin_buf:     .space 32
+.stdin:         .word .stdin_buf
+.stdin_read:    .word 0
+.stdin_write:   .word 0
+.stdin_size:    .word 32
+.stdout:
                 .word STDOUT ; buffer
                 .word 0      ; read
                 .word 0      ; write
                 .word 1      ; size
-errno: .byte 0
+
+stdin:  .word .stdin
+stdout: .word .stdout
+
 crash:
     HALT
