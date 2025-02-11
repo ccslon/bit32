@@ -1,3 +1,4 @@
+#define STRING_H
 typedef unsigned size_t;
 size_t strlen(const char* s) {
     size_t l = 0;
@@ -20,7 +21,7 @@ char* strncpy(char* s, const char* t, size_t n) {
 char* strdup(char* s) {
     void* malloc(unsigned);
     char* p = malloc(strlen(s)+1);
-    // if (p != (void*)0)
+    if (p != (void*)0)
         strncpy(p, s, strlen(s)+1);
     return p;
 }
@@ -39,14 +40,14 @@ char* strrev(char* s) {
     }
     return s;
 }
-size_t strcmp(const char* s, const char* t) {
-    size_t i;
+int strcmp(const char* s, const char* t) {
+    int i;
     for (i = 0; s[i] == t[i]; i++)
         if (s[i] == '\0')
             return 0;
     return s[i] - t[i];
 }
-size_t strncmp(const char* s, const char* t, size_t n) {
+int strncmp(const char* s, const char* t, size_t n) {
     size_t i;
     for (i = 0; i < n && s[i] == t[i]; i++)
         if (s[i] == '\0')
@@ -68,11 +69,11 @@ void* memset(void* s, unsigned char v, size_t n) {
 }
 void* memcpy(void* s, const void* t, size_t n) {
     size_t words = n / sizeof(int);
-    size_t tail = n % sizeof(int);
+    char tail = n % sizeof(int);
     size_t i;
     for (i = 0; i < words; i++) 
-        *(int*)(s+i) = *(int*)(t+i);
-    size_t c;
+        *(int*)(s + i*sizeof(int)) = *(int*)(t + i*sizeof(int));
+    char c;
     for (c = 0; c < tail; c++)
         *(char*)(s+i+c) = *(char*)(t+i+c);
     return s;

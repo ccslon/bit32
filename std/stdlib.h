@@ -1,3 +1,4 @@
+#define STDLIB_H
 #define NULL (void*)0
 typedef unsigned size_t;
 typedef struct {
@@ -30,9 +31,9 @@ int bsearch(void* x, void* v, size_t size, size_t n, int (*cmp)(void*,void*)) {
 }
 void swap(void* v, size_t size, int i, int j) {
     size_t words = size / sizeof(int);
-    size_t tail = size % sizeof(int);    
+    char tail = size % sizeof(int);    
     int t;
-    unsigned k;
+    size_t k;
     for (k = 0; k < words; k += sizeof(int)) {
         t = *(int*)(v+i*size+k);
         *(int*)(v+i*size+k) = *(int*)(v+j*size+k);
@@ -88,11 +89,11 @@ float atof(const char* s) {
     }
     return sign * val / pow;
 }
-#define HEAPLEN 1024
-extern void* stdheap;
+
+extern char stdheap[];
 size_t heapindex = 0;
 void* malloc(size_t bytes) {
-    void* ptr = (&stdheap)+heapindex;
+    void* ptr = &stdheap[heapindex];
     heapindex += bytes;
     return ptr;
 }

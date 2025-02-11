@@ -1,3 +1,4 @@
+#define CTYPE_H
 int isupper(char c) {
     return 'A' <= c && c <= 'Z';
 }

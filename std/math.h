@@ -1,3 +1,4 @@
+#define MATH_H
 #define ITERATIONS 10
 
 unsigned int factorial(unsigned int n) {

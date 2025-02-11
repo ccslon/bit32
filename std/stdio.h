@@ -1,3 +1,4 @@
+#define STDIO_H
 #define NULL (void*)0
 typedef unsigned size_t;
 typedef struct {
@@ -6,8 +7,8 @@ typedef struct {
     size_t write;
     size_t size;
 } FILE;
-extern FILE stdin;
-extern FILE stdout;
+extern FILE* stdin;
+extern FILE* stdout;
 char fgetc(FILE* stream) {
     while (stream->read == stream->write)
         ;
@@ -15,34 +16,33 @@ char fgetc(FILE* stream) {
     stream->read = (stream->read + 1) % stream->size;
     return c;
 }
-#define getc() (fgetc(&stdin))
+#define getc() (fgetc(stdin))
 char getchar() {
-    while (stdin.read == stdin.write)
+    while (stdin->read == stdin->write)
         ;
-    char c = stdin.buffer[stdin.read];
-    stdin.read = (stdin.read + 1) % stdin.size;
+    char c = stdin->buffer[stdin->read];
+    stdin->read = (stdin->read + 1) % stdin->size;
     return c;
 }
 char* fgets(char* s, size_t n, FILE* stream) {
     char c;
     char* cs = s;
-    while (--n > 0 && (c = fgetc(stream))) // "enter"
-        if ((*cs++ = c) == '\0')
-            break;
+    while (--n > 0 && (c = fgetc(stream)))
+        *cs++ = c;
+    *cs = '\0';
     return s;
 }
 char* gets(char* s, size_t n) {
-    return fgets(s, n, &stdin);
+    return fgets(s, n, stdin);
 }
 int fputc(char c, FILE* stream) {
     stream->buffer[stream->write] = c;
     stream->write = (stream->write + 1) % stream->size;
     return 0;
 }
-#define putc(c) (fputc((c), &stdout))
+#define putc(c) (fputc((c), stdout))
 int putchar(char c) {
-    stdout.buffer[stdout.write] = c;
-    stdout.write = (stdout.write + 1) % stdout.size;
+    stdout->buffer[stdout->write] = c;
     return 0;
 }
 int fputs(const char* s, FILE* stream) {
@@ -53,7 +53,7 @@ int fputs(const char* s, FILE* stream) {
     return 0;
 }
 int puts(const char* s) {
-    fputs(s, &stdout);
+    fputs(s, stdout);
     putchar('\n');
     return 0;
 }
