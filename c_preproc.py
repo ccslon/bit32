@@ -52,7 +52,7 @@ class CLexer(LexerBase):
     def RE_string(self, match):
         r'"(\\"|[^"])*"'
         return match[1:-1]    
-    RE_keyword = r'\b(include|define|undef|typedef|const|static|volatile|extern|void|char|short|int|float|unsigned|signed|struct|enum|union|sizeof|return|if|ifdef|ifndef|else|endif|switch|case|default|while|do|for|break|continue|goto)\b'
+    RE_keyword = r'\b(include|define|undef|typedef|const|static|volatile|extern|void|char|short|int|long|float|unsigned|signed|struct|enum|union|sizeof|return|if|ifdef|ifndef|else|endif|switch|case|default|while|do|for|break|continue|goto)\b'
     RE_symbol = r'[#]{2}|[]#;:()[{}]|[+]{2}|--|->|(<<|>>|[+*/%^|&=!<>-])?=|<<|>>|[|]{2}|[&]{2}|[+*/%^|&=!<>?~-]|\.\.\.|\.|,'
     RE_id = r'[A-Za-z_]\w*'
     RE_space = r'[ \t]+'
@@ -166,7 +166,7 @@ class CPreProcessor:
         start = self.index
         next(self)
         self.accept('space')
-        if self.directing is None:
+        if self.if_start is None:
             if self.accept('define'):
                 self.expect('space')
                 id = self.expect('id')
@@ -217,24 +217,32 @@ class CPreProcessor:
                 if self.peek('string'):
                     file_name = next(self).lexeme
                     file_path = os.path.sep.join([self.path, file_name])
+                    if self.original.endswith(file_name):
+                        self.error(f'Circular dependency originating in {self.original}')
+                    with open(file_path) as file:
+                        text = file.read()
+                    text = self.repl_comments(text)
+                    self.tokens[start:self.index] = self.lexer.lex(text)
                 elif self.peek('std'):
                     file_name = next(self).lexeme
-                    file_path = os.path.sep.join([os.getcwd(), 'std', file_name])
+                    if file_name not in self.std_included:
+                        file_path = os.path.sep.join([os.getcwd(), 'std', file_name])
+                        if self.original.endswith(file_name):
+                            self.error(f'Circular dependency originating in {self.original}')
+                        with open(file_path) as file:
+                            text = file.read()
+                        text = self.repl_comments(text)
+                        self.tokens[start:self.index] = self.lexer.lex(text)
+                        self.std_included.add(file_name)
+                    else:
+                        del self.tokens[start:self.index]
                 else:
-                    self.error()
-                if self.original.endswith(file_name):
-                    self.error(f'Circular dependency originating in {self.original}')
-                with open(file_path) as file:
-                    text = file.read()
-                text = self.repl_comments(text)
-                self.tokens[start:self.index] = self.lexer.lex(text)
-                self.defined[file_name.replace('.','_').upper()] = None
+                    self.error()                
             elif self.accept('ifndef'):
                 self.expect('space')
                 if self.expect('id').lexeme in self.defined:
                     self.if_start = start
-                else:
-                    del self.tokens[start:self.index]
+                del self.tokens[start:self.index]
             elif self.accept('endif'):            
                 del self.tokens[start:self.index]
             elif self.accept('undef'):
@@ -287,7 +295,8 @@ class CPreProcessor:
         # for i, token in enumerate(self.tokens): print(i, token.type, token.lexeme)
         self.index = 0
         self.defined = {}
-        self.directing = None
+        self.if_start = None
+        self.std_included = set()
         self.program()        
 
     def stream(self):
@@ -307,7 +316,7 @@ class CPreProcessor:
     
     def peek_defined(self):
         token = self.tokens[self.index]
-        return token.type == 'id' and token.lexeme in self.defined
+        return token.type == 'id' and token.lexeme in self.defined and self.if_start is None
     
     def peek(self, *symbols, offset=0):
         token = self.tokens[self.index+offset]
