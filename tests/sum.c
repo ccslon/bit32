@@ -3,13 +3,13 @@ int sqr(int n) {
 }
 
 int sum(int n, int (*f)(int)) {
-    int s = 0, i;
+    int sum = 0, i;
     for (i = 0; i < n; i++) {
-        s += (*f)(i);
+        sum += (*f)(i);
     }
-    return s;
+    return sum;
 }
 
 int main() {
-    return sum(5, &sqr);
+    return sum(5, sqr);
 }

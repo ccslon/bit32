@@ -19,7 +19,7 @@ sum:
   ST [FP, 0], A
   ST [FP, 4], B
   MOV B, 0
-  ST [FP, 8], B ; s
+  ST [FP, 8], B ; sum
   MOV B, 0
   ST [FP, 12], B ; i
 .L2:
@@ -27,21 +27,21 @@ sum:
   LD C, [FP, 0] ; n
   CMP B, C
   JGE .L4
-  LD B, [FP, 8] ; s
+  LD B, [FP, 8] ; sum
   LD C, [FP, 12] ; i
   MOV A, C
   LD C, [FP, 4] ; f
   CALL C
   MOV C, A
   ADD B, C
-  ST [FP, 8], B ; s
+  ST [FP, 8], B ; sum
 .L3:
   LD B, [FP, 12] ; i
   ADD C, B, 1
   ST [FP, 12], C ; i
   JMP .L2
 .L4:
-  LD B, [FP, 8] ; s
+  LD B, [FP, 8] ; sum
   JMP .L1
 .L1:
   MOV A, B
