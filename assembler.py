@@ -404,7 +404,7 @@ def link(objects):
     if DEBUG & Debug.PRINT_BYTES:
         print('\n'+' '.join(contents))
     print('Interrupt Vector:', '0x'+Interrupt(Cond.AL, False, targets['interrupt_handler']).hex())
-    print('\nSuccess!', len(contents), 'items.', i, 'bytes')
+    print(repl('\nSuccess!', Color.GREEN), len(contents), 'items.', i, 'bytes')
     return contents
 
 class Color(IntEnum):
@@ -413,7 +413,7 @@ class Color(IntEnum):
     GREEN = 10
     ORANGE = 11
     BLUE = 12
-    PURPLE = 99
+    PURPLE = 13
     CYAN = 14
     WHITE = 15
 
