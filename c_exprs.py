@@ -578,7 +578,7 @@ class Defn(Expr):
         #epilogue
         if self.type.ret.width or self.returns:
             vstr.append_label(vstr.return_label)
-        if self.max_args > 0 and self.type.ret.width:
+        if self.max_args > 0 and self.type.ret.width and self.returns:
             vstr.binary(Op.MOV, Size.WORD, Reg.A, Reg(self.max_args))
         vstr.binary(Op.MOV, Size.WORD, Reg.SP, Reg.FP)
         if self.space:
@@ -614,7 +614,7 @@ class VarDefn(Defn):
         #epilogue
         if self.type.ret.width or self.returns:
             vstr.append_label(vstr.return_label)
-        if self.max_args > 0 and self.type.ret.width:
+        if self.max_args > 0 and self.type.ret.width and self.returns:
             vstr.binary(Op.MOV, Size.WORD, Reg.A, Reg(self.max_args))
         vstr.binary(Op.MOV, Size.WORD, Reg.SP, Reg.FP)
         if self.space:
