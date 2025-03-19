@@ -16,7 +16,7 @@ class Debug(IntFlag):
     SHORT = 4
     PRINT_BYTES = 8
 
-DEBUG = Debug.NONE | Debug.OBJECT_FILE
+DEBUG = Debug.NONE
 
 RE_SIZE = r'B|H|W'
 RE_OP = r'|'.join(op.name for op in Op)
@@ -190,7 +190,7 @@ class Assembler:
 
                     elif self.match('jump', 'id'):
                         self.jump(*self.values())
-                        
+
                     elif self.match('swi', 'id'):
                         self.interrupt(*self.values())
 
@@ -244,7 +244,7 @@ class Assembler:
                         while self.accept(','):
                             args.append(self.expect('reg'))
                         self.expect('end')
-                        for reg in args:
+                        for reg in reversed(args):
                             self.push(Cond.AL, Size.WORD, reg)
 
                     elif self.accept('pop'):
@@ -252,12 +252,12 @@ class Assembler:
                         while self.accept(','):
                             args.append(self.expect('reg'))
                         self.expect('end')
-                        for reg in reversed(args):
+                        for reg in args:
                             self.pop(Cond.AL, Size.WORD, reg)
 
                     elif self.match('call', 'reg'):
                         cond, reg = self.values()
-                        self.ternary(Op.ADD, cond, False, Size.WORD, Reg.LR, Reg.PC, Size.WORD*2, True)
+                        self.ternary(Op.ADD, cond, False, Size.WORD, Reg.LR, Reg.PC, 2*Size.WORD, True)
                         self.binary(Op.MOV, cond, False, Size.WORD, Reg.PC, reg, False)
 
                     elif self.match('call', 'id'):
@@ -265,9 +265,9 @@ class Assembler:
 
                     elif self.match('ret'):
                         self.binary(Op.MOV, *self.values(), False, Size.WORD, Reg.PC, Reg.LR, False)
-                        
+
                     elif self.match('iret'):
-                        self.binary(Op.MOV, Cond.AL, False, Size.WORD, Reg.PC, Reg.IL, False)
+                        self.binary(Op.MOV, Cond.AL, False, Size.WORD, Reg.PC, Reg.ILR, False)
 
                     elif self.match('halt'):
                         self.binary(Op.OR, Cond.AL, False, Size.WORD, Reg.SR, Flag.HALT, True)
@@ -394,7 +394,7 @@ def link(objects):
         contents.append(data.little_end())
         if DEBUG & Debug.OBJECT_FILE:
             print(f'{i:06x}:', data.str, file=file)
-        if DEBUG & Debug.FULL:            
+        if DEBUG & Debug.FULL:
             print('>>' if i in indices else '  ', f'{i:06x}:', f'{data.str: <20}', f'| {data.format_dec(): <23}', f'{data.format_bin(): <40}', data.hex())
         elif DEBUG & Debug.SHORT:
             print('>>' if i in indices else '  ', f'{i:08x}:', f'{data.little_end(): <11}', f'| {data.str: <20}')
@@ -439,7 +439,7 @@ def repl(text, color):
 
 def display(asm):
     for line in asm.split('\n'):
-        new = ""
+        new = ''
         while line:
             for pattern, color in PATTERNS.items():
                 match = re.match(pattern, line, re.I)

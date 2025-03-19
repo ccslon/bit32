@@ -21,12 +21,12 @@ class Size(IntEnum):
         return f'.{self.name[0]}' if self != Size.WORD else ''
 
 class Flag(IntEnum):
-    Z =         0b00000001
-    N =         0b00000010
-    V =         0b00000100
-    C =         0b00001000
-    HALT =      0b00010000
-    INT_EN =    0b00100000
+    Z = 0b00000001
+    N = 0b00000010
+    V = 0b00000100
+    C = 0b00001000
+    HALT = 0b00010000
+    INT_EN = 0b00100000
 
 class Reg(IntEnum):
     A = 0
@@ -39,10 +39,10 @@ class Reg(IntEnum):
     H = 7
     I = 8
     J = 9
-    FP = K = 10
+    K = 10
     SP = 11
     SR = 12
-    IL = 13
+    ILR = 13
     LR = 14
     PC = 15
 

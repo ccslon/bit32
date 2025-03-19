@@ -456,11 +456,6 @@
       <a name="bit3" val="1"/>
       <a name="incoming" val="4"/>
     </comp>
-    <comp lib="0" loc="(1390,960)" name="Tunnel">
-      <a name="label" val="Flags"/>
-      <a name="labelfont" val="SansSerif bold 10"/>
-      <a name="width" val="4"/>
-    </comp>
     <comp lib="0" loc="(140,170)" name="Constant">
       <a name="facing" val="west"/>
       <a name="value" val="0x0"/>
@@ -484,6 +479,11 @@
     <comp lib="0" loc="(1400,1060)" name="Tunnel">
       <a name="label" val="IntEn"/>
       <a name="labelfont" val="SansSerif bold 10"/>
+    </comp>
+    <comp lib="0" loc="(1400,960)" name="Tunnel">
+      <a name="label" val="Flags"/>
+      <a name="labelfont" val="SansSerif bold 10"/>
+      <a name="width" val="4"/>
     </comp>
     <comp lib="0" loc="(1420,1240)" name="Tunnel">
       <a name="label" val="Mode"/>
@@ -1901,7 +1901,7 @@
     <wire from="(1340,570)" to="(1340,760)"/>
     <wire from="(1340,570)" to="(1440,570)"/>
     <wire from="(1340,760)" to="(1440,760)"/>
-    <wire from="(1340,960)" to="(1390,960)"/>
+    <wire from="(1340,960)" to="(1400,960)"/>
     <wire from="(1340,970)" to="(1350,970)"/>
     <wire from="(1350,1470)" to="(1350,1480)"/>
     <wire from="(1350,1470)" to="(1360,1470)"/>

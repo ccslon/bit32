@@ -22,15 +22,14 @@ out:
     RET
 interrupt_handler:
     OR SR, 0b00100000 ; disable interrupts
-    PUSH LR, A, B, C, D, SR, FP
+    PUSH LR, A, B, C, D, SR
     SUB SP, 1
-    MOV FP, SP
     MOV.B A, 0
-    ST.B [FP, 0], A    
+    ST.B [SP, 0], A    
     LDI B, =.stdin_buf
     LDI C, =.stdin_write
 .i0:
-    LD.B A, [FP, 0]
+    LD.B A, [SP, 0]
     CMP.B A, 8
     JGE .i1
     CALL in
@@ -63,14 +62,13 @@ interrupt_handler:
     MOD D, 32
     ST [C], D
 .i6:
-    LD A, [FP, 0]
+    LD A, [SP, 0]
     ADD A, 1
-    ST [FP, 0], A
+    ST [SP, 0], A
     JMP .i0
 .i1:
-    MOV SP, FP
     ADD SP, 1
-    POP LR, A, B, C, D, SR, FP
+    POP LR, A, B, C, D, SR
     AND SR, 0b11011111 ; enable interrupts
     IRET
 
