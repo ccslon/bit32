@@ -6,7 +6,7 @@ Created on Fri Sep  6 14:05:50 2024
 """
 from collections import UserDict
 from bit32 import Op, Size, Reg
-from c_utils import CNode, Frame
+from c_nodes import CNode, Frame
 
 class Type(CNode):
     def is_float(self):
@@ -26,6 +26,7 @@ class Value(Type):
     def __init__(self):
         self.const = False
         self.inc = 1
+        self.width = 0
     def convert(self, vstr, n, other):
         pass
     def address(self, vstr, n, var, base):
@@ -37,9 +38,9 @@ class Value(Type):
     def store(self, vstr, n, var, base):
         vstr.store(self.width, Reg(n), Reg(base), var.location, var.token.lexeme)
         return Reg(n)
-    def list_generate(self, vstr, n, expr, loc):
-        expr.reduce(vstr, n+1)
-        self.convert(vstr, n+1, expr.type)
+    def list_generate(self, vstr, n, right, loc):
+        right.reduce(vstr, n+1)
+        self.convert(vstr, n+1, right.type)
         vstr.store(self.width, Reg(n+1), Reg(n), loc)
     def glob_address(self, vstr, n, glob):
         vstr.load_glob(Reg(n), glob.token.lexeme)
@@ -48,17 +49,12 @@ class Value(Type):
         self.glob_address(vstr, n, glob)
         vstr.load(self.width, Reg(n), Reg(n))
         return Reg(n)
-    def glob_store(self, vstr, n, glob):
+    def glob_store(self, vstr, n, glob): #TODO test
         vstr.load_glob(Reg(n+1), glob.token.lexeme)
         vstr.store(self.width, Reg(n), Reg(n+1))
         return Reg(n)
     def glob_data(self, vstr, expr, data):
         data.append((self.width, expr.data(vstr)))
-    def glob_generate(self, vstr, glob):
-        if glob.init:
-            vstr.glob(glob.token.lexeme, self.width, glob.init.data(vstr))
-        else:
-            vstr.space(glob.token.lexeme, self.width)
 
 class Bin(Value):
     def __init__(self, signed):
@@ -67,7 +63,7 @@ class Bin(Value):
     def is_signed(self):
         return self.signed
     def convert(self, vstr, n, other):
-        if other.is_float():
+        if other.is_float(): #TODO test
             vstr.binary(Op.FTI, Size.WORD, Reg(n), Reg(n))
     def __eq__(self, other):
         return isinstance(other, (Bin,Float))
@@ -99,7 +95,7 @@ class Float(Value):
         self.size = self.width = Size.WORD
     def is_float(self):
         return True
-    def convert(self, vstr, n, other):
+    def convert(self, vstr, n, other): #TODO test
         if not other.is_float():
             vstr.binary(Op.ITF, Size.WORD, Reg(n), Reg(n))
     def __eq__(self, other):
@@ -108,18 +104,18 @@ class Float(Value):
         return 'float'
 
 class Pointer(Int):
-    def __init__(self, type):
+    def __init__(self, c_type):
         super().__init__(False)
-        self.to = self.of = type
+        self.to = self.of = c_type
         self.inc = self.to.size
     def call(self, vstr, n, var, base):
         self.reduce(vstr, n, var, base)
         vstr.call(Reg(n))
-    def glob_call(self, vstr, n, glob):
+    def glob_call(self, vstr, n, glob): #TODO test
         self.glob_reduce(vstr, n, glob)
         vstr.call(Reg(n))
-    def cast(self, other):
-        return isinstance(other, Bin) or isinstance(other, Array)
+    def cast(self, other): #TODO test
+        return isinstance(other, (Bin,Array))
     def __eq__(self, other):
         return isinstance(other, Pointer) and (self.to == other.to \
                                                or isinstance(self.to, Void) \
@@ -133,17 +129,12 @@ class Pointer(Int):
 class List(Value):
     def list_generate(self, vstr, n, right, loc):
         vstr.ternary(Op.ADD, Size.WORD, Reg(n+1), Reg(n), loc)
-        for i, (loc, type) in enumerate(self):
-            type.list_generate(vstr, n+1, right[i], loc)
+        for i, (loc, c_type) in enumerate(self):
+            c_type.list_generate(vstr, n+1, right[i], loc)
     def glob_data(self, vstr, expr, data):
-        for i, (_, type) in enumerate(self):
-            type.glob_data(vstr, expr[i], data)
+        for i, (_, c_type) in enumerate(self):
+            c_type.glob_data(vstr, expr[i], data)
         return data
-    def glob_generate(self, vstr, glob):
-        if glob.init:
-            vstr.datas(glob.token.lexeme, self.glob_data(vstr, glob.init, []))
-        else:
-            vstr.space(glob.token.lexeme, self.size)
 
 class Struct(Frame, List):
     def __init__(self, name):
@@ -155,9 +146,9 @@ class Struct(Frame, List):
         return self.address(vstr, n, var, base)
     def store(self, vstr, n, var, base):
         self.address(vstr, n+1, var, base)
-        for loc, type in self:
-            vstr.load(type.width, Reg(n+2), Reg(n), loc)
-            vstr.store(type.width, Reg(n+2), Reg(n+1), loc)
+        for loc, c_type in self:
+            vstr.load(c_type.width, Reg(n+2), Reg(n), loc)
+            vstr.store(c_type.width, Reg(n+2), Reg(n+1), loc)
     def __iter__(self):
         for attr in self.data.values():
             yield attr.location, attr.type
@@ -183,7 +174,7 @@ class Array(List):
             yield i*self.of.size, self.of
     def reduce(self, vstr, n, var, base):
         return self.address(vstr, n, var, base)
-    def __eq__(self, other):
+    def __eq__(self, other): #TODO test
         return isinstance(other, (Array,Pointer)) and self.of == other.of
     def __str__(self):
         return f'array({self.of})'
@@ -202,10 +193,11 @@ class Union(UserDict, Value):
 
 class Func(Value):
     def __init__(self, ret, params, variable):
+        super().__init__()
         self.ret, self.params, self.variable = ret, params, variable
         self.size = 0
         self.width = Size.WORD
-    def call(self, vstr, n, var, _):
+    def call(self, vstr, n, var, _): #TODO test
         vstr.call(var.token.lexeme)
     def glob_reduce(self, vstr, n, glob):
         return self.glob_address(vstr, n, glob)

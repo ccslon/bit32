@@ -4,11 +4,12 @@ Created on Mon Jul  3 19:47:39 2023
 
 @author: Colin
 """
+from dataclasses import dataclass
 from copy import copy
-from c_utils import Frame
-from c_types import Void, Float, Int, Short, Char, Pointer, Struct, Union, Array, Func
-from c_exprs import Number, NegNumber, EnumNumber, Decimal, NegDecimal, Letter, String
-from c_exprs import Post, Unary, Not, Pre, Binary, Compare, Logic
+from c_nodes import Frame
+from c_types import Type, Void, Float, Int, Short, Char, Pointer, Struct, Union, Array, Func
+from c_exprs import Number, NegNumber, EnumNumber, Decimal, NegDecimal, Character, String
+from c_exprs import Post, UnaryOp, Not, Pre, BinaryOp, Compare, Logic
 from c_exprs import Local, Attr, Glob, Dot, SubScr, Arrow, Call, VarCall, AddrOf, Deref, SizeOf, Cast, Condition
 from c_exprs import InitAssign, Assign, InitListAssign, InitArrayString, Return, Block, Defn, VarDefn, Program
 from c_statements import Statement, If, Case, Switch, While, Do, For, Continue, Break, Goto, Label
@@ -62,53 +63,83 @@ TODO
 
 class Scope(Frame):
     def copy(self):
-        copy = Scope()
-        copy.size = self.size
-        copy.data = self.data.copy()
-        return copy
+        new = Scope()
+        new.size = self.size
+        new.data = self.data.copy()
+        return new
+    
+class Context:
+    def __init__(self):
+        self.structs = {}
+        self.typedefs = {}
+        self.unions = {}
+        self.enums = []
+        self.enum_consts = {}
+    def copy(self):
+        new = Context()
+        new.structs.update(self.structs.copy())
+        new.typedefs.update(self.typedefs.copy())
+        new.unions.update(self.unions.copy())
+        new.enums.extend(self.enums.copy())
+        new.enum_consts.update(self.enum_consts.copy())
+        return new
+
+@dataclass
+class FuncInfo:
+    ret: Type
+    space: int = 0
+    returns: bool = False
+    calls: bool = False
+    max_args: int = 0
 
 class CParser:
 
     TYPE = ('int','char','short','float','unsigned','signed','struct','void','typedef','const','union','enum','volatile','static')
 
-    def resolve(self, name):
-        if name in self.param_scope:
-            return self.param_scope[name]
-        elif name in self.stack_param_scope:
-            return self.stack_param_scope[name]
-        elif name in self.scope:
+    def __init__(self):
+        self.scope = Scope()
+        self.stack_scope = Scope()
+        self.stack = []
+        self.func = None
+        self.context = None
+        self.globs = {}
+        self.tokens = None
+        self.index = 0
+
+    def resolve(self, name: str):
+        if name in self.scope:
             return self.scope[name]
-        elif name in self.globs:
+        if name in self.stack_scope:
+            return self.stack_scope[name]
+        if name in self.globs:
             return self.globs[name]
-        elif name in self.enum_consts:
-            return self.enum_consts[name]
-        else:
-            self.error(f'Name "{name}" not found')
+        if name in self.context.enum_consts:
+            return self.context.enum_consts[name]
+        self.error(f'Name "{name}" not found')
 
     def primary(self):
         '''
-        PRIMARY -> id|number|character|string|'(' EXPR ')'
+        PRIMARY -> name|number|character|string|'(' EXPR ')'
         '''
-        if self.peek('id'):
+        if self.peek('name'):
             return self.resolve(next(self).lexeme)
-        elif self.peek('decimal'):
+        if self.peek('decimal'):
             return Decimal(next(self))
-        elif self.peek('number'):
+        if self.peek('number'):
             return Number(next(self))
-        elif self.peek('character'):
-            return Letter(next(self))
-        elif self.peek('string'):
+        if self.peek('character'):
+            return Character(next(self))
+        if self.peek('string'):
             return String(next(self))
-        elif self.accept('('):
+        if self.accept('('):
             primary = self.expr()
             self.expect(')')
-        else:
-            self.error('PRIMARY EXPRESSION')
-        return primary
+            return primary
+        self.error('PRIMARY EXPRESSION')
 
     def postfix(self):
         '''
-        POST -> PRIMARY {'(' ARGS ')'|'[' EXPR ']'|'++'|'--'|'.' id|'->' id}
+        POST -> PRIMARY {'(' ARGS ')'|'[' EXPR ']'|'++'|'--'|'.' name|'->' name}
         '''
         postfix = self.primary()
         while self.peek('(','[','++','--','.','->'):
@@ -118,7 +149,7 @@ class CParser:
                     call_type = VarCall
                 else:
                     call_type = Call
-                self.calls = True
+                self.func.calls = True
                 postfix = call_type(next(self), postfix, self.args())
                 self.expect(')')
             elif self.peek('['):
@@ -128,24 +159,24 @@ class CParser:
                 postfix = Post(next(self), postfix)
             elif self.accept('.'):
                 assert isinstance(postfix.type, (Struct,Union)), self.error(f'"{postfix.token.lexeme}" is type {postfix.type}')
-                id = self.expect('id')
-                if id.lexeme not in postfix.type:
-                    self.error(f'"{id.lexeme}" is not an attribute of {postfix.type.to}')
-                attr = postfix.type[id.lexeme]
+                name = self.expect('name')
+                if name.lexeme not in postfix.type:
+                    self.error(f'"{name.lexeme}" is not an attribute of {postfix.type.to}')
+                attr = postfix.type[name.lexeme]
                 if isinstance(postfix.type, Union):
                     postfix = postfix.union(attr)
                 else:
-                    postfix = Dot(id, postfix, attr)
+                    postfix = Dot(name, postfix, attr)
             elif self.accept('->'):
                 assert hasattr(postfix.type, 'to'), self.error(f'{postfix.type} is not pointer type')
-                id = self.expect('id')
-                if id.lexeme not in postfix.type.to:
-                    self.error(f'"{id.lexeme}" is not an attribute of {postfix.type.to}')
-                attr = postfix.type.to[id.lexeme]
+                name = self.expect('name')
+                if name.lexeme not in postfix.type.to:
+                    self.error(f'"{name.lexeme}" is not an attribute of {postfix.type.to}')
+                attr = postfix.type.to[name.lexeme]
                 if isinstance(postfix.type.to, Union):
-                    postfix = Deref(id, postfix.ptr_union(attr))
+                    postfix = Deref(name, postfix.ptr_union(attr)) #TODO test
                 else:
-                    postfix = Arrow(id, postfix, attr)
+                    postfix = Arrow(name, postfix, attr)
         return postfix
 
     def args(self):
@@ -157,7 +188,7 @@ class CParser:
             args.append(self.assign())
             while self.accept(','):
                 args.append(self.assign())
-        self.max_args = min(max(self.max_args, len(args)), 4)
+        self.func.max_args = min(max(self.func.max_args, len(args)), 4)
         return args
 
     def unary(self):
@@ -170,21 +201,21 @@ class CParser:
         '''
         if self.peek('*'):
             return Deref(next(self), self.cast())
-        elif self.peek2('-', 'number'):
+        if self.peek2('-', 'number'):
             next(self)
             return NegNumber(next(self))
-        elif self.peek2('-', 'decimal'):
+        if self.peek2('-', 'decimal'):
             next(self)
-            return NegDecimal(next(self))
-        elif self.peek('-','~'):
-            return Unary(next(self), self.cast())
-        elif self.peek('++','--'):
+            return NegDecimal(next(self)) #TODO test
+        if self.peek('-','~'):
+            return UnaryOp(next(self), self.cast())
+        if self.peek('++','--'):
             return Pre(next(self), self.unary())
-        elif self.peek('!'):
+        if self.peek('!'):
             return Not(next(self), self.cast())
-        elif self.peek('&'):
+        if self.peek('&'):
             return AddrOf(next(self), self.cast())
-        elif self.peek('sizeof'):
+        if self.peek('sizeof'):
             token = next(self)
             if self.accept('('):
                 unary = SizeOf(self.type_name(), token)
@@ -192,21 +223,19 @@ class CParser:
             else:
                 unary = SizeOf(self.unary().type, token)
             return unary
-        else:
-            return self.postfix()
+        return self.postfix()
 
     def cast(self):
         '''
         CAST -> UNARY
                |'(' TYPE_NAME ')' CAST
         '''
-        if self.peek2('(', *self.TYPE) or self.peek('(') and self.peek_typedefs(1):
+        if self.peek2('(', *self.TYPE) or self.peek('(') and self.peek_typedefs(1): #TODO test
             token = next(self)
-            type = self.type_name()
+            c_type = self.type_name()
             self.expect(')')
-            return Cast(token, type, self.cast())
-        else:
-            return self.unary()
+            return Cast(token, c_type, self.cast())
+        return self.unary()
 
     def mul(self):
         '''
@@ -214,7 +243,7 @@ class CParser:
         '''
         mul = self.cast()
         while self.peek('*','/','%'):
-            mul = Binary(next(self), mul, self.cast())
+            mul = BinaryOp(next(self), mul, self.cast())
         return mul
 
     def add(self):
@@ -223,7 +252,7 @@ class CParser:
         '''
         add = self.mul()
         while self.peek('+','-'):
-            add = Binary(next(self), add, self.mul())
+            add = BinaryOp(next(self), add, self.mul())
         return add
 
     def shift(self):
@@ -232,7 +261,7 @@ class CParser:
         '''
         shift = self.add()
         while self.peek('<<','>>'):
-            shift = Binary(next(self), shift, self.add())
+            shift = BinaryOp(next(self), shift, self.add())
         return shift
 
     def relation(self):
@@ -259,7 +288,7 @@ class CParser:
         '''
         bit_and = self.equality()
         while self.peek('&'):
-            bit_and = Binary(next(self), bit_and, self.equality())
+            bit_and = BinaryOp(next(self), bit_and, self.equality())  #TODO test all these
         return bit_and
 
     def bit_xor(self):
@@ -268,7 +297,7 @@ class CParser:
         '''
         bit_xor = self.bit_and()
         while self.peek('^'):
-            bit_xor = Binary(next(self), bit_xor, self.bit_and())
+            bit_xor = BinaryOp(next(self), bit_xor, self.bit_and())
         return bit_xor
 
     def bit_or(self):
@@ -277,7 +306,7 @@ class CParser:
         '''
         bit_or = self.bit_xor()
         while self.peek('|'):
-            bit_or = Binary(next(self), bit_or, self.bit_xor())
+            bit_or = BinaryOp(next(self), bit_or, self.bit_xor())
         return bit_or
 
     def logic_and(self):
@@ -313,14 +342,14 @@ class CParser:
         ASSIGN -> UNARY ['+'|'-'|'*'|'/'|'%'|'<<'|'>>'|'^'|'|'|'&']'=' ASSIGN
                  |COND
         '''
-        assign = self.cond()        
+        assign = self.cond()
         if self.peek('=','+=','-=','*=','/=','%=','<<=','>>=','^=','|=','&=','/=','%='):
             assert isinstance(assign, (Local,Glob,Dot,Arrow,SubScr,Deref)), self.error(f'Cannot assign to {type(assign)}')
             if self.peek('='):
                 assign = Assign(next(self), assign, self.assign())
             else:
                 token = next(self)
-                assign = Assign(token, assign, Binary(token, assign, self.assign()))
+                assign = Assign(token, assign, BinaryOp(token, assign, self.assign()))
         return assign
 
     def expr(self):
@@ -342,90 +371,88 @@ class CParser:
 
     def enum(self, value):
         '''
-        ENUM -> id ['=' number]
+        ENUM -> name ['=' number]
         '''
-        id = self.expect('id')
+        name = self.expect('name')
         if self.accept('='):
             value = Number(self.expect('number')).value
-        assert id.lexeme not in self.enum_consts, self.error(f'Redeclaration of enumerator "{id.lexeme}"')
-        self.enum_consts[id.lexeme] = EnumNumber(id, value)
+        assert name.lexeme not in self.context.enum_consts, self.error(f'Redeclaration of enumerator "{name.lexeme}"')
+        self.context.enum_consts[name.lexeme] = EnumNumber(name, value)
         return value
 
-    def attr(self, spec, type):
+    def attr(self, spec, c_type):
         '''
         ATTR -> DECLR [':' number]
         '''
-        type, id = self.translate_declr(type)
+        c_type, name = self.declr(c_type)
         if self.accept(':'):
             self.expect('number')
-        if id is None and isinstance(type, Union):
-            for name, attr in type.items():
+        if name is None and isinstance(c_type, Union): #TODO test
+            for name, attr in c_type.items():
                 attr.location = spec.size
                 spec.data[name] = attr
-            spec.size += type.size
+            spec.size += c_type.size
         else:
-            spec[id.lexeme] = Attr(type, id)
+            spec[name.lexeme] = Attr(c_type, name)
 
     def spec(self):
         '''
         TYPE_SPEC -> type
                     |'void'
-                    |id
-                    |('struct'|'union') [id] '{' {QUAL ATTR {',' ATTR} ';'} '}'
-                    |'enum' [id] '{' ENUM {',' ENUM}'}'
+                    |name
+                    |('struct'|'union') [name] '{' {QUAL ATTR {',' ATTR} ';'} '}'
+                    |'enum' [name] '{' ENUM {',' ENUM}'}'
         '''
         if self.accept('void'):
             spec = Void()
-        elif self.peek('id'):
+        elif self.peek('name'):
             token = next(self)
-            if token.lexeme not in self.typedefs:
+            if token.lexeme not in self.context.typedefs:
                 self.error(f'typedef "{token.lexeme}" not found')
-            spec = copy(self.typedefs[token.lexeme])
+            spec = copy(self.context.typedefs[token.lexeme])
         elif self.accept('struct'):
-            id = self.accept('id')
-            if self.accept('{'):
-                spec = Struct(id)
-                if id:
-                    self.structs[id.lexeme] = spec
-                while not self.accept('}'):
-                    type = self.qual()
-                    self.attr(spec, type)
-                    while self.accept(','):
-                        self.attr(spec, type)
-                    self.expect(';')
+            name = self.accept('name')
+            if name:
+                if name.lexeme not in self.context.structs:
+                    self.context.structs[name.lexeme] = Struct(name)
+                spec = self.context.structs[name.lexeme]
             else:
-                if id and id.lexeme not in self.structs:
-                    self.structs[id.lexeme] = Struct(id)
-                spec = self.structs[id.lexeme]
+                spec = Struct(name)
+            if self.accept('{'):
+                while not self.accept('}'):
+                    c_type = self.qual()
+                    self.attr(spec, c_type)
+                    while self.accept(','):
+                        self.attr(spec, c_type)
+                    self.expect(';')
         elif self.accept('union'):
-            id = self.accept('id')
-            if self.accept('{'):
-                spec = Union(id)
-                if id:
-                    self.unions[id.lexeme] = spec
-                while not self.accept('}'):
-                    type = self.qual()
-                    self.attr(spec, type)
-                    while self.accept(','):
-                        self.attr(spec, type)
-                    self.expect(';')
+            name = self.accept('name')
+            if name:
+                if name.lexeme not in self.context.unions:
+                    self.context.unions[name.lexeme] = Union(name)
+                spec = self.context.unions[name.lexeme]
             else:
-                if id and id.lexeme not in self.unions:
-                    self.unions[id.lexeme] = Union(id)
-                spec = self.unions[id.lexeme]
-        elif self.accept('enum'):
-            id = self.accept('id')
+                spec = Union(name)
             if self.accept('{'):
-                if id:
-                    self.enums.append(id.lexeme)
+                while not self.accept('}'):
+                    c_type = self.qual()
+                    self.attr(spec, c_type)
+                    while self.accept(','):
+                        self.attr(spec, c_type)
+                    self.expect(';')
+        elif self.accept('enum'):
+            name = self.accept('name')
+            if self.accept('{'):
+                if name:
+                    self.context.enums.append(name.lexeme)
                 value = self.enum(0)
                 while self.accept(','):
                     value += 1
                     value = self.enum(value)
                 self.expect('}')
             else:
-                assert id, self.error("Did not specify enum name")
-                assert id.lexeme in self.enums, self.error(f'Enum name "{id.lexeme}" not found')
+                assert name, self.error("Did not specify enum name")
+                assert name.lexeme in self.context.enums, self.error(f'Enum name "{name.lexeme}" not found')
             spec = Char()
         elif self.accept('float'):
             spec = Float()
@@ -460,39 +487,39 @@ class CParser:
         self.accept('volatile')
         return self.spec()
 
-    def type_name(self):
+    def type_name(self): #TODO test
         '''
         TYPE_NAME -> QUAL ABS_DECLR
         '''
         type_name = self.qual()
         types = []
-        id = self.declr(types)
-        assert id is None, self.error(f'Did not expect name "{id.lexeme}" in TYPE NAME')
+        name = self._declr(types)
+        assert name is None, self.error(f'Did not expect name "{name.lexeme}" in TYPE NAME')
         for new_type, args in reversed(types):
             type_name = new_type(type_name, *args)
         return type_name
 
-    def declr(self, types):
+    def _declr(self, types):
         '''
         DECLR -> {'*'} DIR_DECLR
         '''
         ns = 0
         while self.accept('*'):
             ns += 1
-        id = self.dir_declr(types)
+        name = self.dir_declr(types)
         for _ in range(ns):
             types.append((Pointer, ()))
-        return id
+        return name
 
     def dir_declr(self, types):
         '''
-        DIR_DECLR -> ('(' _DECLR ')'|[id]){'(' PARAMS ')'|'[' number ']'}
+        DIR_DECLR -> ('(' _DECLR ')'|[name]){'(' PARAMS ')'|'[' number ']'}
         '''
         if self.accept('('):
-            id = self.declr(types)
+            name = self._declr(types)
             self.expect(')')
         else:
-            id = self.accept('id')
+            name = self.accept('name')
         while self.peek('(','['):
             if self.accept('('):
                 params, variable = self.params()
@@ -501,50 +528,64 @@ class CParser:
             elif self.accept('['):
                 types.append((Array, (Number(next(self)) if self.peek('number') else None,)))
                 self.expect(']')
-        return id
+        return name
 
-    def init(self, type):
+    def init(self, declr, scope, parser):
         '''
-        INIT -> DECLR ['=' (EXPR|'{' INIT_LIST '}')]
+        INITR -> '{' LIST '}'|ASSIGN|CONST
         '''
-        type, id = self.translate_declr(type)
-        init = declr = Local(type, id)
+        init = declr
         if self.peek('='):
+            assert declr.token is not None, self.error('Assigning to nothing')
+            assert not isinstance(declr.type, Void), self.error('Cannot assign a void type a value')
             token = next(self)
             if self.accept('{'):
-                assert isinstance(declr.type, (Array,Struct)), self.error()
+                assert isinstance(declr.type, (Array,Struct)), self.error('Cannot list-assign to scalar')
                 init = InitListAssign(token, declr, self.list())
                 self.expect('}')
             elif isinstance(declr.type, Array) and self.peek('string'):
                 init = InitArrayString(token, declr, String(next(self)))
             else:
-                init = InitAssign(token, declr, self.assign())
-        self.scope[declr.token.lexeme] = declr
+                init = InitAssign(token, declr, parser())
+        scope[declr.token.lexeme] = declr
         return init
 
-    def translate_declr(self, type):
+    def local_init(self, c_type):
+        '''
+        INIT -> DECLR ['=' INITR]
+        '''
+        c_type, name = self.declr(c_type)
+        return self.init(Local(c_type, name), self.scope, self.assign)
+
+    def glob_init(self, c_type, name):
+        '''
+        INIT -> DECLR ['=' INITR]
+        '''
+        return self.init(Glob(c_type, name), self.globs, self.const)
+
+    def declr(self, c_type):
         types = []
-        id = self.declr(types)
+        name = self._declr(types)
         for new_type, args in reversed(types):
-            type = new_type(type, *args)
-        return type, id
+            c_type = new_type(c_type, *args)
+        return c_type, name
 
     def decln(self):
         '''
         DECLN -> QUAL [INIT {',' INIT}] ';'
         '''
         decln = []
-        if self.accept('typedef'):
-            type = self.qual()
-            type, id = self.translate_declr(type)
-            self.typedefs[id.lexeme] = type
+        if self.accept('typedef'): #TODO test
+            c_type = self.qual()
+            c_type, name = self.declr(c_type)
+            self.context.typedefs[name.lexeme] = c_type
             self.expect(';')
         else:
-            type = self.qual()
+            c_type = self.qual()
             if not self.accept(';'):
-                decln.append(self.init(type))
+                decln.append(self.local_init(c_type))
                 while self.accept(','):
-                    decln.append(self.init(type))
+                    decln.append(self.local_init(c_type))
                 self.expect(';')
         return decln
 
@@ -570,15 +611,15 @@ class CParser:
         '''
         PARAM -> QUAL DECLR
         '''
-        type = self.qual()
+        c_type = self.qual()
         types = []
-        id = self.declr(types)
-        for new_type, args in reversed(types):
+        name = self._declr(types)
+        for new_type, args in reversed(types): #TODO test
             if new_type is Array:
-                type = Pointer(type)
+                c_type = Pointer(c_type)
             else:
-                type = new_type(type, *args)
-        return Local(type, id)
+                c_type = new_type(c_type, *args)
+        return Local(c_type, name)
 
     def params(self):
         '''
@@ -602,7 +643,7 @@ class CParser:
                 |SELECT
                 |LOOP
                 |JUMP
-                |id ':'
+                |name ':'
                 |ASSIGN ';'
         SELECT -> 'if' '(' EXPR ')' STATEMENT ['else' STATEMENT]
                  |'switch' '(' EXPR ')' '{' {'case' CONST_EXPR ':' STATEMENT} ['default' ':' STATEMENT] '}'
@@ -612,7 +653,7 @@ class CParser:
         JUMP -> 'return' [EXPR] ';'
                |'break' ';'
                |'continue' ';'
-               |'goto' id ';'
+               |'goto' name ';'
         '''
         if self.accept(';'):
             statement = Statement()
@@ -678,23 +719,23 @@ class CParser:
             self.expect(')')
             self.expect(';')
         elif self.peek('return'):
-            self.returns = True
+            self.func.returns = True
             token = next(self)
             if self.accept(';'):
-                statement = Return(token, None, None)
+                statement = Return(token, None, None) #TODO test
             else:
-                statement = Return(token, self.defn_ret_type, self.expr())
+                statement = Return(token, self.func.ret, self.expr())
                 self.expect(';')
         elif self.accept('break'):
             statement = Break()
             self.expect(';')
-        elif self.accept('continue'):
+        elif self.accept('continue'): #TODO test
             statement = Continue()
             self.expect(';')
         elif self.accept('goto'):
-            statement = Goto(self.expect('id'))
+            statement = Goto(self.expect('name'))
             self.expect(';')
-        elif self.peek2('id',':'):
+        elif self.peek2('name',':'):
             statement = Label(next(self))
             next(self)
         else:
@@ -705,12 +746,12 @@ class CParser:
 
     def block(self):
         '''
-        BLOCK -> {'typedef' ('void'|QUAL) id ';'} {DECL} {STATE} [BLOCK]
+        BLOCK -> {'typedef' ('void'|QUAL) name ';'} {DECL} {STATE} [BLOCK]
         '''
         block = Block()
         while self.peek(*self.TYPE) or self.peek_typedefs():
             block.extend(self.decln())
-        while self.peek(';','{','(','id','*','++','--','return','if','switch','while','do','for','break','continue','goto') and not self.peek_typedefs():
+        while self.peek(';','{','(','name','*','++','--','return','if','switch','while','do','for','break','continue','goto') and not self.peek_typedefs():
             block.append(self.statement())
         if block:
             block.extend(self.block())
@@ -720,96 +761,66 @@ class CParser:
         program = Program()
         while not self.peek('end'):
             if self.accept('typedef'):
-                type = self.qual()
-                type, id = self.translate_declr(type)
-                self.typedefs[id.lexeme] = type
+                c_type = self.qual()
+                c_type, name = self.declr(c_type)
+                self.context.typedefs[name.lexeme] = c_type
                 self.expect(';')
-            elif self.accept('extern'):
-                type = self.qual()
-                type, id = self.translate_declr(type)
-                if id:
-                    self.globs[id.lexeme] = Glob(type, id)
+            elif self.accept('extern'): #TODO test
+                c_type = self.qual()
+                c_type, name = self.declr(c_type)
+                if name:
+                    self.globs[name.lexeme] = Glob(c_type, name)
                 self.expect(';')
             else:
                 self.accept('static')
-                type = self.qual()
-                type, id = self.translate_declr(type)
-                if id:
-                    self.globs[id.lexeme] = glob = Glob(type, id)
-                if self.accept('{'):
-                    assert id is not None, self.error('Function definition needs a name')
-                    assert isinstance(type, Func), self.error(f'"{id.lexeme}" is not of function type')
-                    assert not any(param.token is None for param in type.params), self.error(f'"{id.lexeme}" cannot have abstract parameters')
-                    self.begin_func(type)
-                    for param in type.params[:4]:
-                        self.param_scope[param.token.lexeme] = param
-                    for param in type.params[4:]:
-                        self.stack_param_scope[param.token.lexeme] = param
-                    if type.variable:
-                        defn = VarDefn
-                    else:
-                        self.scope = self.param_scope
-                        defn = Defn
-                    block = self.block()
-                    self.end_func()
-                    program.append(defn(type, id, block, self.returns, self.calls, self.max_args, self.space))
-                    self.expect('}')
-                elif self.accept('='):
-                    assert id is not None, self.error('Assigning to nothing')
-                    assert not isinstance(type, Void), self.error('Cannot assign a void type a value')
+                qual = self.qual()
+                if not self.accept(';'):
+                    c_type, name = self.declr(qual)
                     if self.accept('{'):
-                        assert isinstance(type, (Array,Struct)), self.error('Cannot list assign to scalar')
-                        glob.init = self.list()
+                        assert name is not None, self.error('Function definition needs a name')
+                        self.globs[name.lexeme] = Glob(c_type, name)
+                        assert isinstance(c_type, Func), self.error(f'"{name.lexeme}" is not of function c_type')
+                        assert not any(param.token is None for param in c_type.params), self.error(f'"{name.lexeme}" cannot have abstract parameters')
+                        self.begin_func(c_type)
+                        for param in c_type.params[:4]:
+                            self.scope[param.token.lexeme] = param
+                        for param in c_type.params[4:]:
+                            self.stack_scope[param.token.lexeme] = param
+                        if c_type.variable:
+                            defn = VarDefn
+                        else:
+                            defn = Defn
+                        block = self.block()
+                        self.end_func()
+                        program.append(defn(c_type, name, block, self.func)) # self.returns, self.calls, self.max_args, self.space))
                         self.expect('}')
                     else:
-                        glob.init = self.const()
-                    program.append(glob)
-                    self.expect(';')
-                else:
-                    if id and type.size:
-                        program.append(glob)
-                    self.expect(';')
+                        program.append(self.glob_init(c_type, name))
+                        while self.accept(','):
+                            c_type, name = self.declr(qual)
+                            program.append(self.glob_init(c_type, name))
+                        self.expect(';')
         return program
 
-    def peek_typedefs(self, offset=0):
-        return self.peek('id', offset=offset) \
-            and self.tokens[self.index+offset].lexeme in self.typedefs
-
-    def begin_func(self, defn_type):
-        self.defn_ret_type = defn_type.ret
-        self.space = 0
-        self.returns = False
-        self.calls = False
-        self.max_args = 0
-        self.scope = Scope()
-        self.param_scope = Scope()
-        self.stack_param_scope = Scope()
-        self.stack = []
+    def begin_func(self, func):
+        self.func = FuncInfo(func.ret)
         self.begin_scope()
+        self.stack_scope = Scope()
 
     def end_func(self):
         self.end_scope()
 
     def begin_scope(self):
-        self.stack.append((self.scope, self.structs, self.typedefs, self.unions, self.enums, self.enum_consts))
+        self.stack.append((self.scope, self.context))
         self.scope = self.scope.copy()
-        self.structs = self.structs.copy()
-        self.typedefs = self.typedefs.copy()
-        self.unions = self.unions.copy()
-        self.enums = self.enums.copy()
-        self.enum_consts = self.enum_consts.copy()
+        self.context = self.context.copy()
 
     def end_scope(self):
-        self.space = max(self.space, self.scope.size)
-        self.scope, self.structs, self.typedefs, self.unions, self.enums, self.enum_consts = self.stack.pop()
+        self.func.space = max(self.func.space, self.scope.size)
+        self.scope, self.context = self.stack.pop()
 
     def parse(self, tokens):
-        self.stack = []
-        self.structs = {}
-        self.typedefs = {}
-        self.unions = {}
-        self.enums = []
-        self.enum_consts = {}
+        self.context = Context()
         self.globs = {}
         self.tokens = tokens
         # for i, t in enumerate(self.tokens): print(i, t.type, t.lexeme)
@@ -827,19 +838,13 @@ class CParser:
         token = self.tokens[self.index+offset]
         return token.type in symbols or token.type in ('keyword','symbol') and token.lexeme in symbols
 
-    def peekn(self, *buckets):
-        if self.index+len(buckets) < len(self.tokens)-1:
-            for i, bucket in enumerate(buckets):
-                if type(bucket) is str:
-                    bucket = (bucket,)
-                if not self.peek(*bucket, offset=i):
-                    return False
-            return True
-        return False
-    
     def peek2(self, first, *second):
         return self.peek(first) and self.peek(*second, offset=1)
-    
+
+    def peek_typedefs(self, offset=0):
+        return self.peek('name', offset=offset) \
+            and self.tokens[self.index+offset].lexeme in self.context.typedefs
+
     def accept(self, symbol):
         if self.peek(symbol):
             return next(self)
@@ -849,9 +854,9 @@ class CParser:
             return next(self)
         self.error(f'Expected "{symbol}"')
 
-    def error(self, msg=None):
+    def error(self, msg=''): #TODO test
         error = self.tokens[self.index]
-        raise SyntaxError(f'Line {error.line}: Unexpected {error.type} token "{error.lexeme}".'+(f' {msg}.' if msg is not None else ''))
+        raise SyntaxError(f'Line {error.line}: Unexpected {error.type} token "{error.lexeme}". {msg}')
 
 def parse(tokens):
     parser = CParser()

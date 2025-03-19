@@ -54,7 +54,7 @@ class CLexer(LexerBase):
         return match[1:-1]    
     RE_keyword = r'\b(include|define|undef|typedef|const|static|volatile|extern|void|char|short|int|long|float|unsigned|signed|struct|enum|union|sizeof|return|if|ifdef|ifndef|else|endif|switch|case|default|while|do|for|break|continue|goto)\b'
     RE_symbol = r'[#]{2}|[]#;:()[{}]|[+]{2}|--|->|(<<|>>|[+*/%^|&=!<>-])?=|<<|>>|[|]{2}|[&]{2}|[+*/%^|&=!<>?~-]|\.\.\.|\.|,'
-    RE_id = r'[A-Za-z_]\w*'
+    RE_name = r'[A-Za-z_]\w*'
     RE_space = r'[ \t]+'
     def RE_line_splice(self, match):
         r'\\\s*\n'
@@ -81,7 +81,7 @@ class CPreProcessor:
     def arg(self, expand):
         '''
         ARG -> {TOKEN
-              |id '(' [ARG {',' ARG}] ')'
+              |name '(' [ARG {',' ARG}] ')'
               |'(' ARG ')'
                }
         '''
@@ -89,7 +89,7 @@ class CPreProcessor:
         while not self.peek(')', ','):
             if self.peek_defined() and expand:
                 self.expand()
-            elif self.accept('id'):
+            elif self.accept('name'):
                 if self.accept('('):
                     if not self.accept(')'):
                         self.arg(expand)
@@ -104,12 +104,12 @@ class CPreProcessor:
     
     def param(self):
         '''
-        PARAM -> id
+        PARAM -> name
         '''
         self.accept('space')
-        id = self.expect('id')
+        name = self.expect('name')
         self.accept('space')
-        return id.lexeme
+        return name.lexeme
     
     def params(self):
         '''
@@ -125,8 +125,8 @@ class CPreProcessor:
     
     def expand(self):
         start = self.index
-        id = next(self)
-        params, body = self.defined[id.lexeme]
+        name = next(self)
+        params, body = self.defined[name.lexeme]
         if params is None:
             self.tokens[start:self.index] = body
         else:
@@ -169,7 +169,7 @@ class CPreProcessor:
         if self.if_start is None:
             if self.accept('define'):
                 self.expect('space')
-                id = self.expect('id')
+                name = self.expect('name')
                 if self.accept('('):
                     params = self.params()
                     self.expect(')')
@@ -181,7 +181,7 @@ class CPreProcessor:
                         if self.peek('#'):
                             local_start = self.index
                             next(self)
-                            local = self.expect('id')
+                            local = self.expect('name')
                             if local.lexeme in params:
                                 params[local.lexeme] = False
                             self.tokens[local_start:self.index] = \
@@ -210,7 +210,7 @@ class CPreProcessor:
                     body = self.index
                     while not self.peek('new_line','end'):
                         next(self)                    
-                self.defined[id.lexeme] = params, self.tokens[body:self.index]
+                self.defined[name.lexeme] = params, self.tokens[body:self.index]
                 del self.tokens[start:self.index]
             elif self.accept('include'):
                 self.accept('space')
@@ -240,14 +240,14 @@ class CPreProcessor:
                     self.error()                
             elif self.accept('ifndef'):
                 self.expect('space')
-                if self.expect('id').lexeme in self.defined:
+                if self.expect('name').lexeme in self.defined:
                     self.if_start = start
                 del self.tokens[start:self.index]
             elif self.accept('endif'):            
                 del self.tokens[start:self.index]
             elif self.accept('undef'):
                 self.expect('space')
-                del self.defined[self.expect('id').lexeme]
+                del self.defined[self.expect('name').lexeme]
                 del self.tokens[start:self.index]
             else:
                 del self.tokens[start:self.index]
@@ -262,8 +262,8 @@ class CPreProcessor:
         '''
         PROGRAM -> {TOKEN
                   |'#' DIRECTIVE
-                  |id
-                  |id '(' ARGS ')'
+                  |name
+                  |name '(' ARGS ')'
                   |string string
                    }
         '''
@@ -301,7 +301,7 @@ class CPreProcessor:
 
     def stream(self):
         return [token for token in self.tokens if token.type in \
-                ('decimal','number','character','string','keyword','symbol','id','end')]
+                ('decimal','number','character','string','keyword','symbol','name','end')]
             
     def output(self):
         return ''.join(f'"{token.lexeme}"' if token.type == 'string' else token.lexeme for token in self.tokens)
@@ -316,7 +316,7 @@ class CPreProcessor:
     
     def peek_defined(self):
         token = self.tokens[self.index]
-        return token.type == 'id' and token.lexeme in self.defined and self.if_start is None
+        return token.type == 'name' and token.lexeme in self.defined and self.if_start is None
     
     def peek(self, *symbols, offset=0):
         token = self.tokens[self.index+offset]

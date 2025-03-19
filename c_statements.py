@@ -5,11 +5,8 @@ Created on Fri Sep  6 14:25:05 2024
 @author: ccslon
 """
 from bit32 import Op, Cond, Reg
-from c_utils import CNode
+from c_nodes import Statement
 from c_exprs import Block, Return
-
-class Statement(CNode):
-    pass
 
 class If(Statement):
     def __init__(self, cond, state):
@@ -18,7 +15,7 @@ class If(Statement):
         vstr.if_jump_end.append(False)
         label = vstr.next_label()
         sublabel = vstr.next_label() if self.false else label
-        self.cond.compare(vstr, n, sublabel)
+        self.cond.compare(vstr, n*self.cond.soft_calls(), sublabel)
         self.true.generate(vstr, n)
         if self.false:
             if not (isinstance(self.true, Return) or (isinstance(self.true, Block) and self.true and isinstance(self.true[-1], Return))):
@@ -33,7 +30,7 @@ class If(Statement):
         vstr.if_jump_end.pop()
     def branch(self, vstr, n, root):
         sublabel = vstr.next_label() if self.false else root
-        self.cond.compare(vstr, n, sublabel)
+        self.cond.compare(vstr, n*self.cond.soft_calls(), sublabel)
         self.true.generate(vstr, n)
         if self.false:
             if not (isinstance(self.true, Return) or (isinstance(self.true, Block) and self.true and isinstance(self.true[-1], Return))):
@@ -51,11 +48,12 @@ class Switch(Statement):
         self.test, self.cases, self.default = test, [], None
     def generate(self, vstr, n):
         vstr.begin_loop()
-        self.test.reduce(vstr, n)
+        m = n*self.test.soft_calls()
+        self.test.reduce(vstr, m)
         labels = []
         for case in self.cases:
             labels.append(vstr.next_label())
-            vstr.binary(Op.CMP, self.test.width, Reg(n), case.const.num_reduce(vstr, n+1))
+            vstr.binary(Op.CMP, self.test.width, Reg(m), case.const.num_reduce(vstr, m+1))
             vstr.jump(Cond.EQ, labels[-1])
         if self.default:
             default = vstr.next_label()
@@ -77,7 +75,7 @@ class While(Statement):
     def generate(self, vstr, n):
         vstr.begin_loop()
         vstr.append_label(vstr.loop_head())
-        self.cond.compare(vstr, n, vstr.loop_tail())
+        self.cond.compare(vstr, n*self.cond.soft_calls(), vstr.loop_tail())
         self.state.generate(vstr, n)
         vstr.jump(Cond.AL, vstr.loop_head())
         vstr.append_label(vstr.loop_tail())
@@ -90,7 +88,7 @@ class Do(Statement):
         vstr.begin_loop()
         vstr.append_label(vstr.loop_head())
         self.state.generate(vstr, n)
-        self.cond.compare_inv(vstr, n, vstr.loop_head())
+        self.cond.compare_inv(vstr, n*self.cond.soft_calls(), vstr.loop_head())
         vstr.append_label(vstr.loop_tail())
         vstr.end_loop()
 
@@ -104,7 +102,7 @@ class For(While):
         loop = vstr.next_label()
         vstr.begin_loop()
         vstr.append_label(loop)
-        self.cond.compare(vstr, n, vstr.loop_tail())
+        self.cond.compare(vstr, n*self.cond.soft_calls(), vstr.loop_tail())
         self.state.generate(vstr, n)
         vstr.append_label(vstr.loop_head())
         for step in self.steps:

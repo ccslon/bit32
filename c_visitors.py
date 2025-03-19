@@ -4,18 +4,8 @@ Created on Sat Sep  7 01:02:16 2024
 
 @author: Colin
 """
-from collections import UserDict
 
 from bit32 import Reg
-
-class Frame(UserDict):
-    def __init__(self):
-        super().__init__()
-        self.size = 0
-    def __setitem__(self, name, obj):
-        obj.location = self.size
-        self.size += obj.type.size
-        super().__setitem__(name, obj)
 
 class Visitor:
     def __init__(self):
@@ -36,39 +26,21 @@ class Visitor:
     def next_label(self):
         pass
     def maximize(self, *regs):
-        self.max_reg = max((self.max_reg, *(reg for reg in regs if isinstance(reg, Reg) and reg < Reg.FP)))
+        self.max_reg = max((self.max_reg, *(reg for reg in regs if isinstance(reg, Reg) and reg <= Reg.K)))
     def append_label(self, label):
         pass
-    def string(self, string):
-        pass
-    def add(self, asm):
-        pass
-    def add_data(self, size, data):
-        pass
-    def space(self, name, size):
-        pass
-    def glob(self, name, value):
-        pass
-    def datas(self, label, datas):
+    def string_ptr(self, string):
         pass
     def push(self, size, rs):
-        self.maximize(rs)
-    def pop(self, size, rd):
-        self.maximize(rd)
-    def pushm(self, calls, *regs):
-        pass
-    def popm(self, calls, *regs):
         pass
     def call(self, proc):
         self.maximize(proc)
-    def ret(self):
-        pass
     def load_glob(self, rd, name):
         self.maximize(rd)
     def load(self, size, rd, rb, offset=None, name=None):
-        self.maximize(rd, rb, offset)  
+        self.maximize(rd, rb, offset)
     def store(self, size, rd, rb, offset=None, name=None):
-        self.maximize(rd, rb, offset)        
+        self.maximize(rd, rb, offset)
     def imm(self, size, rd, value):
         self.maximize(rd)
     def unary(self, op, size, rd):
@@ -108,10 +80,12 @@ class Emitter(Visitor):
         return f'.L{label}'
     def append_label(self, label):
         self.labels.append(label)
-    def string(self, string):
+    def string_array(self, name, string):
+        self.data.append(rf'{name}: "{string}\0"')
+    def string_ptr(self, string):
         if string not in self.strings:
             self.strings.append(string)
-            self.data.append(rf'.S{self.strings.index(string)}: "{string}\0"')
+            self.string_array(rf'.S{self.strings.index(string)}', string)
         return f'.S{self.strings.index(string)}'
     def add(self, asm):
         for label in self.labels:
@@ -127,13 +101,13 @@ class Emitter(Visitor):
         for size, data in datas:
             self.data.append(f'  .{size.name.lower()} {data}')
     def push(self, size, rs):
-        self.add(f'PUSH{size.display()} {rs.name}')
-    def pop(self, size, rd):
-        self.add(f'POP{size.display()} {rd.name}')
+        self.add(f'PUSH{size.display()} {rs.name}') #TODO test
     def pushm(self, *regs):
-        self.add('PUSH '+', '.join(reg.name for reg in regs))
+        if regs:
+            self.add('PUSH '+', '.join(reg.name for reg in regs))
     def popm(self, *regs):
-        self.add('POP '+', '.join(reg.name for reg in regs))
+        if regs:
+            self.add('POP '+', '.join(reg.name for reg in regs))
     def call(self, proc):
         self.add(f'CALL {proc.name if isinstance(proc, Reg) else proc}')
     def ret(self):
@@ -156,7 +130,3 @@ class Emitter(Visitor):
         self.add(f'J{cond.display_jump()} {target}')
     def mov(self, cond, rd, value):
         self.add(f'MOV{cond.display()} {rd.name}, {value}')
-
-class CNode:
-    def generate(self, vstr, n):
-        pass
