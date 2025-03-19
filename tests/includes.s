@@ -1,12 +1,10 @@
 foo: .word 9
 test:
-  PUSH A, FP
+  PUSH A
   SUB SP, 4
-  MOV FP, SP
   MOV A, 10
   MUL A, 100
-  ST [FP, 0], A ; num
-  MOV SP, FP
+  ST [SP, 0], A ; num
   ADD SP, 4
-  POP A, FP
+  POP A
   RET

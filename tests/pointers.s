@@ -1,45 +1,36 @@
 change:
-  PUSH B, FP
+  PUSH B
   SUB SP, 4
-  MOV FP, SP
-  ST [FP, 0], A
-  LD A, [FP, 0] ; n
+  ST [SP, 0], A
+  LD A, [SP, 0] ; n
   LD A, [A]
   ADD A, 10
-  LD B, [FP, 0] ; n
+  LD B, [SP, 0] ; n
   ST [B], A
-  MOV SP, FP
   ADD SP, 4
-  POP B, FP
+  POP B
   RET
 foo:
-  PUSH LR, B, FP
+  PUSH LR
   SUB SP, 8
-  MOV FP, SP
-  ST [FP, 0], A
-  LD B, [FP, 0] ; m
-  MUL B, 5
-  ST [FP, 4], B ; n
-  ADD B, FP, 4
-  MOV A, B
+  ST [SP, 0], A
+  LD A, [SP, 0] ; m
+  MUL A, 5
+  ST [SP, 4], A ; n
+  ADD A, SP, 4
   CALL change
-  MOV SP, FP
   ADD SP, 8
-  POP PC, B, FP
+  POP PC
 bar:
-  PUSH LR, C, FP
+  PUSH LR
   SUB SP, 8
-  MOV FP, SP
-  ST [FP, 0], A
-  ST [FP, 4], B
-  LD B, [FP, 0] ; str
-  MOV A, B
+  ST [SP, 0], A
+  ST [SP, 4], B
+  LD A, [SP, 0] ; str
   CALL print
-  LD B, [FP, 0] ; str
-  LD C, [FP, 4] ; i
-  ADD B, C
-  MOV A, B
+  LD A, [SP, 0] ; str
+  LD B, [SP, 4] ; i
+  ADD A, B
   CALL print
-  MOV SP, FP
   ADD SP, 8
-  POP PC, C, FP
+  POP PC

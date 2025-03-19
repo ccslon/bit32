@@ -1,38 +1,29 @@
 div:
-  PUSH FP
   SUB SP, 16
-  MOV FP, SP
-  ST [FP, 0], A
-  ST [FP, 4], B
+  ST [SP, 0], A
+  ST [SP, 4], B
   MOV A, 3
-  ADD B, FP, 8
+  ADD B, SP, 8
   ST [B, 0], A ; quot
   MOV A, 4
-  ADD B, FP, 8
+  ADD B, SP, 8
   ST [B, 4], A ; rem
-  ADD A, FP, 8
+  ADD A, SP, 8
   JMP .L0
 .L0:
-  MOV SP, FP
   ADD SP, 16
-  POP FP
   RET
 print_int:
-  PUSH LR, B, C, D, E, FP
+  PUSH B, C, LR
   SUB SP, 12
-  MOV FP, SP
-  ST [FP, 0], A
-  LD C, [FP, 0] ; num
-  MOV D, 10
-  MOV A, C
-  MOV B, D
+  ST [SP, 0], A
+  LD A, [SP, 0] ; num
+  MOV B, 10
   CALL div
-  MOV C, A
-  ADD D, FP, 4
-  LD E, [C, 0]
-  ST [D, 0], E
-  LD E, [C, 4]
-  ST [D, 4], E
-  MOV SP, FP
+  ADD B, SP, 4
+  LD C, [A, 0]
+  ST [B, 0], C
+  LD C, [A, 4]
+  ST [B, 4], C
   ADD SP, 12
-  POP PC, B, C, D, E, FP
+  POP B, C, PC

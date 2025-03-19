@@ -1,26 +1,25 @@
 fib:
-  PUSH LR, B, C, FP
+  PUSH B, C, LR
   SUB SP, 4
-  MOV FP, SP
-  ST [FP, 0], A
-  LD B, [FP, 0] ; n
-  CMP B, 1
+  ST [SP, 0], A
+  LD A, [SP, 0] ; n
+  CMP A, 1
   JNE .L2
   MOV B, 0
   JMP .L0
 .L2:
-  LD B, [FP, 0] ; n
-  CMP B, 2
+  LD A, [SP, 0] ; n
+  CMP A, 2
   JNE .L3
   MOV B, 1
   JMP .L0
 .L3:
-  LD B, [FP, 0] ; n
+  LD B, [SP, 0] ; n
   SUB B, 1
   MOV A, B
   CALL fib
   MOV B, A
-  LD C, [FP, 0] ; n
+  LD C, [SP, 0] ; n
   SUB C, 2
   MOV A, C
   CALL fib
@@ -29,18 +28,16 @@ fib:
   JMP .L0
 .L0:
   MOV A, B
-  MOV SP, FP
   ADD SP, 4
-  POP PC, B, C, FP
+  POP B, C, PC
 fib2:
-  PUSH LR, B, C, FP
+  PUSH B, C, LR
   SUB SP, 4
-  MOV FP, SP
-  ST [FP, 0], A
-  LD B, [FP, 0] ; n
-  CMP B, 1
+  ST [SP, 0], A
+  LD A, [SP, 0] ; n
+  CMP A, 1
   JEQ .L7
-  CMP B, 2
+  CMP A, 2
   JEQ .L8
   JMP .L9
 .L7:
@@ -50,12 +47,12 @@ fib2:
   MOV B, 1
   JMP .L4
 .L9:
-  LD B, [FP, 0] ; n
+  LD B, [SP, 0] ; n
   SUB B, 1
   MOV A, B
   CALL fib
   MOV B, A
-  LD C, [FP, 0] ; n
+  LD C, [SP, 0] ; n
   SUB C, 2
   MOV A, C
   CALL fib
@@ -65,6 +62,5 @@ fib2:
 .L6:
 .L4:
   MOV A, B
-  MOV SP, FP
   ADD SP, 4
-  POP PC, B, C, FP
+  POP B, C, PC

@@ -36,7 +36,3 @@ void foo4(int n) {
         bar(0);
     }
 }
-
-int main() {
-
-}

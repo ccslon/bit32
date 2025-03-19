@@ -5,6 +5,7 @@ Created on Fri Sep  8 14:37:22 2023
 @author: ccslon
 """
 from unittest import TestCase, main, expectedFailure
+
 import c_preproc
 import c_parser
 
@@ -54,6 +55,9 @@ class TestCompiler(TestCase):
 
     def test_fib(self):
         self.code_eq_asm('fib')
+
+    def test_loop(self):
+        self.code_eq_asm('loops')
 
     def test_sum(self):
         self.code_eq_asm('sum')
@@ -117,6 +121,16 @@ class TestCompiler(TestCase):
 
     def test_ifs(self):
         self.code_eq_asm('ifs')
+
+    def test_sizeof(self):
+        self.code_eq_asm('sizeof')
+
+    def test_vardefns(self):
+        self.code_eq_asm('vardefns')
+
+    def test_ops(self):
+        self.code_eq_asm('ops')
+
 
 if __name__ == '__main__':
     main()

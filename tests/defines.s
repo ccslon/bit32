@@ -1,33 +1,31 @@
 test:
-  PUSH A, B, FP
+  PUSH A, B
   SUB SP, 8
-  MOV FP, SP
   MOV A, 0
-  ST [FP, 0], A ; i
+  ST [SP, 0], A ; i
 .L0:
-  LD A, [FP, 0] ; i
+  LD A, [SP, 0] ; i
   CMP A, 10
   JGE .L2
-  LD A, [FP, 4] ; minN
-  LD B, [FP, 0] ; i
+  LD A, [SP, 4] ; minN
+  LD B, [SP, 0] ; i
   CMP A, B
   JLE .L4
-  LD A, [FP, 0] ; i
+  LD A, [SP, 0] ; i
   JMP .L3
 .L4:
-  LD A, [FP, 4] ; minN
+  LD A, [SP, 4] ; minN
 .L3:
-  ST [FP, 4], A ; minN
-  LD A, [FP, 4] ; minN
+  ST [SP, 4], A ; minN
+  LD A, [SP, 4] ; minN
   ADD B, A, 1
-  ST [FP, 4], B ; minN
+  ST [SP, 4], B ; minN
 .L1:
-  LD A, [FP, 0] ; i
+  LD A, [SP, 0] ; i
   ADD B, A, 1
-  ST [FP, 0], B ; i
+  ST [SP, 0], B ; i
   JMP .L0
 .L2:
-  MOV SP, FP
   ADD SP, 8
-  POP A, B, FP
+  POP A, B
   RET

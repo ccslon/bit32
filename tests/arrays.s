@@ -5,17 +5,16 @@
 .S4: "Nick\0"
 .S5: "Chuck\0"
 stack_int:
-  PUSH B, C, FP
+  PUSH B, C
   SUB SP, 51
-  MOV FP, SP
-  ADD A, FP, 0
+  ADD A, SP, 0
   MOV B, 1
   ST [A, 0], B
   MOV B, 2
   ST [A, 4], B
   MOV B, 3
   ST [A, 8], B
-  ADD A, FP, 12
+  ADD A, SP, 12
   ADD B, A, 0
   MOV C, 1
   ST [B, 0], C
@@ -37,7 +36,7 @@ stack_int:
   ST [B, 4], C
   MOV C, 9
   ST [B, 8], C
-  ADD A, FP, 48
+  ADD A, SP, 48
   MOV.B B, 'a'
   ST.B [A, 0], B
   MOV.B B, 'b'
@@ -45,28 +44,24 @@ stack_int:
   MOV.B B, 'c'
   ST.B [A, 2], B
 .L0:
-  MOV SP, FP
   ADD SP, 51
-  POP B, C, FP
+  POP B, C
   RET
 stack_cat:
-  PUSH A, B, FP
+  PUSH A, B
   SUB SP, 5
-  MOV FP, SP
-  ADD A, FP, 0
+  ADD A, SP, 0
   LDI B, =.S0
   ST [A, 0], B
   MOV B, 10
   ST.B [A, 4], B
-  MOV SP, FP
   ADD SP, 5
-  POP A, B, FP
+  POP A, B
   RET
 list_cat:
-  PUSH A, B, C, FP
+  PUSH A, B, C
   SUB SP, 10
-  MOV FP, SP
-  ADD A, FP, 0
+  ADD A, SP, 0
   ADD B, A, 0
   LDI C, =.S0
   ST [B, 0], C
@@ -77,15 +72,13 @@ list_cat:
   ST [B, 0], C
   MOV C, 6
   ST.B [B, 4], C
-  MOV SP, FP
   ADD SP, 10
-  POP A, B, C, FP
+  POP A, B, C
   RET
 stack_person:
-  PUSH A, B, C, FP
+  PUSH A, B, C
   SUB SP, 10
-  MOV FP, SP
-  ADD A, FP, 0
+  ADD A, SP, 0
   LDI B, =.S2
   ST [A, 0], B
   MOV B, 27
@@ -95,15 +88,13 @@ stack_person:
   ST [B, 0], C
   MOV C, 15
   ST.B [B, 4], C
-  MOV SP, FP
   ADD SP, 10
-  POP A, B, C, FP
+  POP A, B, C
   RET
 list_person:
-  PUSH A, B, C, D, FP
+  PUSH A, B, C, D
   SUB SP, 20
-  MOV FP, SP
-  ADD A, FP, 0
+  ADD A, SP, 0
   ADD B, A, 0
   LDI C, =.S2
   ST [B, 0], C
@@ -124,7 +115,6 @@ list_person:
   ST [C, 0], D
   MOV D, 15
   ST.B [C, 4], D
-  MOV SP, FP
   ADD SP, 20
-  POP A, B, C, D, FP
+  POP A, B, C, D
   RET

@@ -1,32 +1,15 @@
 .S0: "Hello global*\n\0"
 gptr: .word .S0
-garr:
-  .byte 'H'
-  .byte 'e'
-  .byte 'l'
-  .byte 'l'
-  .byte 'o'
-  .byte ' '
-  .byte 'g'
-  .byte 'l'
-  .byte 'o'
-  .byte 'b'
-  .byte 'a'
-  .byte 'l'
-  .byte '['
-  .byte ']'
-  .byte '\n'
-  .byte '\0'
+garr: "Hello global[]\n\0"
 c: .byte 'c'
 .S1: "Hello stack*\n\0"
 .S2: "Hello cstrings!\n\0"
 main:
-  PUSH LR, B, C, FP
+  PUSH B, C, LR
   SUB SP, 19
-  MOV FP, SP
-  LDI B, =.S1
-  ST [FP, 0], B ; ptr
-  ADD B, FP, 4
+  LDI A, =.S1
+  ST [SP, 0], A ; ptr
+  ADD B, SP, 4
   MOV.B C, 'H'
   ST.B [B, 0], C
   MOV.B C, 'e'
@@ -57,24 +40,17 @@ main:
   ST.B [B, 13], C
   MOV.B C, '\0'
   ST.B [B, 14], C
-  LDI B, =.S2
-  MOV A, B
+  LDI A, =.S2
   CALL print
-  LDI B, =gptr
-  LD B, [B]
-  MOV A, B
+  LDI A, =gptr
+  LD A, [A]
   CALL print
-  LDI B, =garr
-  MOV A, B
+  LDI A, =garr
   CALL print
-  LD B, [FP, 0] ; ptr
-  MOV A, B
+  LD A, [SP, 0] ; ptr
   CALL print
-  ADD B, FP, 4
-  MOV A, B
+  ADD A, SP, 4
   CALL print
 .L0:
-  MOV A, B
-  MOV SP, FP
   ADD SP, 19
-  POP PC, B, C, FP
+  POP B, C, PC

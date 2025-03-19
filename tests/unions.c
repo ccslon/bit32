@@ -18,42 +18,42 @@ enum Type {
 };
 struct Token {
     enum Type type;
-    union Data {
+    union {
         char* str;
         int num;
         char chr;
-    } data;
+    };
 };
 struct Token intToken(int num) {
     struct Token token;
     token.type = NUM;
-    token.data.num = num;
+    token.num = num;
     return token;
 }
 struct Token strToken(char* str) {
     struct Token token;
     token.type = STR;
-    token.data.str = str;
+    token.str = str;
     return token;
 }
 struct Token charToken(char c) {
     struct Token token;
     token.type = CHAR;
-    token.data.chr = c;
+    token.chr = c;
     return token;
 }
 void printToken(struct Token* token) {
     switch (token->type) {
         case STR: {
-            printf("(STR, \"%s\")", token->data.str);
+            printf("(STR, \"%s\")", token->str);
             break;
         }
         case NUM: {
-            printf("(NUM, %d)", token->data.num);
+            printf("(NUM, %d)", token->num);
             break;
         }
         case CHAR: {
-            printf("(CHAR, '%c')", token->data.chr);
+            printf("(CHAR, '%c')", token->chr);
         }
     }
 }
