@@ -6,9 +6,13 @@ Created on Wed Aug  7 11:50:55 2024
 """
 
 from enum import IntEnum
+from struct import pack
 
 def negative(num, base):
     return (-num ^ (2**base - 1)) + 1
+
+def itf(i):
+    return int.from_bytes(pack('>f', float(i)), 'big')
 
 class Size(IntEnum):
     BYTE = B = 1

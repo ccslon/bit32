@@ -77,3 +77,27 @@ bar:
 .L7:
   ADD SP, 12
   POP PC
+no:
+  PUSH LR
+  SUB SP, 8
+  ST [SP, 0], A
+  LD A, [SP, 0] ; a
+  CMP A, 0
+  MOVEQ A, 1
+  MOVNE A, 0
+  ST [SP, 4], A ; n
+.L16:
+  CALL baz
+  LD A, [SP, 0] ; a
+  CMP A, 0
+  JEQ .L16
+.L17:
+  LD A, [SP, 0] ; a
+  CMP A, 0
+  JNE .L18
+  MOV A, 100
+  JMP .L15
+.L18:
+.L15:
+  ADD SP, 8
+  POP PC

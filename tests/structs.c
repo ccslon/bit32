@@ -1,6 +1,5 @@
 struct Owner {
-    char* name;
-    char* email;
+    char *name, *email;
 };
 struct Cat {
     char* name;

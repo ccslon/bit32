@@ -17,3 +17,12 @@ int bar(int a, int b) {
         return 100;
     }
 }
+int no(int a) {
+    int n = !a;
+    do {
+        baz();
+    } while (!a);
+    if (!a) {
+        return 100;
+    }
+}

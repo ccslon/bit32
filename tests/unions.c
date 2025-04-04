@@ -21,7 +21,7 @@ struct Token {
     union {
         char* str;
         int num;
-        char chr;
+        char sym;
     };
 };
 struct Token intToken(int num) {
@@ -39,7 +39,7 @@ struct Token strToken(char* str) {
 struct Token charToken(char c) {
     struct Token token;
     token.type = CHAR;
-    token.chr = c;
+    token.sym = c;
     return token;
 }
 void printToken(struct Token* token) {
@@ -53,7 +53,7 @@ void printToken(struct Token* token) {
             break;
         }
         case CHAR: {
-            printf("(CHAR, '%c')", token->chr);
+            printf("(CHAR, '%c')", token->sym);
         }
     }
 }

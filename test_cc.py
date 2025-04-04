@@ -130,7 +130,9 @@ class TestCompiler(TestCase):
 
     def test_ops(self):
         self.code_eq_asm('ops')
-
+    
+    def test_floats(self):
+        self.code_eq_asm('floats')
 
 if __name__ == '__main__':
     main()

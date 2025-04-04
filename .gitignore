@@ -6,3 +6,4 @@ std/*.s
 *.bit32
 *.pyc
 asmlog.txt
+.coverage

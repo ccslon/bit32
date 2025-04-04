@@ -68,7 +68,7 @@ charToken:
   ST.B [B, 0], A ; type
   LD.B A, [SP, 0] ; c
   ADD B, SP, 1
-  ST.B [B, 1], A ; chr
+  ST.B [B, 1], A ; sym
   ADD A, SP, 1
   JMP .L2
 .L2:
@@ -103,7 +103,7 @@ printToken:
 .L7:
   LDI A, =.S3
   LD B, [SP, 0] ; token
-  LD.B B, [B, 1] ; chr
+  LD.B B, [B, 1] ; sym
   CALL printf
 .L4:
   ADD SP, 4

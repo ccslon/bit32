@@ -7,6 +7,7 @@ Created on Tue Nov 26 11:14:05 2024
 import os
 import re
 from typing import NamedTuple
+from my_parser import Parser
 '''
 TODO:
     [X] #
@@ -14,12 +15,14 @@ TODO:
     [X] null directive
     [X] undef
     [X] include
-    [] ifelse    
-'''  
+    [] ifelse
+'''
 class Token(NamedTuple):
     type: str
     lexeme: str
     line: int
+    def error(self, msg):
+        raise SyntaxError(f'Line {self.line}: {msg}')
 
 class MetaLexer(type):
     def __init__(self, name, bases, attrs):
@@ -51,7 +54,7 @@ class CLexer(LexerBase):
         return match[1:-1].strip()
     def RE_string(self, match):
         r'"(\\"|[^"])*"'
-        return match[1:-1]    
+        return match[1:-1]
     RE_keyword = r'\b(include|define|undef|typedef|const|static|volatile|extern|void|char|short|int|long|float|unsigned|signed|struct|enum|union|sizeof|return|if|ifdef|ifndef|else|endif|switch|case|default|while|do|for|break|continue|goto)\b'
     RE_symbol = r'[#]{2}|[]#;:()[{}]|[+]{2}|--|->|(<<|>>|[+*/%^|&=!<>-])?=|<<|>>|[|]{2}|[&]{2}|[+*/%^|&=!<>?~-]|\.\.\.|\.|,'
     RE_name = r'[A-Za-z_]\w*'
@@ -67,17 +70,17 @@ class CLexer(LexerBase):
         r'\S'
         raise SyntaxError(f'line {self.line}: Invalid symbol "{match}"')
 
-class CPreProcessor:
-    
+class CPreProcessor(Parser):
+
     COMMENT = re.compile(r'''
                          /\*(.|\n)*?\*/     #multi line comment
                          |
                          //.*(\n|$)         #single line comment
                          ''', re.M | re.X)
-                         
+
     def repl_comments(self, text):
         return self.COMMENT.sub(self.comment_repl, text)
-        
+
     def arg(self, expand):
         '''
         ARG -> {TOKEN
@@ -101,7 +104,7 @@ class CPreProcessor:
                 self.expect(')')
             else:
                 next(self)
-    
+
     def param(self):
         '''
         PARAM -> name
@@ -110,10 +113,10 @@ class CPreProcessor:
         name = self.expect('name')
         self.accept('space')
         return name.lexeme
-    
+
     def params(self):
         '''
-        PARAMS -> [PARAM {',' PARAM}]        
+        PARAMS -> [PARAM {',' PARAM}]
         '''
         params = {}
         self.accept('space')
@@ -122,7 +125,7 @@ class CPreProcessor:
             while self.accept(','):
                 params[self.param()] = True
         return params
-    
+
     def expand(self):
         start = self.index
         name = next(self)
@@ -161,7 +164,7 @@ class CPreProcessor:
                 sub.append(Token('space',' ',token.line))
             self.tokens[start:self.index] = sub
         self.index = start
-    
+
     def directive(self):
         start = self.index
         next(self)
@@ -209,7 +212,7 @@ class CPreProcessor:
                     self.accept('space')
                     body = self.index
                     while not self.peek('new_line','end'):
-                        next(self)                    
+                        next(self)
                 self.defined[name.lexeme] = params, self.tokens[body:self.index]
                 del self.tokens[start:self.index]
             elif self.accept('include'):
@@ -237,13 +240,13 @@ class CPreProcessor:
                     else:
                         del self.tokens[start:self.index]
                 else:
-                    self.error()                
+                    self.error()
             elif self.accept('ifndef'):
                 self.expect('space')
                 if self.expect('name').lexeme in self.defined:
                     self.if_start = start
                 del self.tokens[start:self.index]
-            elif self.accept('endif'):            
+            elif self.accept('endif'):
                 del self.tokens[start:self.index]
             elif self.accept('undef'):
                 self.expect('space')
@@ -267,13 +270,13 @@ class CPreProcessor:
                   |string string
                    }
         '''
-        while not self.accept('end'):
+        while not self.peek('end'):
             if self.peek('#'):
                 self.directive()
             elif self.peek_defined():
                 self.expand()
             elif self.peek('string'):
-                start = self.index    
+                start = self.index
                 left = next(self)
                 self.accept('space')
                 if self.peek('string'):
@@ -283,58 +286,43 @@ class CPreProcessor:
                     self.index = start
             else:
                 next(self)
-    
+
+    def __init__(self):
+        self.original = ''
+        self.lexer = CLexer()
+        self.defined = {}
+        self.if_start = None
+        self.std_included = set()
+        super().__init__()
+
+    def parse(self, tokens):
+        self.defined.clear()
+        self.std_included.clear()
+        super().parse(tokens)
+
     def process(self, file_name):
         self.original = file_name
         with open(file_name) as file:
             self.path = os.path.dirname(os.path.abspath(file.name))
             text = file.read()
         text = self.repl_comments(text)
-        self.lexer = CLexer()
-        self.tokens = self.lexer.lex(text) + [Token('end','',self.lexer.line)]
-        # for i, token in enumerate(self.tokens): print(i, token.type, token.lexeme)
-        self.index = 0
-        self.defined = {}
-        self.if_start = None
-        self.std_included = set()
-        self.program()        
+        self.parse(self.lexer.lex(text) + [Token('end','',self.lexer.line)])
+
+    root = program
 
     def stream(self):
         return [token for token in self.tokens if token.type in \
                 ('decimal','number','character','string','keyword','symbol','name','end')]
-            
+
     def output(self):
         return ''.join(f'"{token.lexeme}"' if token.type == 'string' else token.lexeme for token in self.tokens)
-    
+
     def comment_repl(self, match):
         return ' ' + '\n'*match[0].count('\n')
-    
-    def __next__(self):
-        token = self.tokens[self.index]
-        self.index += 1
-        return token
-    
+
     def peek_defined(self):
         token = self.tokens[self.index]
         return token.type == 'name' and token.lexeme in self.defined and self.if_start is None
-    
-    def peek(self, *symbols, offset=0):
-        token = self.tokens[self.index+offset]
-        return token.type in symbols or token.type in ('keyword','symbol') and token.lexeme in symbols
-
-    def accept(self, symbol):
-        if self.peek(symbol):
-            return next(self)
-
-    def expect(self, symbol):
-        if self.peek(symbol):
-            return next(self)
-        self.error(f'Expected "{symbol}"')
-
-    def error(self, msg=None):
-        error = self.tokens[self.index]
-        raise SyntaxError(f'Line {error.line}: Unexpected {error.type} token "{error.lexeme}".' \
-                          + (f' {msg}.' if msg is not None else ''))
 
 if __name__ == '__main__':
     p = CPreProcessor()

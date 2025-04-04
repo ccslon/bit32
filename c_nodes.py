@@ -4,8 +4,9 @@ Created on Sat Mar  1 11:43:13 2025
 
 @author: Colin
 """
-from collections import UserDict
+from collections import UserDict, UserList
 from bit32 import Op, Cond, Size, Reg
+from c_visitors import Emitter, Visitor
 
 class Frame(UserDict):
     def __init__(self):
@@ -19,48 +20,48 @@ class Frame(UserDict):
 class CNode:
     def generate(self, vstr, n):
         pass
+    def branch(self, vstr, n, _):
+        self.generate(vstr, n)
+
+class Statement(CNode):
+    def last_is_return(self):
+        return False
 
 class Expr(CNode):
     def __init__(self, c_type, token):
         self.type = c_type
         self.width = c_type.width
         self.token = token
-    def is_signed(self):
-        return self.type.is_signed()
     def is_const(self):
         return False
-    def cmp_op(self):
-        return Op.CMPF if self.type.is_float() else Op.CMP
+    def hard_calls(self):
+        raise NotImplementedError(self.__class__.__name__)
+    def soft_calls(self):
+        raise NotImplementedError(self.__class__.__name__)
     def reduce(self, vstr, n):
         raise NotImplementedError(self.__class__.__name__)
     def compare(self, vstr, n, label):
-        vstr.binary(self.cmp_op(), self.width, self.reduce(vstr, n), 0)
+        vstr.binary(self.type.CMP, self.width, self.reduce(vstr, n), 0)
         vstr.jump(Cond.EQ, label)
     def compare_inv(self, vstr, n, label):
-        vstr.binary(self.cmp_op(), self.width, self.reduce(vstr, n), 0)
+        vstr.binary(self.type.CMP, self.width, self.reduce(vstr, n), 0)
         vstr.jump(Cond.NE, label)
-    def branch_reduce(self, vstr, n, _):
+    def reduce_branch(self, vstr, n, _):
         self.reduce(vstr, n)
-    def branch(self, vstr, n, _):
-        self.generate(vstr, n)
-    def num_reduce(self, vstr, n):
+    def reduce_num(self, vstr, n):
         return self.reduce(vstr, n)
-    def float_reduce(self, vstr, n):
+    def reduce_float(self, vstr, n):
         self.reduce(vstr, n)
-        if not self.type.is_float():
-            vstr.binary(Op.ITF, Size.WORD, Reg(n), Reg(n))
+        self.type.itf(vstr, n)
         return Reg(n)
-    def error(self, msg):
-        raise SyntaxError(f'Line {self.token.line}: {msg}')
 
 class Var(Expr):
     def hard_calls(self):
         return False
     def soft_calls(self):
         return False
-
-class Statement(CNode):
-    pass
+    def call(self, vstr, n):
+        vstr.call(self.token.lexeme)
 
 class Const(Expr):
     def is_const(self):
@@ -69,12 +70,6 @@ class Const(Expr):
         return False
     def soft_calls(self):
         return False
-
-class OpExpr(Expr):
-    OP = {}
-    OPF = {}
-    def init_op(self, op):
-        self.op = self.OPF[op.lexeme] if self.type.is_float() else self.OP[op.lexeme]
 
 class Unary(Expr):
     def __init__(self, c_type, token, expr):
@@ -91,8 +86,6 @@ class Binary(Expr):
     def __init__(self, c_type, token, left, right):
         super().__init__(c_type, token)
         self.left, self.right = left, right
-    def is_signed(self):
-        return self.left.is_signed() and self.right.is_signed()
     def is_const(self):
         return self.left.is_const() and self.right.is_const()
     def hard_calls(self):
@@ -108,3 +101,81 @@ class Access(Expr):
         return self.struct.hard_calls()
     def soft_calls(self):
         return self.struct.soft_calls()
+
+class FuncDefn(CNode):
+    def __init__(self, c_type, name, block, info):
+        self.type, self.name = c_type, name
+        self.params, self.block = c_type.params, block
+        self.returns, self.calls, self.max_args, self.space = info.returns, info.calls, info.max_args, info.space
+    def prologue(self, vstr, push):
+        if len(self.params) > 4:
+            offset = self.space + 4*self.calls + 4*len(push)
+            for param in self.params[4:]:
+                param.location += offset
+        if self.calls:
+            vstr.pushm(*push, Reg.LR)
+        else:
+            vstr.pushm(*push)
+        if self.space:
+            vstr.binary(Op.SUB, Size.WORD, Reg.SP, self.space)
+        for i, param in enumerate(self.params[:4]):
+            vstr.store(param.width, Reg(i), Reg.SP, param.location)
+    def epilogue(self, vstr, push):
+        if self.type.ret.width or self.returns:
+            vstr.append_label(vstr.return_label)
+        if self.max_args > 0 and self.type.ret.width and self.returns:
+            vstr.binary(Op.MOV, Size.WORD, Reg.A, Reg(self.max_args))
+        if self.space:
+            vstr.binary(Op.ADD, Size.WORD, Reg.SP, self.space)
+        if self.calls:
+            vstr.popm(*push, Reg.PC)
+        else:
+            vstr.popm(*push)
+            vstr.ret()
+    def glob_generate(self, vstr):
+        preview = Visitor()
+        preview.begin_func(self)
+        self.block.generate(preview, self.max_args)
+        push = list(map(Reg, range(max(bool(self.type.ret.width), len(self.params)), preview.max_reg+1)))
+        vstr.begin_func(self)
+        #start
+        vstr.append_label(self.name.lexeme)
+        #prologue
+        self.prologue(vstr, push)
+        #body
+        self.block.generate(vstr, self.max_args)
+        #epilogue
+        self.epilogue(vstr, push)
+
+class VarFuncDefn(FuncDefn): #TODO test
+    def prologue(self, vstr, push):
+        vstr.pushm(*list(map(Reg, range(4))))
+        offset = self.space + Size.WORD*self.calls + Size.WORD*len(push)
+        for param in self.params:
+            param.location += offset
+        if self.calls:
+            vstr.pushm(*push, Reg.LR)
+        else:
+            vstr.pushm(*push)
+        if self.space:
+            vstr.binary(Op.SUB, Size.WORD, Reg.SP, self.space)
+    def epilogue(self, vstr, push):
+        if self.type.ret.width or self.returns:
+            vstr.append_label(vstr.return_label)
+        if self.max_args > 0 and self.type.ret.width and self.returns:
+            vstr.binary(Op.MOV, Size.WORD, Reg.A, Reg(self.max_args))
+        if self.space:
+            vstr.binary(Op.ADD, Size.WORD, Reg.SP, self.space)
+        if self.calls:
+            vstr.popm(*push, Reg.LR)
+        else:
+            vstr.popm(*push)
+        vstr.binary(Op.ADD, Size.WORD, Reg.SP, 4*Size.WORD)
+        vstr.ret()
+
+class Translation(UserList, CNode):
+    def generate(self):
+        emitter = Emitter()
+        for trans in self:
+            trans.glob_generate(emitter)
+        return '\n'.join(emitter.data + emitter.asm)

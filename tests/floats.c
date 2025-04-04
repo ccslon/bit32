@@ -4,7 +4,7 @@ float foo(float a, float b) {
 }
 void func1() {
     float f = 1.5;
-    foo(f, 1.5);
+    foo(f, -1.5);
 }
 float half1() {
     return 1 / 2;
