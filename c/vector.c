@@ -1,10 +1,6 @@
-#ifndef STDLIB_H
 #include <stdlib.h>
-#endif
-#ifndef STRING_H
 #include <string.h>
-#endif
-
+#include <stdio.h>
 typedef struct {
     unsigned size;
     unsigned capacity;
@@ -14,11 +10,16 @@ typedef struct {
 void initVector(Vector* vector) {
     vector->size = 0;
     vector->capacity = 8;
-    vector->data = malloc(sizeof(void*) * vector->capacity);
+    vector->data = malloc(vector->capacity * sizeof(void*));
 }
 
-void freeVactor(Vector* vector) {
+void freeVector(Vector* vector) {
+    unsigned i;
+    for (i = 0; i < vector->size; i++) {
+        free(vector->data[i]);
+    }
     free(vector->data);
+    free(vector);
 }
 
 void* get(Vector* vector, unsigned index) {
@@ -37,10 +38,7 @@ void set(Vector* vector, unsigned index, void* value) {
 unsigned push(Vector* vector, void* value) {
     if (vector->size == vector->capacity) {
         vector->capacity *= 2;
-        void** temp = malloc(sizeof(void*) * vector->capacity);
-        memcpy(temp, vector->data, vector->size);
-        free(vector->data);
-        vector->data = temp;
+        vector->data = realloc(vector->data, vector->capacity * sizeof(void*));
     }
     vector->data[vector->size++] = value;
     return vector->size;
@@ -51,12 +49,9 @@ void* pop(Vector* vector) {
         return NULL;
     }
     void* ret = vector->data[vector->size--];
-    if (vector->size < vector->capacity / 2) {
+    if (vector->size > 8) {
         vector->capacity /= 2;
-        void** temp = malloc(sizeof(void*) * vector->capacity);
-        memcpy(temp, vector->data, vector->size);
-        free(vector->data);
-        vector->data = temp;
+        vector->data = realloc(vector->data, vector->capacity * sizeof(void*));
     }
     return ret;
 }
@@ -73,20 +68,39 @@ Vector* split(char* str) {
     Vector* vector = malloc(sizeof(Vector));
     initVector(vector);
     char buffer[BUF_SIZE];
-    unsigned buf_index;
-    unsigned i;
-    unsigned n = strlen(str)
+    unsigned i, b = 0, n = strlen(str);
     for (i = 0; i < n; i++) {
-        buf_index = 0;
-        buffer[0] = '\0';
-        char c = str[i];
-        if (c == ' ' || c == '\t' || c == '\n') {
-            char* 
+        switch (str[i]) {
+            case ' ':
+            case '\t':
+                buffer[b] = '\0';
+                push(vector, strdup(buffer));
+                buffer[(b = 0)] = '\0';
+                break;
+            default:
+                buffer[b++] = str[i];
         }
     }
-
-    return vector
+    if (b > 0) {
+        buffer[b] = '\0';
+        push(vector, strdup(buffer));
+    }
+    return vector;
 }
+
+void print(void* s) {
+    printf("%s\n", s);
+}
+
+int main() {
+    Vector* v = split("Hello my name is Colin Hello my name is Colin");
+    // Vector* v = split("Hello my name is Colin");
+    // Vector* v = split("a b");
+    iter(v, print);
+    freeVector(v);
+    return 0;
+}
+
 /*
 Vector* -> Vector {
            u32 size

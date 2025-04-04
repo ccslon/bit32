@@ -1,19 +1,21 @@
-void crash();
 #include <stdbool.h>
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
 #include <stdio.h>
-
+#include <errno.h>
+#define EINV_SYM 200
+#define ENAME 201
+#define EEXPECTED 202
 // "HashMap"
 typedef struct {
     char* key;
     int value;
-} Entry;
+} Pair;
 
 #define ENV_MAX_SIZE 4
 
-Entry env[ENV_MAX_SIZE] = {
+Pair env[ENV_MAX_SIZE] = {
     {"a", 3},
     {"b", 4},
     {"c", 7},
@@ -22,7 +24,7 @@ Entry env[ENV_MAX_SIZE] = {
 
 // bool contains(Table* table, char* key);
 // int set(Table* table, char* key, int value);
-Entry* get(char* key) {
+Pair* get(char* key) {
     unsigned i;
     for (i = 0; i < ENV_MAX_SIZE; i++) {
         if (strcmp(key, env[i].key) == 0) {
@@ -52,13 +54,12 @@ typedef struct Token {
 } Token;
 
 void freeTokens(Token* head) {
-    Token* temp = head;
+    Token* temp;
     while (head != NULL) {
         switch (head->type) {
             case NUM:
-            case VAR: {
+            case VAR:
                 free(head->lexeme);
-            }
         }
         temp = head;
         head = head->next;
@@ -72,21 +73,18 @@ unsigned consume(Token* new, char* input, enum TokenType type, int (*test)(int))
     unsigned i = 0;    
     char lexeme_buffer[LEXEME_BUFFER_SIZE];
     char lexeme_len = 0;
-    lexeme_buffer[lexeme_len++] = input[i++];
-    while ((*test)(input[i]) && lexeme_len < LEXEME_BUFFER_SIZE) {
+    do {
         lexeme_buffer[lexeme_len++] = input[i++];
-    }
+    } while ((*test)(input[i]) && lexeme_len < LEXEME_BUFFER_SIZE);
     lexeme_buffer[lexeme_len] = '\0';
-    char* lexeme = malloc(lexeme_len+1);
-    new->type = type;
-    strncpy(lexeme, lexeme_buffer, lexeme_len+1);
-    new->lexeme = lexeme;
+    new->lexeme = strdup(lexeme_buffer);
+    new->type = type;    
     return i;
 }
 
 Token* lex(char* input) {
     unsigned i = 0;
-    unsigned len = strlen(input);
+    unsigned len = strlen(input);    
     Token* head = NULL;
     Token* tail = NULL;
     short line = 1;
@@ -100,10 +98,8 @@ Token* lex(char* input) {
             Token* new = malloc(sizeof(Token));
             if (isdigit(input[i])) {
                 i += consume(new, &input[i], NUM, isdigit);
-                new->line = line;
             } else if (isalpha(input[i])) {
                 i += consume(new, &input[i], VAR, isalpha);
-                new->line = line;
             } else {
                 switch (input[i]) {
                     case '(':
@@ -114,17 +110,20 @@ Token* lex(char* input) {
                     case '/':
                         new->type = SYM;
                         new->sym = input[i++];
-                        new->line = line;
                         break;
                     default:
-                        printf("Invalid token %c\n", input[i]);
+                        new->type = INVALID;
+                        new->sym = input[i++];
+                        printf("Invalid token %c\n", new->sym);
+                        errno = EINV_SYM;
                 }
             }
+            new->line = line;
             if (head == NULL) {
                 head = tail = new;
             } else {
                 tail->next = new;
-                tail = tail->next;
+                tail = new;
             }            
         }
     }
@@ -144,7 +143,7 @@ void printTokens(Token* head) {
                 printf("(NUM %s)\n", head->lexeme);
                 break;
             case VAR:
-                printf("(STR \"%s\")\n", head->lexeme);
+                printf("(VAR \"%s\")\n", head->lexeme);
                 break;
             case SYM:
                 printf("(SYM '%c')\n", head->sym);
@@ -173,7 +172,7 @@ typedef struct Node {
     union {
         int num;
         char* var;
-        Binary* binary;        
+        Binary* binary;
     };
 } Node;
 
@@ -194,9 +193,9 @@ Node* allocVar(Token* token) {
 }
 
 #define OP(name, op) int name(int l, int r) { return l op r; }
-OP(add, +)
-OP(sub, -)
-OP(mul, *)
+OP(add_, +)
+OP(sub_, -)
+OP(mul_, *)
 OP(div_, /)
 
 Node* allocBinary(Token* token, Node* left, Node* right) {
@@ -206,13 +205,13 @@ Node* allocBinary(Token* token, Node* left, Node* right) {
     node->binary = malloc(sizeof(Binary));
     switch (node->token->sym) {
         case '+':
-            node->binary->op = add;
+            node->binary->op = add_;
             break;        
         case '-':
-            node->binary->op = sub;
+            node->binary->op = sub_;
             break;
         case '*':
-            node->binary->op = mul;
+            node->binary->op = mul_;
             break;
         case '/':
             node->binary->op = div_;
@@ -223,12 +222,14 @@ Node* allocBinary(Token* token, Node* left, Node* right) {
 }
 
 void freeNode(Node* node) {
-    if (node->type == BINARY) {
-        freeNode(node->binary->left);
-        freeNode(node->binary->right);
-        free(node->binary);
+    if (node != NULL) {
+        if (node->type == BINARY) {
+            freeNode(node->binary->left);
+            freeNode(node->binary->right);
+            free(node->binary);
+        }
+        free(node);
     }
-    free(node);
 }
 
 int eval(Node* node) {
@@ -236,30 +237,31 @@ int eval(Node* node) {
         case NUMBER:
             return node->num;
         case VARIABLE: {
-            Entry* var = get(node->var);
+            Pair* var = get(node->var);
             if (var == NULL) {
                 printf("Cannot find name %s\n", node->var);
-            }            
+                errno = ENAME;
+                return 0;
+            }
             return var->value;
         }
         case BINARY:
             return (*node->binary->op)(eval(node->binary->left), eval(node->binary->right));
-        default: return 0;
     }
 }
 
 void printNode(Node* node) {
     switch (node->type) {
         case NUMBER:
-            printf("Num %d\n", node->num);
+            printf("%d ", node->num);
             break;
         case VARIABLE:
-            printf("Var %s\n", node->var);
+            printf("%s ", node->var);
             break;
         case BINARY:
             printNode(node->binary->left);
             printNode(node->binary->right);
-            printf("Binary %c\n", node->token->sym);
+            printf("%c ", node->token->sym);
     }
 }
 
@@ -294,6 +296,7 @@ void expect(char sym) {
         return;
     }
     printf("Expected %c\n", sym);
+    errno = EEXPECTED;
 }
 
 Node* expr();
@@ -309,6 +312,8 @@ Node* factor() {
         expect(')');
     } else {
         printf("Expected NUM, VAR, or (\n");
+        errno = EEXPECTED;
+        factor = NULL;
     }
     return factor;
 }
@@ -316,7 +321,7 @@ Node* factor() {
 Node* term() {
     Node* term = factor();
     while (peek_sym('*') || peek_sym('/')) {
-        Token* token = next();
+	Token* token = next();
         term = allocBinary(token, term, factor());
     }
     return term;
@@ -326,7 +331,7 @@ Node* expr() {
     Node* expr = term();
     while (peek_sym('+') || peek_sym('-')) {
         Token* token = next();
-        expr = allocBinary(token, expr, term());
+	expr = allocBinary(token, expr, term());
     }
     return expr;
 }
@@ -336,23 +341,62 @@ Node* parse(Token* head) {
     Node* root = expr();
     if (current->type != END) {
         printf("Expected END\n");
+        errno = EEXPECTED;
     }
     return root;
 }
 
 void exec(char* input) {
     Token* head = lex(input);
-    printTokens(head);
-    Node* tree = parse(head);
-    printNode(tree);
-    printf("%d\n", eval(tree));
-    freeNode(tree);
+    if (!errno) {
+        printTokens(head);
+        Node* tree = parse(head);
+        if (!errno) {
+            printNode(tree);
+	        putchar('\n');
+            int value = eval(tree);
+            if (!errno) {
+                printf("%d\n", value);
+            }            
+        }        
+        freeNode(tree);
+    }
     freeTokens(head);
 }
 
+void loop();
+
 int main() {
-    exec("3");
-    //exec("9 / (3 * 3");
-    exec("1+2");
+    //exec("3");
+    //exec("9 / (3 * 3)");
+    //exec("3+3");
+    //exec("a");/
+    exec("a+b");
+    //loop();
     return 0;
 }
+#define BUF_SIZE 32
+void loop() {
+	char buf[BUF_SIZE];
+	buf[0] = '\0';
+	while(1) {
+		fgets(buf, BUF_SIZE, stdin);
+		if (strcmp(buf, "quit\n") == 0) {
+			break;
+		}
+		Token* head = lex(buf);
+		if (!errno) {
+			Node* tree = parse(head);
+			if (!errno) {
+				int value = eval(tree);
+				if (!errno) {
+					printf("%d\n", value);
+				}
+			}
+			freeNode(tree);
+		}
+		freeTokens(head);
+		errno = 0;
+	}
+}
+

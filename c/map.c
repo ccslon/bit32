@@ -6,13 +6,18 @@ typedef struct Pair {
     void* value;
     struct Pair* next;
 } Pair;
-
 unsigned hash(char* key) {
     unsigned hash;
     for (hash = 0; *key != '\0'; key++) {
         hash = *key + 31 * hash;
     }
     return hash % MAP_SIZE;
+}
+void initMap(Pair* map[]) {
+    int i;
+    for (i = 0; i < MAP_SIZE; i++) {
+        map[i] = NULL;
+    }
 }
 Pair* get(Pair* map[], char* key) {
     Pair* pair;
@@ -40,12 +45,15 @@ void set(Pair* map[], char* key, void* value) {
             map[h]->next = pair;
         }
     }
-    for (pair = map[hash(key)]; pair != NULL; pair = pair->next) {
-        if (strcmp(key, pair->key) == 0) {
-            free(pair->value);
-            pair->value = value;
-        }
-    }
+    pair = get(map, key);
+    free(pair->value);
+    pair->value = value;
+}
+#define SET(type, map, key, value) type* ptr = malloc(sizeof(type)); *ptr = value; set(map, key, ptr);
+void setint(Pair* map[], char* key, int value) {
+    int* ptr = malloc(sizeof(int));
+    *ptr = value;
+    set(map, key, ptr);
 }
 void del(Pair* map[], char* key) {
     Pair* pair;
@@ -66,7 +74,6 @@ void del(Pair* map[], char* key) {
         free(pair);
     }
 }
-
 void freePairs(Pair* pair) {
     while (pair != NULL) {
         Pair* temp = pair;
@@ -75,8 +82,7 @@ void freePairs(Pair* pair) {
         free(temp);
     }
 }
-
-void freeMap(Pairs* map[]) {
+void freeMap(Pair* map[]) {
     unsigned i;
     for (i = 0; i < MAP_SIZE; i++) {
         if (map[i] != NULL) {

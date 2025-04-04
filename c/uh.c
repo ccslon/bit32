@@ -3,7 +3,7 @@
 #define MY_ARR_LENGTH 5
 #define FUNCS_LENGTH 4
 
-int sumfs(int n, int (**f)(int)) {
+int sumfs(int n, int (*f[])(int)) {
     int s = 0, i;
     for (i = 0; i < n; i++) {
         s += (*f[i])(i);
