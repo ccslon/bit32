@@ -73,6 +73,15 @@ Test:
     [ ] extern
 '''
 
+@dataclass
+class FuncInfo:
+    ret: Type    
+    name: str
+    space: int = 0
+    returns: bool = False
+    calls: bool = False
+    max_args: int = 0
+
 class Scope:
     def __init__(self):
         self.locals = Frame()
@@ -98,18 +107,10 @@ class Scope:
         self.enums.clear()
         self.enum_consts.clear()
 
-@dataclass
-class FuncInfo:
-    ret: Type
-    space: int = 0
-    returns: bool = False
-    calls: bool = False
-    max_args: int = 0
-
 class CParser(Parser):
 
-    TYPE = ('int','char','short','float','unsigned','signed','struct','void','typedef','const','union','enum','volatile','static')
-    STATEMENT = (';','{','(','name','*','++','--','return','if','switch','while','do','for','break','continue','goto')
+    TYPE = ('int','char','void','float','short','struct','typedef','unsigned','const','union','enum','signed','volatile','static','long')
+    STATEMENT = ('{','name','if','*','return','for','while','(','switch','do','++','--','break','continue',';','goto')
 
     def __init__(self):
         self.globs = {}
@@ -758,10 +759,12 @@ class CParser(Parser):
             statement = Continue()
             self.expect(';')
         elif self.accept('goto'):
-            statement = Goto(self.expect('name'))
+            target = self.expect('name').lexeme
+            statement = Goto(f'{self.func.name}_{target}')
             self.expect(';')
         elif self.peek2('name',':'):
-            statement = Label(next(self))
+            label = next(self).lexeme
+            statement = Label(f'{self.func.name}_{label}')
             next(self)
         else:
             statement = self.expr()
@@ -815,7 +818,7 @@ class CParser(Parser):
                         self.error(f'"{name.lexeme}" is not of function type')
                     if any(param.token is None for param in c_type.params):
                         self.error(f'"{name.lexeme}" cannot have abstract parameters')
-                    self.func = FuncInfo(c_type.ret)
+                    self.func = FuncInfo(c_type.ret, name.lexeme)
                     self.stack_params = Frame()
                     self.begin_scope()
                     for param in c_type.params[:4]:

@@ -6,12 +6,12 @@ foo:
   JLE .L1
   MOV A, 3
   ST [SP, 0], A ; bar
-  JMP baz
+  JMP foo_baz
 .L1:
   LD A, [SP, 0] ; bar
   MUL A, 3
   ST [SP, 0], A ; bar
-baz:
+foo_baz:
   LD A, [SP, 0] ; bar
   JMP .L0
 .L0:

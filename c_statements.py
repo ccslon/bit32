@@ -124,13 +124,13 @@ class Goto(Statement):
     def __init__(self, target):
         self.target = target
     def generate(self, vstr, _):
-        vstr.jump(Cond.AL, self.target.lexeme)
+        vstr.jump(Cond.AL, self.target)
 
 class Label(Statement):
-    def __init__(self, label):
-        self.label = label
+    def __init__(self, name):
+        self.name = name
     def generate(self, vstr, _):
-        vstr.append_label(self.label.lexeme)
+        vstr.append_label(self.name)
 
 class Return(Statement):
     def __init__(self, token, ret, expr):
