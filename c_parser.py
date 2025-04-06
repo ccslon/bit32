@@ -557,6 +557,8 @@ class CParser(Parser):
         INIT_DECLR -> DECLR ['=' INIT]
         INIT -> '{' LIST '}'|ASSIGN|CONST
         '''
+        if declr.token is None:
+            self.error('Expected ;')
         init_declr = declr
         if self.peek('='): # INIT
             if not declr.token is not None:
