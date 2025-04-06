@@ -25,12 +25,12 @@ class Size(IntEnum):
         return f'.{self.name[0]}' if self != Size.WORD else ''
 
 class Flag(IntEnum):
-    Z = 0b00000001
-    N = 0b00000010
-    V = 0b00000100
-    C = 0b00001000
-    HALT = 0b00010000
-    INT_EN = 0b00100000
+    Z =         0b00000001 # zero flag
+    N =         0b00000010 # negative flag
+    V =         0b00000100 # overflow flag
+    C =         0b00001000 # carry bit
+    HALT =      0b00010000 # halt
+    INT_EN =    0b00100000 # interrupt enable
 
 class Reg(IntEnum):
     A = 0
@@ -44,11 +44,11 @@ class Reg(IntEnum):
     I = 8
     J = 9
     K = 10
-    SP = 11
-    SR = 12
-    ILR = 13
-    LR = 14
-    PC = 15
+    SP = 11     # stack pointer
+    SR = 12     # status register
+    ILR = 13    # interrupt link register
+    LR = 14     # link register
+    PC = 15     # program counter
 
 class Op(IntEnum):
     MOV = 0
