@@ -65,3 +65,36 @@ int main() {
     struct Token t2 = strToken("Hello!");
     printToken(&t2);
 }
+union Box {
+    short num;
+};
+short gets(short* s) {
+    return *s;
+}
+short gets(union Box* s) {
+    return s->num;
+}
+short gets() {
+    short s;
+    return s;
+}
+short gets() {
+    union Box box;
+    return box.num;
+}
+short geta() {
+    short foo[5];
+    return foo[3];
+}
+short geta() {
+    union Box boxes[5];
+    return boxes[3].num;
+}
+short geta() {
+    short* foo[5];
+    return *foo[3];
+}
+short geta() {
+    union Box* boxes[5];
+    return boxes[3]->num;
+}

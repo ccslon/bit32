@@ -141,3 +141,89 @@ main:
 .L8:
   ADD SP, 15
   POP B, C, PC
+gets:
+  SUB SP, 4
+  ST [SP, 0], A
+  LD A, [SP, 0] ; s
+  LD.H A, [A]
+  JMP .L9
+.L9:
+  ADD SP, 4
+  RET
+gets:
+  SUB SP, 4
+  ST [SP, 0], A
+  LD A, [SP, 0] ; num
+  LD.H A, [A]
+  JMP .L10
+.L10:
+  ADD SP, 4
+  RET
+gets:
+  SUB SP, 2
+  LD.H A, [SP, 0] ; s
+  JMP .L11
+.L11:
+  ADD SP, 2
+  RET
+gets:
+  SUB SP, 2
+  LD.H A, [SP, 0] ; num
+  JMP .L12
+.L12:
+  ADD SP, 2
+  RET
+geta:
+  PUSH B
+  SUB SP, 10
+  ADD A, SP, 0
+  MOV B, 3
+  MUL B, 2
+  ADD A, B
+  LD.H A, [A]
+  JMP .L13
+.L13:
+  ADD SP, 10
+  POP B
+  RET
+geta:
+  PUSH B
+  SUB SP, 10
+  ADD A, SP, 0
+  MOV B, 3
+  MUL B, 2
+  ADD A, B
+  LD.H A, [A]
+  JMP .L14
+.L14:
+  ADD SP, 10
+  POP B
+  RET
+geta:
+  PUSH B
+  SUB SP, 20
+  ADD A, SP, 0
+  MOV B, 3
+  MUL B, 4
+  ADD A, B
+  LD A, [A]
+  LD.H A, [A]
+  JMP .L15
+.L15:
+  ADD SP, 20
+  POP B
+  RET
+geta:
+  PUSH B
+  SUB SP, 20
+  ADD A, SP, 0
+  MOV B, 3
+  MUL B, 4
+  ADD A, B
+  LD A, [A]
+  LD.H A, [A]
+  JMP .L16
+.L16:
+  ADD SP, 20
+  POP B
+  RET

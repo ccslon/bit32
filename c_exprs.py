@@ -341,6 +341,8 @@ class Dot(Access):
         return self.attr.store(vstr, n)
     def union(self, attr):
         return Dot(self.token, self.struct, self.attr.union(attr))
+    def ptr_union(self, attr):
+        return Dot(self.token, self.struct, self.attr.ptr_union(attr))
 
 class Arrow(Access):
     def address(self, vstr, n):
@@ -354,6 +356,8 @@ class Arrow(Access):
         return self.attr.store(vstr, n)
     def union(self, attr):
         return Arrow(self.token, self.struct, self.attr.union(attr))
+    def ptr_union(self, attr):
+        return Arrow(self.token, self.struct, self.attr.ptr_union(attr))
 
 class SubScr(Binary):
     def __init__(self, token, left, right):
@@ -368,3 +372,11 @@ class SubScr(Binary):
     def store(self, vstr, n):
         vstr.store(self.width, Reg(n), self.address(vstr, n+1))
         return Reg(n)
+    def union(self, attr):
+        self.type = attr.type
+        self.width = attr.width
+        return self
+    def ptr_union(self, attr):
+        self.type = Pointer(attr.type)
+        self.width = Size.WORD
+        return self
