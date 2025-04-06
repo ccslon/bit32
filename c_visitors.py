@@ -64,7 +64,7 @@ class Emitter(Visitor):
         self.data = []
         self.strings = []
     def begin_func(self, defn):
-        if defn.type.ret.width or defn.returns:
+        if defn.returns or defn.type.ret.width:
             self.return_label = self.next_label()
     def begin_loop(self):
         self.loop.append((self.next_label(), self.next_label()))

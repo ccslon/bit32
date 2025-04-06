@@ -107,31 +107,6 @@ class FuncDefn(CNode):
         self.type, self.name = c_type, name
         self.params, self.block = c_type.params, block
         self.returns, self.calls, self.max_args, self.space = info.returns, info.calls, info.max_args, info.space
-    def prologue(self, vstr, push):
-        if len(self.params) > 4:
-            offset = self.space + 4*self.calls + 4*len(push)
-            for param in self.params[4:]:
-                param.location += offset
-        if self.calls:
-            vstr.pushm(*push, Reg.LR)
-        else:
-            vstr.pushm(*push)
-        if self.space:
-            vstr.binary(Op.SUB, Size.WORD, Reg.SP, self.space)
-        for i, param in enumerate(self.params[:4]):
-            vstr.store(param.width, Reg(i), Reg.SP, param.location)
-    def epilogue(self, vstr, push):
-        if self.type.ret.width or self.returns:
-            vstr.append_label(vstr.return_label)
-        if self.max_args > 0 and self.type.ret.width and self.returns:
-            vstr.binary(Op.MOV, Size.WORD, Reg.A, Reg(self.max_args))
-        if self.space:
-            vstr.binary(Op.ADD, Size.WORD, Reg.SP, self.space)
-        if self.calls:
-            vstr.popm(*push, Reg.PC)
-        else:
-            vstr.popm(*push)
-            vstr.ret()
     def glob_generate(self, vstr):
         preview = Visitor()
         preview.begin_func(self)
@@ -143,29 +118,48 @@ class FuncDefn(CNode):
         #prologue
         self.prologue(vstr, push)
         #body
-        self.block.generate(vstr, self.max_args)
+        self.block.generate(vstr, max(self.calls, self.max_args))
         #epilogue
-        self.epilogue(vstr, push)
-
-class VarFuncDefn(FuncDefn): #TODO test
+        if self.returns or self.type.ret.width:
+            vstr.append_label(vstr.return_label)
+        if self.returns and self.type.ret.width and max(self.calls, self.max_args):
+            vstr.binary(Op.MOV, Size.WORD, Reg.A, Reg(max(self.calls, self.max_args)))
+        if self.space:
+            vstr.binary(Op.ADD, Size.WORD, Reg.SP, self.space)
+        self.ret(vstr, push)
     def prologue(self, vstr, push):
-        vstr.pushm(*list(map(Reg, range(4))))
-        offset = self.space + Size.WORD*self.calls + Size.WORD*len(push)
-        for param in self.params:
-            param.location += offset
+        if len(self.params) > 4:
+            offset = self.space + Size.WORD*self.calls + Size.WORD*len(push)
+            for param in self.params[4:]:
+                param.location += offset
         if self.calls:
             vstr.pushm(*push, Reg.LR)
         else:
             vstr.pushm(*push)
         if self.space:
             vstr.binary(Op.SUB, Size.WORD, Reg.SP, self.space)
-    def epilogue(self, vstr, push):
-        if self.type.ret.width or self.returns:
-            vstr.append_label(vstr.return_label)
-        if self.max_args > 0 and self.type.ret.width and self.returns:
-            vstr.binary(Op.MOV, Size.WORD, Reg.A, Reg(self.max_args))
+        for i, param in enumerate(self.params[:4]):
+            vstr.store(param.width, Reg(i), Reg.SP, param.location)
+    def ret(self, vstr, push):        
+        if self.calls:
+            vstr.popm(*push, Reg.PC)
+        else:
+            vstr.popm(*push)
+            vstr.ret()
+
+class VarFuncDefn(FuncDefn): #TODO test
+    def prologue(self, vstr, push):
+        offset = self.space + Size.WORD*self.calls + Size.WORD*len(push)
+        for param in self.params:
+            param.location += offset
+        vstr.pushm(*list(map(Reg, range(4))))
+        if self.calls:
+            vstr.pushm(*push, Reg.LR)
+        else:
+            vstr.pushm(*push)
         if self.space:
-            vstr.binary(Op.ADD, Size.WORD, Reg.SP, self.space)
+            vstr.binary(Op.SUB, Size.WORD, Reg.SP, self.space)
+    def ret(self, vstr, push):
         if self.calls:
             vstr.popm(*push, Reg.LR)
         else:
