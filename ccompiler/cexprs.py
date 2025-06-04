@@ -5,12 +5,12 @@ Created on Fri Sep  6 14:09:48 2024
 @author: ccslon
 """
 from bit32 import Size, Op, Reg, Cond, negative, itf, unescape
-from c_nodes import Expr, Var, Const, Unary, Binary, Access, Statement
-from c_types import Char, Int, Float, Pointer, Array
+from .cnodes import Expr, Var, Const, Unary, Binary, Access, Statement
+from .ctypes import Char, Int, Float, Pointer, Array
 
 class Local(Var):
-    def __init__(self, c_type, name):
-        super().__init__(c_type, name)
+    def __init__(self, ctype, name):
+        super().__init__(ctype, name)
         self.location = None
     def address(self, vstr, n):
         return self.type.address(vstr, n, self, Reg.SP)
@@ -106,9 +106,9 @@ class NegNumber(Number):
         return Reg(n)
 
 class SizeOf(NumberBase):
-    def __init__(self, c_type, token):
+    def __init__(self, ctype, token):
         super().__init__(token)
-        self.value = c_type.size
+        self.value = ctype.size
 
 class Decimal(Const):
     def __init__(self, token):

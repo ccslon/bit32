@@ -6,8 +6,8 @@ Created on Fri Sep  6 14:25:05 2024
 """
 from collections import UserList
 from bit32 import Op, Cond, Reg, Size, escape
-from c_nodes import Statement, Expr, Binary
-from c_types import Array
+from .cnodes import Statement, Expr, Binary
+from .ctypes import Array
 
 class If(Statement):
     def __init__(self, cond, state):
@@ -188,8 +188,8 @@ class InitListAssign(Statement):
         self.left, self.right = left, right
     def generate(self, vstr, n):
         self.left.address(vstr, n)
-        for i, (loc, c_type) in enumerate(self.left.type):
-            c_type.list_generate(vstr, n, self.right[i], loc)
+        for i, (loc, ctype) in enumerate(self.left.type):
+            ctype.list_generate(vstr, n, self.right[i], loc)
     def glob_generate(self, vstr):
         vstr.datas(self.left.token.lexeme, self.left.type.glob_data(vstr, self.right, []))
 

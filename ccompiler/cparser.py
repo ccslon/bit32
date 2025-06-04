@@ -6,14 +6,14 @@ Created on Mon Jul  3 19:47:39 2023
 """
 from dataclasses import dataclass
 from copy import copy
-from my_parser import Parser
-from c_nodes import Frame, Translation, FuncDefn, VarFuncDefn
-from c_exprs import Number, NegNumber, EnumNumber, Decimal, NegDecimal, Character, String
-from c_exprs import Post, UnaryOp, Not, Pre, BinaryOp, Compare, Logic
-from c_exprs import Local, Attr, Glob, Dot, SubScr, Arrow, AddrOf, Deref, SizeOf, Cast, Condition
-from c_types import Type, Void, Float, Int, Short, Char, Pointer, Struct, Union, Array, Func
-from c_statements import Statement, If, Case, Switch, While, Do, For, Continue, Break, Goto, Label, Return, Compound
-from c_statements import Call, VarCall, InitAssign, Assign, InitListAssign, InitArrayString
+from .parser import Parser
+from .cnodes import Frame, Translation, FuncDefn, VarFuncDefn
+from .cexprs import Number, NegNumber, EnumNumber, Decimal, NegDecimal, Character, String
+from .cexprs import Post, UnaryOp, Not, Pre, BinaryOp, Compare, Logic
+from .cexprs import Local, Attr, Glob, Dot, SubScr, Arrow, AddrOf, Deref, SizeOf, Cast, Condition
+from .ctypes import Type, Void, Float, Int, Short, Char, Pointer, Struct, Union, Array, Func
+from .cstatements import Statement, If, Case, Switch, While, Do, For, Continue, Break, Goto, Label, Return, Compound
+from .cstatements import Call, VarCall, InitAssign, Assign, InitListAssign, InitArrayString
 r'''( |\t)+$''' #to delete weird whitespace spyder adds
 '''
 TODO
@@ -244,9 +244,9 @@ class CParser(Parser):
         '''
         if self.peek2('(', *self.TYPE) or self.peek('(') and self.peek_typedefs(1):
             token = next(self)
-            c_type = self.type_name()
+            ctype = self.type_name()
             self.expect(')')
-            return Cast(token, c_type, self.cast())
+            return Cast(token, ctype, self.cast())
         return self.unary()
 
     def mul(self):
@@ -393,20 +393,20 @@ class CParser(Parser):
         self.scope.enum_consts[name.lexeme] = EnumNumber(name, value)
         return value
 
-    def attr(self, spec, c_type):
+    def attr(self, spec, ctype):
         '''
         ATTR -> DECLR [':' number]
         '''
-        c_type, name = self.declr(c_type)
+        ctype, name = self.declr(ctype)
         if self.accept(':'):
             self.expect('number')
-        if name is None and isinstance(c_type, Union):
-            for name, attr in c_type.items():
+        if name is None and isinstance(ctype, Union):
+            for name, attr in ctype.items():
                 attr.location = spec.size
                 spec.data[name] = attr
-            spec.size += c_type.size
+            spec.size += ctype.size
         else:
-            spec[name.lexeme] = Attr(c_type, name)
+            spec[name.lexeme] = Attr(ctype, name)
 
     def spec(self):
         '''
@@ -576,21 +576,21 @@ class CParser(Parser):
         '''
         INIT_DECLR -> DECLR ['=' INIT]
         '''
-        c_type, name = self.declr(qual)
-        return self.init_declr(Local(c_type, name), self.scope.locals, self.assign)
+        ctype, name = self.declr(qual)
+        return self.init_declr(Local(ctype, name), self.scope.locals, self.assign)
 
-    def glob_init_declr(self, c_type, name):
+    def glob_init_declr(self, ctype, name):
         '''
         INIT_DECLR -> DECLR ['=' INIT]
         '''
-        return self.init_declr(Glob(c_type, name), self.globs, self.const)
+        return self.init_declr(Glob(ctype, name), self.globs, self.const)
 
-    def declr(self, c_type):
+    def declr(self, ctype):
         types = []
         name = self._declr(types)
         for new_type, args in reversed(types):
-            c_type = new_type(c_type, *args)
-        return c_type, name
+            ctype = new_type(ctype, *args)
+        return ctype, name
 
     def decln(self):
         '''
@@ -599,8 +599,8 @@ class CParser(Parser):
         decln = []
         if self.accept('typedef'):
             qual = self.qual()
-            c_type, name = self.declr(qual)
-            self.context.typedefs[name.lexeme] = c_type
+            ctype, name = self.declr(qual)
+            self.context.typedefs[name.lexeme] = ctype
             self.expect(';')
         else:
             qual = self.qual()
@@ -633,15 +633,15 @@ class CParser(Parser):
         '''
         PARAM -> QUAL DECLR
         '''
-        c_type = self.qual()
+        ctype = self.qual()
         types = []
         name = self._declr(types)
         for new_type, args in reversed(types):
             if new_type is Array:
-                c_type = Pointer(c_type)
+                ctype = Pointer(ctype)
             else:
-                c_type = new_type(c_type, *args)
-        return Local(c_type, name)
+                ctype = new_type(ctype, *args)
+        return Local(ctype, name)
 
     def params(self):
         '''
@@ -790,14 +790,14 @@ class CParser(Parser):
         ext_decln = []
         if self.accept('typedef'):
             qual = self.qual()
-            c_type, name = self.declr(qual)
-            self.scope.typedefs[name.lexeme] = c_type
+            ctype, name = self.declr(qual)
+            self.scope.typedefs[name.lexeme] = ctype
             self.expect(';')
         elif self.accept('extern'):
             qual = self.qual()
-            c_type, name = self.declr(qual)
+            ctype, name = self.declr(qual)
             if name:
-                self.globs[name.lexeme] = Glob(c_type, name)
+                self.globs[name.lexeme] = Glob(ctype, name)
             self.expect(';')
         elif self.accept('register'):
             raise NotImplementedError()
@@ -805,33 +805,33 @@ class CParser(Parser):
             self.accept('static')
             qual = self.qual()
             if not self.accept(';'):
-                c_type, name = self.declr(qual)
+                ctype, name = self.declr(qual)
                 if self.accept('{'): # FUNC_DEFN
                     if not name is not None:
                         self.error('Function definition needs a name')
-                    self.globs[name.lexeme] = Glob(c_type, name)
-                    if not isinstance(c_type, Func):
+                    self.globs[name.lexeme] = Glob(ctype, name)
+                    if not isinstance(ctype, Func):
                         self.error(f'"{name.lexeme}" is not of function type')
-                    if any(param.token is None for param in c_type.params):
+                    if any(param.token is None for param in ctype.params):
                         self.error(f'"{name.lexeme}" cannot have abstract parameters')
-                    self.func = FuncInfo(c_type.ret, name.lexeme)
+                    self.func = FuncInfo(ctype.ret, name.lexeme)
                     self.stack_params = Frame()
                     self.begin_scope()
-                    for param in c_type.params[:4]:
+                    for param in ctype.params[:4]:
                         self.scope.locals[param.token.lexeme] = param
-                    for param in c_type.params[4:]:
+                    for param in ctype.params[4:]:
                         self.stack_params[param.token.lexeme] = param
-                    defn = VarFuncDefn if c_type.variable else FuncDefn
+                    defn = VarFuncDefn if ctype.variable else FuncDefn
                     compound = self.compound()
                     self.end_scope()
-                    ext_decln.append(defn(c_type, name, compound, self.func))
+                    ext_decln.append(defn(ctype, name, compound, self.func))
                     self.expect('}')
                     return ext_decln
                 else: #DECLN
-                    ext_decln.append(self.glob_init_declr(c_type, name))
+                    ext_decln.append(self.glob_init_declr(ctype, name))
                     while self.accept(','):
-                        c_type, name = self.declr(qual)
-                        ext_decln.append(self.glob_init_declr(c_type, name))
+                        ctype, name = self.declr(qual)
+                        ext_decln.append(self.glob_init_declr(ctype, name))
                     self.expect(';')
         return ext_decln
 

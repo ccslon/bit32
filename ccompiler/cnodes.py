@@ -6,15 +6,15 @@ Created on Sat Mar  1 11:43:13 2025
 """
 from collections import UserDict, UserList
 from bit32 import Op, Cond, Size, Reg
-from c_visitors import Emitter, Visitor
+from .cvisitors import Emitter, Visitor
 
 class Frame(UserDict):
     def __init__(self):
         super().__init__()
         self.size = 0
-    def add(self, var_type, c_type, name):
-        self[name.lexeme] = var = var_type(c_type, name, self.size)
-        self.size += c_type.size
+    def add(self, var_type, ctype, name):
+        self[name.lexeme] = var = var_type(ctype, name, self.size)
+        self.size += ctype.size
         return var
     def __setitem__(self, name, obj):
         obj.location = self.size
@@ -32,9 +32,9 @@ class Statement(CNode):
         return False
 
 class Expr(CNode):
-    def __init__(self, c_type, token):
-        self.type = c_type
-        self.width = c_type.width
+    def __init__(self, ctype, token):
+        self.type = ctype
+        self.width = ctype.width
         self.token = token
     def is_const(self):
         return False
@@ -76,8 +76,8 @@ class Const(Expr):
         return False
 
 class Unary(Expr):
-    def __init__(self, c_type, token, expr):
-        super().__init__(c_type, token)
+    def __init__(self, ctype, token, expr):
+        super().__init__(ctype, token)
         self.expr = expr
     def is_const(self):
         return self.expr.is_const()
@@ -87,8 +87,8 @@ class Unary(Expr):
         return self.expr.soft_calls()
 
 class Binary(Expr):
-    def __init__(self, c_type, token, left, right):
-        super().__init__(c_type, token)
+    def __init__(self, ctype, token, left, right):
+        super().__init__(ctype, token)
         self.left, self.right = left, right
     def is_const(self):
         return self.left.is_const() and self.right.is_const()
@@ -107,9 +107,9 @@ class Access(Expr):
         return self.struct.soft_calls()
 
 class FuncDefn(CNode):
-    def __init__(self, c_type, name, block, info):
-        self.type, self.name = c_type, name
-        self.params, self.block = c_type.params, block
+    def __init__(self, ctype, name, block, info):
+        self.type, self.name = ctype, name
+        self.params, self.block = ctype.params, block
         self.returns, self.calls, self.max_args, self.space = info.returns, info.calls, info.max_args, info.space
     def glob_generate(self, vstr):
         preview = Visitor()

@@ -6,8 +6,8 @@ Created on Fri Sep  6 14:05:50 2024
 """
 from collections import UserDict
 from bit32 import Op, Size, Reg, Cond, itf
-from c_nodes import Frame
-import c_exprs
+from .cnodes import Frame
+from . import cexprs
 
 class Type:
     def cast(self, other):
@@ -231,9 +231,9 @@ class Float(Bin):
         return 'float'
 
 class Pointer(Int):
-    def __init__(self, c_type):
+    def __init__(self, ctype):
         super().__init__(False)
-        self.to = self.of = c_type
+        self.to = self.of = ctype
         self.inc = self.to.size
     def reduce_binary(self, vstr, n, op, left, right):
         if self.to.size > 1:
@@ -267,11 +267,11 @@ class Pointer(Int):
 class List(Value):
     def list_generate(self, vstr, n, right, loc):
         vstr.ternary(Op.ADD, Size.WORD, Reg(n+1), Reg(n), loc)
-        for i, (loc, c_type) in enumerate(self):
-            c_type.list_generate(vstr, n+1, right[i], loc)
+        for i, (loc, ctype) in enumerate(self):
+            ctype.list_generate(vstr, n+1, right[i], loc)
     def glob_data(self, vstr, expr, data):
-        for i, (_, c_type) in enumerate(self):
-            c_type.glob_data(vstr, expr[i], data)
+        for i, (_, ctype) in enumerate(self):
+            ctype.glob_data(vstr, expr[i], data)
         return data
 
 class Struct(Frame, List):
@@ -281,29 +281,29 @@ class Struct(Frame, List):
         self.name = name.lexeme if name is not None else name
         self.width = Size.WORD
     def dot(self, name, struct, attr):
-        return c_exprs.Dot(name, struct, attr)
+        return cexprs.Dot(name, struct, attr)
     def arrow(self, name, struct, attr):
-        return c_exprs.Arrow(name, struct, attr)
+        return cexprs.Arrow(name, struct, attr)
     def reduce(self, vstr, n, var, base):
         return self.address(vstr, n, var, base)
     def store(self, vstr, n, var, base):
         self.address(vstr, n+1, var, base)
         frame = {}
-        for loc, c_type in self:
+        for loc, ctype in self:
             if loc in frame:
-                if c_type.size > frame[loc].size:
-                    frame[loc] = c_type
+                if ctype.size > frame[loc].size:
+                    frame[loc] = ctype
             else:
-                frame[loc] = c_type
-        for loc, c_type in frame.items():
-            if c_type.size in [Size.WORD, Size.BYTE, Size.HALF]:
-                vstr.load(c_type.width, Reg(n+2), Reg(n), loc)
-                vstr.store(c_type.width, Reg(n+2), Reg(n+1), loc)
+                frame[loc] = ctype
+        for loc, ctype in frame.items():
+            if ctype.size in [Size.WORD, Size.BYTE, Size.HALF]:
+                vstr.load(ctype.width, Reg(n+2), Reg(n), loc)
+                vstr.store(ctype.width, Reg(n+2), Reg(n+1), loc)
             else:
-                for i in range(c_type.size // Size.WORD):
+                for i in range(ctype.size // Size.WORD):
                     vstr.load(Size.WORD, Reg(n+2), Reg(n), loc + Size.WORD*i)
                     vstr.store(Size.WORD, Reg(n+2), Reg(n+1), loc + Size.WORD*i)
-                for j in range(c_type.size % Size.WORD):
+                for j in range(ctype.size % Size.WORD):
                     vstr.load(Size.BYTE, Reg(n+2), Reg(n), loc + Size.WORD*(i+1)+j)
                     vstr.store(Size.BYTE, Reg(n+2), Reg(n+1), loc + Size.WORD*(i+1)+j)
     def __iter__(self):
@@ -355,7 +355,7 @@ class Union(UserDict, Value):
     def dot(self, _, postfix, attr):
         return postfix.union(attr)
     def arrow(self, name, postfix, attr):
-        return c_exprs.Deref(name, postfix.ptr_union(attr))
+        return cexprs.Deref(name, postfix.ptr_union(attr))
     def __setitem__(self, name, attr):
         attr.location = 0
         self.size = max(self.size, attr.type.size)

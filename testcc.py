@@ -6,15 +6,14 @@ Created on Fri Sep  8 14:37:22 2023
 """
 from unittest import TestCase, main, expectedFailure
 
-import c_preproc
-import c_parser
+from ccompiler import cpreproc, cparser
 
 class TestCompiler(TestCase):
 
     @classmethod
     def setUpClass(cls):
         cls.tests = []
-        cls.preproc = c_preproc.CPreProcessor()
+        cls.preproc = cpreproc.CPreProcessor()
 
     @classmethod
     def tearDownClass(cls):
@@ -22,7 +21,7 @@ class TestCompiler(TestCase):
 
     def code_eq_asm(self, name):
         self.preproc.process(f'tests/{name}.c')
-        ast = c_parser.parse(self.preproc.stream())
+        ast = cparser.parse(self.preproc.stream())
         out = ast.generate()
         with open(f'tests/{name}.s') as file:
             asm = file.read()
@@ -32,7 +31,7 @@ class TestCompiler(TestCase):
     @expectedFailure
     def test_bad_const(self):
         self.preproc.process('tests/bad_const.c')
-        ast = c_parser.parse(self.preproc.stream())
+        ast = cparser.parse(self.preproc.stream())
         ast.generate()
 
     def test_init(self):
@@ -134,5 +133,5 @@ class TestCompiler(TestCase):
     def test_floats(self):
         self.code_eq_asm('floats')
 
-if __name__ == '__main__':
-    main()
+# if __name__ == '__main__':
+main()

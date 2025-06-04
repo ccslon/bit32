@@ -7,7 +7,7 @@ Created on Tue Nov 26 11:14:05 2024
 import os
 import re
 from typing import NamedTuple
-from my_parser import Parser
+from .parser import Parser
 '''
 TODO:
     [X] #
@@ -229,7 +229,7 @@ class CPreProcessor(Parser):
                 elif self.peek('std'):
                     file_name = next(self).lexeme
                     if file_name not in self.std_included:
-                        file_path = os.path.sep.join([os.getcwd(), 'std', file_name])
+                        file_path = os.path.sep.join([os.getcwd(), 'ccompiler', 'std', file_name])
                         if self.original.endswith(file_name):
                             self.error(f'Circular dependency originating in {self.original}')
                         with open(file_path) as file:
