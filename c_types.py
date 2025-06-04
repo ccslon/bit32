@@ -6,9 +6,10 @@ Created on Fri Sep  6 14:05:50 2024
 """
 from collections import UserDict
 from bit32 import Op, Size, Reg, Cond, itf
-from c_nodes import CNode, Frame
+from c_nodes import Frame
+import c_exprs
 
-class Type(CNode):
+class Type:
     def cast(self, other):
         return self == other
 
@@ -279,6 +280,10 @@ class Struct(Frame, List):
         self.const = False
         self.name = name.lexeme if name is not None else name
         self.width = Size.WORD
+    def dot(self, name, struct, attr):
+        return c_exprs.Dot(name, struct, attr)
+    def arrow(self, name, struct, attr):
+        return c_exprs.Arrow(name, struct, attr)
     def reduce(self, vstr, n, var, base):
         return self.address(vstr, n, var, base)
     def store(self, vstr, n, var, base):
@@ -347,6 +352,10 @@ class Union(UserDict, Value):
         self.size = 0
         self.width = Size.WORD
         self.name = name
+    def dot(self, _, postfix, attr):
+        return postfix.union(attr)
+    def arrow(self, name, postfix, attr):
+        return c_exprs.Deref(name, postfix.ptr_union(attr))
     def __setitem__(self, name, attr):
         attr.location = 0
         self.size = max(self.size, attr.type.size)

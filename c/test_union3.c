@@ -1,14 +1,13 @@
-typedef union {
-    char* next;
-} FILE;
+int gets();
+union Box {
+    short num;
+};
+struct Truck {
+    int type;
+    union Box* boxes;
+};
 
-FILE stdout = (char*)0x80000000;
-
-void fputc(char c, FILE* stream) {
-    *stream->next = c;
-}
-
-int main() {
-    fputc('H', &stdout);
-    return 0;
+short gett() {
+    struct Truck truck;
+    return truck.boxes[gets()].num;
 }

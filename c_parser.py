@@ -8,10 +8,10 @@ from dataclasses import dataclass
 from copy import copy
 from my_parser import Parser
 from c_nodes import Frame, Translation, FuncDefn, VarFuncDefn
-from c_types import Type, Void, Float, Int, Short, Char, Pointer, Struct, Union, Array, Func
 from c_exprs import Number, NegNumber, EnumNumber, Decimal, NegDecimal, Character, String
 from c_exprs import Post, UnaryOp, Not, Pre, BinaryOp, Compare, Logic
 from c_exprs import Local, Attr, Glob, Dot, SubScr, Arrow, AddrOf, Deref, SizeOf, Cast, Condition
+from c_types import Type, Void, Float, Int, Short, Char, Pointer, Struct, Union, Array, Func
 from c_statements import Statement, If, Case, Switch, While, Do, For, Continue, Break, Goto, Label, Return, Compound
 from c_statements import Call, VarCall, InitAssign, Assign, InitListAssign, InitArrayString
 r'''( |\t)+$''' #to delete weird whitespace spyder adds
@@ -47,7 +47,7 @@ TODO
 [X] Scope in Parser
 [X] Line numbers in errors
 [X] Returning local structs
-[ ] Labels in C have scope
+[X] Labels in C have scope
 [X] PREPROCESSING
     [X] Include header files
     [X] Macros
@@ -179,11 +179,8 @@ class CParser(Parser):
                 name = self.expect('name')
                 if name.lexeme not in postfix.type:
                     self.error(f'"{name.lexeme}" is not an attribute of {postfix.type}')
-                attr = postfix.type[name.lexeme]
-                if isinstance(postfix.type, Union):
-                    postfix = postfix.union(attr)
-                else:
-                    postfix = Dot(name, postfix, attr)
+                attr = postfix.type[name.lexeme]                
+                postfix = postfix.type.dot(name, postfix, attr)
             elif self.accept('->'):
                 if not isinstance(postfix.type, Pointer):
                     self.error(f'{postfix.type} is not pointer type')
@@ -191,10 +188,7 @@ class CParser(Parser):
                 if name.lexeme not in postfix.type.to:
                     self.error(f'"{name.lexeme}" is not an attribute of {postfix.type.to}')
                 attr = postfix.type.to[name.lexeme]
-                if isinstance(postfix.type.to, Union):
-                    postfix = Deref(name, postfix.ptr_union(attr))
-                else:
-                    postfix = Arrow(name, postfix, attr)
+                postfix = postfix.type.to.arrow(name, postfix, attr)
         return postfix
 
     def args(self):

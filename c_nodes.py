@@ -12,6 +12,10 @@ class Frame(UserDict):
     def __init__(self):
         super().__init__()
         self.size = 0
+    def add(self, var_type, c_type, name):
+        self[name.lexeme] = var = var_type(c_type, name, self.size)
+        self.size += c_type.size
+        return var
     def __setitem__(self, name, obj):
         obj.location = self.size
         self.size += obj.type.size
@@ -60,7 +64,7 @@ class Var(Expr):
         return False
     def soft_calls(self):
         return False
-    def call(self, vstr, n):
+    def call(self, vstr, _):
         vstr.call(self.token.lexeme)
 
 class Const(Expr):

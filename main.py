@@ -9,9 +9,9 @@ Created on Mon Aug 28 09:26:08 2023
 from c_compiler import compile as ccompile
 
 # ccompile('std/stdlib.h', sflag=True, fflag=True)
-# ccompile('std/stdlib.h', sflag=True, fflag=False)
+ccompile('std/stdio.h', sflag=True, fflag=False)
 # ccompile('tests/defines.c', sflag=True, fflag=False, iflag=True)
-ccompile('tests/unions.c', sflag=True, fflag=False)
+# ccompile('tests/unions.c', sflag=True, fflag=False)
 # ccompile('tests/unions.c', sflag=True, fflag=True)
 # ccompile('tests/neg_nums.c')
 # ccompile('c/fact.c', sflag=True, fflag=False, iflag=True)

@@ -83,7 +83,7 @@ void xprint(unsigned n, char uplo) {
         putchar(n % 16 + '0');        
 }
 void fprint(float f, char prec) {
-    if (f < 0) {
+    if (f < 0.0) {
         putchar('-');
         f = -f;
     }
