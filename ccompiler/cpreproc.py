@@ -17,6 +17,14 @@ TODO:
     [X] include
     [] ifelse
 '''
+
+CTYPES = {
+    'const','volatile','void',
+    'char','short','int',
+    'long','float','unsigned',
+    'signed','struct','enum','union'
+}
+
 class Token(NamedTuple):
     type: str
     lexeme: str
@@ -55,7 +63,8 @@ class CLexer(LexerBase):
     def RE_string(self, match):
         r'"(\\"|[^"])*"'
         return match[1:-1]
-    RE_keyword = r'\b(include|define|undef|typedef|const|static|volatile|extern|void|char|short|int|long|float|unsigned|signed|struct|enum|union|sizeof|return|if|ifdef|ifndef|else|endif|switch|case|default|while|do|for|break|continue|goto)\b'
+    RE_ctype = rf"\b({'|'.join(CTYPES)})\b"
+    RE_keyword = r'\b(include|define|undef|typedef|static|extern|sizeof|return|if|ifdef|ifndef|else|endif|switch|case|default|while|do|for|break|continue|goto)\b'
     RE_symbol = r'[#]{2}|[]#;:()[{}]|[+]{2}|--|->|(<<|>>|[+*/%^|&=!<>-])?=|<<|>>|[|]{2}|[&]{2}|[+*/%^|&=!<>?~-]|\.\.\.|\.|,'
     RE_name = r'[A-Za-z_]\w*'
     RE_space = r'[ \t]+'
@@ -89,7 +98,7 @@ class CPreProcessor(Parser):
                }
         '''
         self.accept('space')
-        while not self.peek(')', ','):
+        while not self.peek({')',','}):
             if self.peek_defined() and expand:
                 self.expand()
             elif self.accept('name'):
@@ -180,7 +189,7 @@ class CPreProcessor(Parser):
                     body = self.index
                     if self.peek('##'):
                         self.error()
-                    while not self.peek('new_line','end'):
+                    while not self.peek({'new_line','end'}):
                         if self.peek('#'):
                             local_start = self.index
                             next(self)
@@ -197,7 +206,7 @@ class CPreProcessor(Parser):
                             self.accept('space')
                             if self.accept('##'):
                                 self.accept('space')
-                                if self.peek('new_line','end'):
+                                if self.peek({'new_line','end'}):
                                     self.error()
                                 right = next(self)
                                 if left.lexeme in params:
@@ -211,7 +220,7 @@ class CPreProcessor(Parser):
                     params = None
                     self.accept('space')
                     body = self.index
-                    while not self.peek('new_line','end'):
+                    while not self.peek({'new_line','end'}):
                         next(self)
                 self.defined[name.lexeme] = params, self.tokens[body:self.index]
                 del self.tokens[start:self.index]
@@ -312,7 +321,7 @@ class CPreProcessor(Parser):
 
     def stream(self):
         return [token for token in self.tokens if token.type in \
-                ('decimal','number','character','string','keyword','symbol','name','end')]
+                {'decimal','number','character','string','ctype','keyword','symbol','name','end'}]
 
     def output(self):
         return ''.join(f'"{token.lexeme}"' if token.type == 'string' else token.lexeme for token in self.tokens)

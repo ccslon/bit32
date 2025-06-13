@@ -7,6 +7,7 @@ Created on Mon Jul  3 19:47:39 2023
 from dataclasses import dataclass
 from copy import copy
 from .parser import Parser
+from .cpreproc import CTYPES
 from .cnodes import Frame, Translation, FuncDefn, VarFuncDefn
 from .cexprs import Number, NegNumber, EnumNumber, Decimal, NegDecimal, Character, String
 from .cexprs import Post, UnaryOp, Not, Pre, BinaryOp, Compare, Logic
@@ -109,8 +110,7 @@ class Scope:
 
 class CParser(Parser):
 
-    TYPE = ('int','char','void','float','short','struct','typedef','unsigned','const','union','enum','signed','volatile','static','long')
-    STATEMENT = ('{','name','if','*','return','for','while','(','switch','do','++','--','break','continue',';','goto')
+    STATEMENTS = {'{','name','if','*','return','for','while','(','switch','do','++','--','break','continue',';','goto'}
 
     def __init__(self):
         self.globs = {}
@@ -160,7 +160,7 @@ class CParser(Parser):
         POST -> PRIMARY {'(' ARGS ')'|'[' EXPR ']'|'++'|'--'|'.' name|'->' name}
         '''
         postfix = self.primary()
-        while self.peek('(','[','++','--','.','->'):
+        while self.peek({'(','[','++','--','.','->'}):
             if self.peek('('):
                 if not isinstance(postfix.type, Func):
                     self.error(f'"{postfix.token.lexeme}" is not a function')
@@ -171,7 +171,7 @@ class CParser(Parser):
             elif self.peek('['):
                 postfix = SubScr(next(self), postfix, self.expr())
                 self.expect(']')
-            elif self.peek('++','--'):
+            elif self.peek({'++','--'}):
                 postfix = Post(next(self), postfix)
             elif self.accept('.'):
                 if not isinstance(postfix.type, (Struct,Union)):
@@ -219,9 +219,9 @@ class CParser(Parser):
         if self.peek2('-', 'decimal'):
             next(self)
             return NegDecimal(next(self))
-        if self.peek('-','~'):
+        if self.peek({'-','~'}):
             return UnaryOp(next(self), self.cast())
-        if self.peek('++','--'):
+        if self.peek({'++','--'}):
             return Pre(next(self), self.unary())
         if self.peek('!'):
             return Not(next(self), self.cast())
@@ -242,7 +242,7 @@ class CParser(Parser):
         CAST -> UNARY
                |'(' TYPE_NAME ')' CAST
         '''
-        if self.peek2('(', *self.TYPE) or self.peek('(') and self.peek_typedefs(1):
+        if self.peek2('(', CTYPES | self.scope.typedefs.keys()):
             token = next(self)
             ctype = self.type_name()
             self.expect(')')
@@ -254,7 +254,7 @@ class CParser(Parser):
         MUL -> CAST {('*'|'/'|'%') CAST}
         '''
         mul = self.cast()
-        while self.peek('*','/','%'):
+        while self.peek({'*','/','%'}):
             mul = BinaryOp(next(self), mul, self.cast())
         return mul
 
@@ -263,7 +263,7 @@ class CParser(Parser):
         ADD -> MUL {('+'|'-') MUL}
         '''
         add = self.mul()
-        while self.peek('+','-'):
+        while self.peek({'+','-'}):
             add = BinaryOp(next(self), add, self.mul())
         return add
 
@@ -272,7 +272,7 @@ class CParser(Parser):
         SHIFT -> ADD {('<<'|'>>') ADD}
         '''
         shift = self.add()
-        while self.peek('<<','>>'):
+        while self.peek({'<<','>>'}):
             shift = BinaryOp(next(self), shift, self.add())
         return shift
 
@@ -281,7 +281,7 @@ class CParser(Parser):
         RELA -> SHIFT {('<'|'>'|'<='|'>=') SHIFT}
         '''
         relation = self.shift()
-        while self.peek('<','>','<=','>='):
+        while self.peek({'<','>','<=','>='}):
             relation = Compare(next(self), relation, self.shift())
         return relation
 
@@ -290,7 +290,7 @@ class CParser(Parser):
         EQUA -> RELA {('=='|'!=') RELA}
         '''
         equality = self.relation()
-        while self.peek('==','!='):
+        while self.peek({'==','!='}):
             equality = Compare(next(self), equality, self.relation())
         return equality
 
@@ -355,7 +355,7 @@ class CParser(Parser):
                  |COND
         '''
         assign = self.cond()
-        if self.peek('=','+=','-=','*=','/=','%=','<<=','>>=','^=','|=','&=','/=','%='):
+        if self.peek({'=','+=','-=','*=','/=','%=','<<=','>>=','^=','|=','&=','/=','%='}):
             if not isinstance(assign, (Local,Glob,Dot,Arrow,SubScr,Deref)):
                 self.error(f'Cannot assign to {type(assign)}')
             if self.peek('='):
@@ -536,7 +536,7 @@ class CParser(Parser):
             self.expect(')')
         else:
             name = self.accept('name')
-        while self.peek('(','['):
+        while self.peek({'(','['}):
             if self.accept('('):
                 params, variable = self.params()
                 types.append((Func, (params, variable)))
@@ -600,7 +600,7 @@ class CParser(Parser):
         if self.accept('typedef'):
             qual = self.qual()
             ctype, name = self.declr(qual)
-            self.context.typedefs[name.lexeme] = ctype
+            self.scope.typedefs[name.lexeme] = ctype
             self.expect(';')
         else:
             qual = self.qual()
@@ -701,7 +701,7 @@ class CParser(Parser):
                 const = self.const()
                 self.expect(':')
                 compound = Compound()
-                while not self.peek('case','default','}'):
+                while not self.peek({'case','default','}'}):
                     compound.append(self.statement())
                 statement.cases.append(Case(const, compound))
             if self.accept('default'):
@@ -773,9 +773,9 @@ class CParser(Parser):
         COMPOUND -> {DECLN} {STATEMENT} [COMPOUND]
         '''
         compound = Compound()
-        while self.peek(*self.TYPE) or self.peek_typedefs():
+        while self.peek({'typedef'} | CTYPES | self.scope.typedefs.keys()):
             compound.extend(self.decln())
-        while self.peek(*self.STATEMENT) and not self.peek_typedefs():
+        while self.peek(self.STATEMENTS) and not self.peek(set(self.scope.typedefs.keys())):
             compound.append(self.statement())
         if compound:
             compound.extend(self.compound())
@@ -853,10 +853,6 @@ class CParser(Parser):
     def end_scope(self):
         self.func.space = max(self.func.space, self.scope.locals.size)
         self.scope = self.stack.pop()
-
-    def peek_typedefs(self, offset=0):
-        return self.peek('name', offset=offset) \
-            and self.tokens[self.index+offset].lexeme in self.scope.typedefs
 
 def parse(tokens):
     parser = CParser()

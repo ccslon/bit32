@@ -28,12 +28,14 @@ class Parser:
         self.index += 1
         return token
     
-    def peek(self, *symbols, offset=0):
+    def peek(self, peek, offset=0):
         token = self.tokens[self.index+offset]
-        return token.type in symbols or token.type in ('keyword','symbol') and token.lexeme in symbols
+        if isinstance(peek, set):
+            return token.type in peek or token.type in {'ctype','keyword','symbol','name'} and token.lexeme in peek
+        return token.type == peek or token.type in {'ctype','keyword','symbol','name'} and token.lexeme == peek
     
-    def peek2(self, first, *second):
-        return self.peek(first) and self.peek(*second, offset=1)
+    def peek2(self, first, second):
+        return self.peek(first) and self.peek(second, offset=1)
     
     def accept(self, symbol):
         if self.peek(symbol):
