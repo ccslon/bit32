@@ -21,7 +21,7 @@ class Size(IntEnum):
     @classmethod
     def get(cls, name):
         return cls[name.upper()] if name else cls.WORD
-    def display(self):
+    def __str__(self):
         return f'.{self.name[0]}' if self != Size.WORD else ''
 
 class Flag(IntEnum):
@@ -49,6 +49,11 @@ class Reg(IntEnum):
     ILR = 13    # interrupt link register
     LR = 14     # link register
     PC = 15     # program counter
+    @classmethod
+    def max_reg(cls, reg):
+        return reg if reg < Reg.SP else cls.A
+    def __str__(self):
+        return self.name
 
 class Op(IntEnum):
     MOV = 0
@@ -104,9 +109,9 @@ class Cond(IntEnum):
     @classmethod
     def get(cls, name):
         return cls[name.upper()] if name else cls.AL
-    def display(self):
+    def __str__(self):
         return self.name if self != self.AL else ''
-    def display_jump(self):
+    def jump(self):
         return self.name if self != self.AL else 'MP'
 
 class InstOp(IntEnum):
@@ -214,7 +219,7 @@ class Jump(Inst):
         self[31:28] = cond
         self[27] = link
         self[26:24] = InstOp.JUMP
-        op = f'CALL{cond.display()}' if link else f'J{cond.display_jump()}'
+        op = f'CALL{cond}' if link else f'J{cond.jump()}'
         if offset24 < 0:
             self.str = f'{op} -0x{-offset24:06X}'
             offset24 = negative(offset24, 24)
@@ -230,7 +235,7 @@ class Interrupt(Inst):
         self[27] = software
         self[26:24] = InstOp.INT
         self[23:0] = code24
-        self.str = f'INT{cond.display()} 0x{code24:06X}'
+        self.str = f'INT{cond} 0x{code24:06X}'
 
 class Unary(Inst):
     def __init__(self, cond, flag, size, op, rd):
@@ -244,7 +249,7 @@ class Unary(Inst):
         self[11:8] = rd
         self[7:4] = rd
         self[3:0] = rd
-        self.str = f'{op.name}{cond.display()}{"S"*flag}.{size.name[0]} {rd.name}'
+        self.str = f'{op.name}{cond}{"S"*flag}.{size} {rd.name}'
 
 class Binary(Inst):
     def __init__(self, cond, flag, size, imm, op, src, rd):
@@ -273,7 +278,7 @@ class Binary(Inst):
             src = src.name
         self[7:4] = rd
         self[3:0] = rd
-        self.str = f"{op.name}{cond.display()}{'S'*flag}.{size.name[0]} {rd.name}, {src}"
+        self.str = f"{op.name}{cond}{'S'*flag}{size} {rd.name}, {src}"
 
 class Ternary(Inst):
     def __init__(self, cond, flag, size, imm, op, src, rs, rd):
@@ -297,7 +302,7 @@ class Ternary(Inst):
             src = src.name
         self[7:4] = rs
         self[3:0] = rd
-        self.str = f'{op.name}{cond.display()}{"S"*flag}.{size.name[0]} {rd.name}, {rs.name}, {src}'
+        self.str = f'{op.name}{cond}{"S"*flag}{size} {rd.name}, {rs.name}, {src}'
 
 class Load(Inst):
     def __init__(self, cond, size, imm, storing, rd, rb, offset):
@@ -322,9 +327,9 @@ class Load(Inst):
         self[7:4] = rb
         self[3:0] = rd
         if storing:
-            self.str = f'ST{cond.display()}.{size.name[0]} [{rb.name}, {offset}], {rd.name}'
+            self.str = f'ST{cond}{size} [{rb.name}, {offset}], {rd.name}'
         else:
-            self.str = f'LD{cond.display()}.{size.name[0]} {rd.name}, [{rb.name}, {offset}]'
+            self.str = f'LD{cond}{size} {rd.name}, [{rb.name}, {offset}]'
 
 class PushPop(Inst):
     def __init__(self, cond, size, pushing, rd):
@@ -343,7 +348,7 @@ class PushPop(Inst):
             self[15:8] = size
         self[7:4] = None
         self[3:0] = rd
-        self.str = f'{op}{cond.display()}.{size.name[0]} {rd.name}'
+        self.str = f'{op}{cond}{size} {rd.name}'
 
 class LoadImm(Inst):
     def __init__(self, cond, size, rd, link=None):
@@ -354,4 +359,4 @@ class LoadImm(Inst):
         self[23:22] = size >> 1
         self[21:4] = None
         self[3:0] = rd
-        self.str = f'LDI{cond.display()}.{size.name[0]} {rd.name}, ...'
+        self.str = f'LDI{cond}{size} {rd.name}, ...'
