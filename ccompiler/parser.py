@@ -32,7 +32,7 @@ class Parser:
         token = self.tokens[self.index+offset]
         if isinstance(peek, set):
             return token.type in peek or token.type in {'ctype','keyword','symbol','name'} and token.lexeme in peek
-        return token.type == peek or token.type in {'ctype','keyword','symbol','name'} and token.lexeme == peek
+        return token.type == peek or token.type in {'ctype','keyword','symbol'} and token.lexeme == peek
     
     def peek2(self, first, second):
         return self.peek(first) and self.peek(second, offset=1)

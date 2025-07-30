@@ -27,7 +27,7 @@ void print_cat(Cat* cat) {
     num = 420;
 }
 int main() {
-    Cat* cat1 = &cats[0];
+    Cat* cat1 = &cats[2];
     cat1->name = "Cloud";
     cat1->age = 10;
     cat1->owner = &owners[0];

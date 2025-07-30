@@ -21,56 +21,52 @@ lol: .word 420
 lmao: .space 4
 .S3: "Cloud\0"
 print_cat:
-  PUSH B
-  SUB SP, 24
-  ST [SP, 0], A
-  LDI A, =name
-  LD A, [A]
-  ST [SP, 4], A ; store
-  LDI A, =num
-  LD A, [A]
-  ST [SP, 8], A ; n
-  LD A, [SP, 0] ; cat
-  LD A, [A, 0] ; name
-  ST [SP, 12], A ; mycat
-  LD A, [SP, 0] ; cat
-  LD.B A, [A, 4] ; age
-  ST [SP, 16], A ; age
-  LD A, [SP, 0] ; cat
-  LD A, [A, 5] ; owner
-  LD A, [A, 0] ; name
-  ST [SP, 20], A ; owner
-  LDI A, 420
-  LDI B, =num
-  ST [B], A
-  ADD SP, 24
-  POP B
+  PUSH   B
+  SUB    SP, 24
+  ST     [SP, 0], A ; cat
+  LDI    A, =name
+  LD     A, [A]
+  ST     [SP, 4], A ; store
+  LDI    A, =num
+  LD     A, [A]
+  ST     [SP, 8], A ; n
+  LD     A, [SP, 0] ; cat
+  LD     A, [A, 0] ; .name
+  ST     [SP, 12], A ; mycat
+  LD     A, [SP, 0] ; cat
+  LD.B   A, [A, 4] ; .age
+  ST     [SP, 16], A ; age
+  LD     A, [SP, 0] ; cat
+  LD     A, [A, 5] ; .owner
+  LD     A, [A, 0] ; .name
+  ST     [SP, 20], A ; owner
+  LDI    A, 420
+  LDI    B, =num
+  ST     [B], A
+  ADD    SP, 24
+  POP    B
   RET
 main:
-  PUSH B, LR
-  SUB SP, 4
-  LDI A, =cats
-  MOV B, 0
-  MUL B, 9
-  ADD A, B
-  ST [SP, 0], A ; cat1
-  LDI A, =.S3
-  LD B, [SP, 0] ; cat1
-  ST [B, 0], A ; name
-  MOV A, 10
-  LD B, [SP, 0] ; cat1
-  ST.B [B, 4], A ; age
-  LDI A, =owners
-  MOV B, 0
-  MUL B, 5
-  ADD A, B
-  LD B, [SP, 0] ; cat1
-  ST [B, 5], A ; owner
-  LD A, [SP, 0] ; cat1
-  CALL print_cat
-  MOV B, 0
-  JMP .L0
+  PUSH   B, LR
+  SUB    SP, 4
+  LDI    A, =cats
+  ADD    A, 18
+  ST     [SP, 0], A ; cat1
+  LDI    A, =.S3
+  LD     B, [SP, 0] ; cat1
+  ST     [B, 0], A ; .name
+  MOV    A, 10
+  LD     B, [SP, 0] ; cat1
+  ST.B   [B, 4], A ; .age
+  LDI    A, =owners
+  ADD    A, 0
+  LD     B, [SP, 0] ; cat1
+  ST     [B, 5], A ; .owner
+  LD     A, [SP, 0] ; cat1
+  CALL   print_cat
+  MOV    B, 0
+  JMP    .L0
 .L0:
-  MOV A, B
-  ADD SP, 4
-  POP B, PC
+  MOV    A, B
+  ADD    SP, 4
+  POP    B, PC

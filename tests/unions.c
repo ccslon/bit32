@@ -68,33 +68,33 @@ int main() {
 union Box {
     short num;
 };
-short gets(short* s) {
+short getp1(short* s) {
     return *s;
 }
-short gets(union Box* s) {
+short getp2(union Box* s) {
     return s->num;
 }
-short gets() {
+short gets1() {
     short s;
     return s;
 }
-short gets() {
+short gets2() {
     union Box box;
     return box.num;
 }
-short geta() {
+short geta1() {
     short foo[5];
     return foo[3];
 }
-short geta() {
+short geta2() {
     union Box boxes[5];
     return boxes[3].num;
 }
-short geta() {
+short getp3() {
     short* foo[5];
     return *foo[3];
 }
-short geta() {
+short getp() {
     union Box* boxes[5];
     return boxes[3]->num;
 }

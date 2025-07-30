@@ -179,8 +179,8 @@ class CParser(Parser):
                 name = self.expect('name')
                 if name.lexeme not in postfix.type:
                     self.error(f'"{name.lexeme}" is not an attribute of {postfix.type}')
-                attr = postfix.type[name.lexeme]                
-                postfix = postfix.type.dot(name, postfix, attr)
+                attr = postfix.type[name.lexeme]
+                postfix = Dot(name, postfix, attr)
             elif self.accept('->'):
                 if not isinstance(postfix.type, Pointer):
                     self.error(f'{postfix.type} is not pointer type')
@@ -188,7 +188,7 @@ class CParser(Parser):
                 if name.lexeme not in postfix.type.to:
                     self.error(f'"{name.lexeme}" is not an attribute of {postfix.type.to}')
                 attr = postfix.type.to[name.lexeme]
-                postfix = postfix.type.to.arrow(name, postfix, attr)
+                postfix = Arrow(name, postfix, attr)
         return postfix
 
     def args(self):
@@ -402,7 +402,7 @@ class CParser(Parser):
             self.expect('number')
         if name is None and isinstance(ctype, Union):
             for name, attr in ctype.items():
-                attr.location = spec.size
+                attr.offset = spec.size
                 spec.data[name] = attr
             spec.size += ctype.size
         else:

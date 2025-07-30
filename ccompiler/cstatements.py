@@ -12,33 +12,33 @@ from .ctypes import Array
 class If(Statement):
     def __init__(self, cond, state):
         self.cond, self.true, self.false = cond, state, None
-    def generate(self, vstr, n):
-        vstr.if_jump_end.append(False)
-        label = vstr.next_label()
-        sublabel = vstr.next_label() if self.false else label
-        self.cond.compare(vstr, n*self.cond.soft_calls(), sublabel)
-        self.true.generate(vstr, n)
+    def generate(self, emitter, n):
+        emitter.if_jump_end.append(False)
+        label = emitter.next_label()
+        sublabel = emitter.next_label() if self.false else label
+        self.cond.compare(emitter, n*self.cond.soft_calls(), sublabel)
+        self.true.generate(emitter, n)
         if self.false:
             if not self.true.last_is_return():
-                vstr.jump(Cond.AL, label)
-                vstr.if_jump_end[-1] = True
-            vstr.append_label(sublabel)
-            self.false.branch(vstr, n, label)
-            if vstr.if_jump_end[-1]:
-                vstr.append_label(label)
+                emitter.jump(Cond.AL, label)
+                emitter.if_jump_end[-1] = True
+            emitter.append_label(sublabel)
+            self.false.branch(emitter, n, label)
+            if emitter.if_jump_end[-1]:
+                emitter.append_label(label)
         else:
-            vstr.append_label(label)
-        vstr.if_jump_end.pop()
-    def branch(self, vstr, n, root):
-        sublabel = vstr.next_label() if self.false else root
-        self.cond.compare(vstr, n*self.cond.soft_calls(), sublabel)
-        self.true.generate(vstr, n)
+            emitter.append_label(label)
+        emitter.if_jump_end.pop()
+    def branch(self, emitter, n, root):
+        sublabel = emitter.next_label() if self.false else root
+        self.cond.compare(emitter, n*self.cond.soft_calls(), sublabel)
+        self.true.generate(emitter, n)
         if self.false:
             if not self.true.last_is_return():
-                vstr.jump(Cond.AL, root)
-                vstr.if_jump_end[-1] = True
-            vstr.append_label(sublabel)
-            self.false.branch(vstr, n, root)
+                emitter.jump(Cond.AL, root)
+                emitter.if_jump_end[-1] = True
+            emitter.append_label(sublabel)
+            self.false.branch(emitter, n, root)
 
 class Case:
     def __init__(self, const, block):
@@ -47,90 +47,96 @@ class Case:
 class Switch(Statement):
     def __init__(self, test):
         self.test, self.cases, self.default = test, [], None
-    def generate(self, vstr, n):
-        vstr.begin_loop()
+    def generate(self, emitter, n):
+        emitter.begin_loop()
         m = n*self.test.soft_calls()
-        self.test.reduce(vstr, m)
+        self.test.reduce(emitter, m)
         labels = []
+        '''
+        if number of cases > 5
+        and range of cases / range of cases > threshhold (say 0.75)
+        create jump table
+        default at beginning jump if test > max case
+        '''
         for case in self.cases:
-            labels.append(vstr.next_label())
-            vstr.binary(Op.CMP, self.test.width, Reg(m), case.const.reduce_num(vstr, m+1))
-            vstr.jump(Cond.EQ, labels[-1])
+            labels.append(emitter.next_label())
+            emitter.binary(Op.CMP, self.test.width, Reg(m), case.const.reduce_num(emitter, m+1))
+            emitter.jump(Cond.EQ, labels[-1])
         if self.default:
-            default = vstr.next_label()
-            vstr.jump(Cond.AL, default)
+            default = emitter.next_label()
+            emitter.jump(Cond.AL, default)
         else:
-            vstr.jump(Cond.AL, vstr.loop_tail())
+            emitter.jump(Cond.AL, emitter.loop_tail())
         for i, case in enumerate(self.cases):
-            vstr.append_label(labels[i])
-            case.block.generate(vstr, n)
+            emitter.append_label(labels[i])
+            case.block.generate(emitter, n)
         if self.default:
-            vstr.append_label(default)
-            self.default.generate(vstr, n)
-        vstr.append_label(vstr.loop_tail())
-        vstr.end_loop()
+            emitter.append_label(default)
+            self.default.generate(emitter, n)
+        emitter.append_label(emitter.loop_tail())
+        emitter.end_loop()
 
 class While(Statement):
     def __init__(self, cond, state):
         self.cond, self.state = cond, state
-    def generate(self, vstr, n):
-        vstr.begin_loop()
-        vstr.append_label(vstr.loop_head())
-        self.cond.compare(vstr, n*self.cond.soft_calls(), vstr.loop_tail())
-        self.state.generate(vstr, n)
-        vstr.jump(Cond.AL, vstr.loop_head())
-        vstr.append_label(vstr.loop_tail())
-        vstr.end_loop()
+    def generate(self, emitter, n):
+        emitter.begin_loop()
+        emitter.append_label(emitter.loop_head())
+        self.cond.compare(emitter, n*self.cond.soft_calls(), emitter.loop_tail())
+        self.state.generate(emitter, n)
+        emitter.jump(Cond.AL, emitter.loop_head())
+        emitter.append_label(emitter.loop_tail())
+        emitter.end_loop()
 
 class Do(Statement):
     def __init__(self, state, cond):
         self.state, self.cond = state, cond
-    def generate(self, vstr, n):
-        vstr.begin_loop()
-        vstr.append_label(vstr.loop_head())
-        self.state.generate(vstr, n)
-        self.cond.compare_inv(vstr, n*self.cond.soft_calls(), vstr.loop_head())
-        vstr.append_label(vstr.loop_tail())
-        vstr.end_loop()
+    def generate(self, emitter, n):
+        emitter.begin_loop()
+        emitter.append_label(emitter.loop_head())
+        self.state.generate(emitter, n)
+        self.cond.compare_inv(emitter, n*self.cond.soft_calls(), emitter.loop_head())
+        emitter.append_label(emitter.loop_tail())
+        emitter.end_loop()
 
 class For(While):
     def __init__(self, inits, cond, steps, state):
         super().__init__(cond, state)
         self.inits, self.steps = inits, steps
-    def generate(self, vstr, n):
+    def generate(self, emitter, n):
         for init in self.inits:
-            init.generate(vstr, n)
-        loop = vstr.next_label()
-        vstr.begin_loop()
-        vstr.append_label(loop)
-        self.cond.compare(vstr, n*self.cond.soft_calls(), vstr.loop_tail())
-        self.state.generate(vstr, n)
-        vstr.append_label(vstr.loop_head())
+            init.generate(emitter, n)
+        loop = emitter.next_label()
+        emitter.begin_loop()
+        emitter.append_label(loop)
+        self.cond.compare(emitter, n*self.cond.soft_calls(), emitter.loop_tail())
+        self.state.generate(emitter, n)
+        emitter.append_label(emitter.loop_head())
         for step in self.steps:
-            step.generate(vstr, n)
-        vstr.jump(Cond.AL, loop)
-        vstr.append_label(vstr.loop_tail())
-        vstr.end_loop()
+            step.generate(emitter, n)
+        emitter.jump(Cond.AL, loop)
+        emitter.append_label(emitter.loop_tail())
+        emitter.end_loop()
 
 class Continue(Statement):
-    def generate(self, vstr, _):
-        vstr.jump(Cond.AL, vstr.loop_head())
+    def generate(self, emitter, _):
+        emitter.jump(Cond.AL, emitter.loop_head())
 
 class Break(Statement):
-    def generate(self, vstr, _):
-        vstr.jump(Cond.AL, vstr.loop_tail())
+    def generate(self, emitter, _):
+        emitter.jump(Cond.AL, emitter.loop_tail())
 
 class Goto(Statement):
     def __init__(self, target):
         self.target = target
-    def generate(self, vstr, _):
-        vstr.jump(Cond.AL, self.target)
+    def generate(self, emitter, _):
+        emitter.jump(Cond.AL, self.target)
 
 class Label(Statement):
     def __init__(self, name):
         self.name = name
-    def generate(self, vstr, _):
-        vstr.append_label(self.name)
+    def generate(self, emitter, _):
+        emitter.append_label(self.name)
 
 class Return(Statement):
     def __init__(self, token, ret, expr):
@@ -141,18 +147,18 @@ class Return(Statement):
         self.ret, self.expr = ret, expr
     def last_is_return(self):
         return True
-    def generate(self, vstr, n):
+    def generate(self, emitter, n):
         if self.expr:
-            self.expr.reduce(vstr, n)
-            self.ret.convert(vstr, n, self.expr.type)
-        vstr.jump(Cond.AL, vstr.return_label)
+            self.expr.reduce(emitter, n)
+            self.ret.convert(emitter, n, self.expr.type)
+        emitter.jump(Cond.AL, emitter.return_label)
 
 class Compound(UserList, Statement):
     def last_is_return(self):
         return self and self[-1].last_is_return()
-    def generate(self, vstr, n):
+    def generate(self, emitter, n):
         for statement in self:
-            statement.generate(vstr, n)
+            statement.generate(emitter, n)
 
 class InitAssign(Binary, Statement):
     def __init__(self, token, left, right):
@@ -161,15 +167,15 @@ class InitAssign(Binary, Statement):
             token.error(f'{left.type} != {right.type}')
     def soft_calls(self):
         return self.left.hard_calls() or self.right.soft_calls()
-    def reduce(self, vstr, n):
-        self.right.reduce(vstr, n)
-        self.type.convert(vstr, n, self.right.type)
-        self.left.store(vstr, n)
+    def reduce(self, emitter, n):
+        self.right.reduce(emitter, n)
+        self.type.convert(emitter, n, self.right.type)
+        self.left.store(emitter, n)
         return Reg(n)
-    def generate(self, vstr, n):
-        self.reduce(vstr, n*self.soft_calls())
-    def glob_generate(self, vstr):
-        vstr.glob(self.left.token.lexeme, self.width, self.right.data(vstr))
+    def generate(self, emitter, n):
+        self.reduce(emitter, n*self.soft_calls())
+    def glob_generate(self, emitter):
+        emitter.glob(self.left.token.lexeme, self.width, self.right.data(emitter))
 
 class Assign(InitAssign):
     def __init__(self, token, left, right):
@@ -186,12 +192,12 @@ class InitListAssign(Statement):
             elif left.type.length < len(right):
                 token.error('Not large enough')
         self.left, self.right = left, right
-    def generate(self, vstr, n):
-        self.left.address(vstr, n)
+    def generate(self, emitter, n):
+        self.left.address(emitter, n)
         for i, (loc, ctype) in enumerate(self.left.type):
-            ctype.list_generate(vstr, n, self.right[i], loc)
-    def glob_generate(self, vstr):
-        vstr.datas(self.left.token.lexeme, self.left.type.glob_data(vstr, self.right, []))
+            ctype.list_generate(emitter, n, self.right[i], loc)
+    def glob_generate(self, emitter):
+        emitter.datas(self.left.token.lexeme, self.left.type.glob_data(emitter, self.right, []))
 
 class InitArrayString(Statement):
     def __init__(self, token, array, string):
@@ -201,13 +207,13 @@ class InitArrayString(Statement):
             token.error('Not large enough')
         self.array = array
         self.string = string
-    def generate(self, vstr, n):
-        self.array.address(vstr, n)
+    def generate(self, emitter, n):
+        self.array.address(emitter, n)
         for i, c in enumerate(self.string.value+'\0'):
-            vstr.binary(Op.MOV, Size.BYTE, Reg(n+1), f"'{escape(c)}'")
-            vstr.store(Size.BYTE, Reg(n+1), Reg(n), i)
-    def glob_generate(self, vstr):
-        vstr.string_array(self.array.token.lexeme, self.string.token.lexeme)
+            emitter.binary(Op.MOV, Size.BYTE, Reg(n+1), f"'{escape(c)}'")
+            emitter.store(Size.BYTE, Reg(n+1), Reg(n), i)
+    def glob_generate(self, emitter):
+        emitter.string_array(self.array.token.lexeme, self.string.token.lexeme)
 
 class Call(Expr, Statement):
     def __init__(self, token, func, args):
@@ -222,49 +228,50 @@ class Call(Expr, Statement):
         return True
     def soft_calls(self):
         return self.func.hard_calls() or any(arg.hard_calls() for arg in self.args)
-    def reduce_args(self, vstr, n):
+    def reduce_args(self, emitter, n):
         for i, arg in enumerate(self.args):
-            arg.reduce(vstr, n+i)
-            self.params[i].type.convert(vstr, n+i, arg.type)
+            arg.reduce(emitter, n+i)
+            self.params[i].type.convert(emitter, n+i, arg.type)
         if n > 0:
             for i, arg in enumerate(self.args[:4]):
-                vstr.binary(Op.MOV, arg.width, Reg(i), Reg(n+i))
+                emitter.binary(Op.MOV, arg.width, Reg(i), Reg(n+i))
         for i, arg in reversed(list(enumerate(self.args[4:]))): #TODO test thsi branch
-            vstr.push(arg.width, Reg(n+4+i))
-    def reduce(self, vstr, n):
-        self.reduce_args(vstr, n)
-        self.func.call(vstr, n if n else min(4, len(self.args)))
+            # emitter.push(arg.width, Reg(n+4+i))
+            emitter.push([Reg(n+4+i)])
+    def reduce(self, emitter, n):
+        self.reduce_args(emitter, n)
+        self.func.call(emitter, n if n else min(4, len(self.args)))
         if n > 0 and self.width:
-            vstr.binary(Op.MOV, Size.WORD, Reg(n), Reg.A)
+            emitter.binary(Op.MOV, Size.WORD, Reg(n), Reg.A)
         return Reg(n)
-    def generate(self, vstr, n):
-        self.reduce_args(vstr, n*self.soft_calls())
-        self.func.call(vstr, n)
+    def generate(self, emitter, n):
+        self.reduce_args(emitter, n*self.soft_calls())
+        self.func.call(emitter, n)
 
 class VarCall(Call):
-    def reduce_args(self, vstr, n):
+    def reduce_args(self, emitter, n):
         for i, param in enumerate(self.params):
-            self.args[i].reduce(vstr, n+i)
-            param.type.convert(vstr, n+i, self.args[i].type)
+            self.args[i].reduce(emitter, n+i)
+            param.type.convert(emitter, n+i, self.args[i].type)
         for i, arg in enumerate(self.args[len(self.params):]):
-            arg.reduce(vstr, len(self.params)+n+i)
+            arg.reduce(emitter, len(self.params)+n+i)
         if n > 0:
             for i, arg in enumerate(self.args[:4]):
-                vstr.binary(Op.MOV, arg.width, Reg(i), Reg(n+i))
+                emitter.binary(Op.MOV, arg.width, Reg(i), Reg(n+i))
         for i, arg in reversed(list(enumerate(self.args[4:]))):
-            vstr.push(Size.WORD, Reg(n+4+i)) #TODO test
-    def adjust_stack(self, vstr):
+            emitter.push([Reg(n+4+i)]) #TODO test
+    def adjust_stack(self, emitter):
         if len(self.args) > 4:
-            vstr.binary(Op.ADD, Size.WORD, Reg.SP, len(self.args[4:]) * Size.WORD) #TODO test
-    def reduce(self, vstr, n):
-        self.reduce_args(vstr, n)
-        self.func.call(vstr, n if n else min(4, len(self.args)))
-        self.adjust_stack(vstr)
+            emitter.binary(Op.ADD, Size.WORD, Reg.SP, len(self.args[4:]) * Size.WORD) #TODO test
+    def reduce(self, emitter, n):
+        self.reduce_args(emitter, n)
+        self.func.call(emitter, n if n else min(4, len(self.args)))
+        self.adjust_stack(emitter)
         if n > 0 and self.width:
-            vstr.binary(Op.MOV, Size.WORD, Reg(n), Reg.A)
+            emitter.binary(Op.MOV, Size.WORD, Reg(n), Reg.A)
         return Reg(n)
-    def generate(self, vstr, n):
-        self.reduce_args(vstr, n*self.soft_calls())
-        self.func.call(vstr, n)
-        self.adjust_stack(vstr)
+    def generate(self, emitter, n):
+        self.reduce_args(emitter, n*self.soft_calls())
+        self.func.call(emitter, n)
+        self.adjust_stack(emitter)
 

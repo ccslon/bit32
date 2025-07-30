@@ -332,8 +332,4 @@ class CPreProcessor(Parser):
     def peek_defined(self):
         token = self.tokens[self.index]
         return token.type == 'name' and token.lexeme in self.defined and self.if_start is None
-
-if __name__ == '__main__':
-    p = CPreProcessor()
-    p.process('c/preprocA.c')
-    print('||||||||||||||||\n', p.output(), '\b\n||||||||||||||||')
+    
