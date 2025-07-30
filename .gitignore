@@ -1,8 +1,8 @@
 docs/
 __pycache__/
 bkp/
-c/
 std/*.s
+cprograms/*.s
 *.bit32
 *.pyc
 asmlog.txt

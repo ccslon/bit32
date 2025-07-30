@@ -133,5 +133,5 @@ class TestCompiler(TestCase):
     def test_floats(self):
         self.code_eq_asm('floats')
 
-# if __name__ == '__main__':
-main()
+if __name__ == '__main__':
+    main()

@@ -13,8 +13,8 @@ if __name__ == '__main__':
     cov.start()
     cov.exclude(r'\.error')
     
-    import test_cc
-    unittest.main(module=test_cc)
+    import testcc
+    unittest.main(module=testcc)
     
     cov.stop()
     cov.save()
