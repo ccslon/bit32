@@ -7,6 +7,7 @@ Created on Sat Sep  7 01:02:16 2024
 
 from enum import Enum
 from bit32 import Reg, Size, Op
+import bit32
 
 class Code(Enum):
     JUMP = 0
@@ -36,8 +37,8 @@ class Code(Enum):
 [x] vstr -> emit
 [x] jump to next
 [] object output
-[] real case?
 [] const eval
+[] real case?
 '''
 
 class Object:
@@ -89,6 +90,8 @@ class CMov(Instruction):
         self.value = value
     def display(self):
         return f'MOV{str(self.cond): <3} {self.target}, {self.value}'
+    def serialize(self):
+        return self.labels, bit32.Binary, (self.cond, False, Size.WORD, True, Op.MOV, self.value, self.target)
 
 class Push(Instruction):
     def __init__(self, labels, push):
@@ -111,13 +114,15 @@ class Jump(Instruction):
         self.target = target
     def display(self):
         return f'J{self.cond.jump(): <5} {self.target}'
+    def serialize(self):
+        return self.labels, bit32.Jump, (self.cond, self.target)
 
 class Call(Instruction):
     def __init__(self, labels, target):
         super().__init__(labels, Code.CALL)
         self.target = target
     def max_reg(self):
-        if self.target is isinstance(self.target, Reg):
+        if isinstance(self.target, Reg):
             return self.target
         return 0
     def display(self):
@@ -377,6 +382,7 @@ class Emitter:
             .Ln: ...
             '''
             if inst1.code == Code.JUMP and inst1.target in inst2.labels:
+                inst2.labels += inst1.labels
                 del self.instructions[i]
                 continue
             i += 1

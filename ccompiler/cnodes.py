@@ -12,10 +12,6 @@ class Frame(UserDict):
     def __init__(self):
         super().__init__()
         self.size = 0
-    def add(self, var_type, ctype, name):
-        self[name.lexeme] = var = var_type(ctype, name, self.size)
-        self.size += ctype.size
-        return var
     def __setitem__(self, name, obj):
         obj.offset = self.size
         self.size += obj.type.size
@@ -199,5 +195,5 @@ class Translation(UserList, CNode):
         emitter = Emitter()
         for trans in self:
             trans.glob_generate(emitter)
-        # emitter.optimize()
+        emitter.optimize()
         return str(emitter)
