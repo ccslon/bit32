@@ -4,7 +4,6 @@ get_name:
   ST     [SP, 0], A ; cat
   LD     A, [SP, 0] ; cat
   LD     A, [A, 0] ; .name
-  JMP    .L0
 .L0:
   ADD    SP, 4
   RET
@@ -15,7 +14,6 @@ sqr:
   LD     A, [SP, 0] ; n
   LD     B, [SP, 0] ; n
   MUL    A, B
-  JMP    .L1
 .L1:
   ADD    SP, 4
   POP    B
@@ -48,7 +46,6 @@ sum:
   JMP    .L3
 .L5:
   LD     B, [SP, 8] ; s
-  JMP    .L2
 .L2:
   MOV    A, B
   ADD    SP, 16
@@ -71,7 +68,6 @@ main:
   CALL   sum
   ST     [SP, 16], A ; n
   MOV    C, 0
-  JMP    .L6
 .L6:
   MOV    A, C
   ADD    SP, 20

@@ -29,7 +29,6 @@ sumfs:
   JMP    .L1
 .L3:
   LD     B, [SP, 8] ; s
-  JMP    .L0
 .L0:
   MOV    A, B
   ADD    SP, 16
@@ -41,7 +40,6 @@ sqr:
   LD     A, [SP, 0] ; n
   LD     B, [SP, 0] ; n
   MUL    A, B
-  JMP    .L4
 .L4:
   ADD    SP, 4
   POP    B
@@ -74,7 +72,6 @@ sum:
   JMP    .L6
 .L8:
   LD     B, [SP, 8] ; sum
-  JMP    .L5
 .L5:
   MOV    A, B
   ADD    SP, 16
@@ -101,7 +98,6 @@ main:
   MOV    B, D
   CALL   sum
   MOV    C, A
-  JMP    .L9
 .L9:
   MOV    A, C
   ADD    SP, 20

@@ -7,7 +7,6 @@ get:
   LD     B, [SP, 4] ; i
   MUL    B, 4
   LD     A, [A, B]
-  JMP    .L0
 .L0:
   ADD    SP, 8
   RET
@@ -30,7 +29,6 @@ getchar:
   LD     A, [SP, 0] ; c
   LD     B, [SP, 4] ; i
   LD.B   A, [A, B]
-  JMP    .L1
 .L1:
   ADD    SP, 8
   RET
@@ -53,7 +51,6 @@ getarray:
   LD     B, [SP, 0] ; i
   MUL    B, 4
   LD     A, [A, B]
-  JMP    .L2
 .L2:
   ADD    SP, 4
   POP    B
@@ -79,7 +76,6 @@ getstack:
   LD     B, [SP, 0] ; i
   MUL    B, 4
   LD     A, [A, B]
-  JMP    .L3
 .L3:
   ADD    SP, 44
   POP    B

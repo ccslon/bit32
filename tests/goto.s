@@ -13,7 +13,6 @@ foo:
   ST     [SP, 0], A ; bar
 foo_baz:
   LD     A, [SP, 0] ; bar
-  JMP    .L0
 .L0:
   ADD    SP, 4
   RET

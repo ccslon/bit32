@@ -7,7 +7,6 @@ div:
   MOV    A, 4
   ST     [SP, 12], A ; ans
   ADD    A, SP, 8 ; ans
-  JMP    .L0
 .L0:
   ADD    SP, 16
   RET

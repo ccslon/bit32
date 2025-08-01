@@ -27,7 +27,6 @@ intToken:
   LD     A, [SP, 0] ; num
   ST     [SP, 5], A ; token
   ADD    A, SP, 4 ; token
-  JMP    .L0
 .L0:
   ADD    SP, 9
   RET
@@ -39,7 +38,6 @@ strToken:
   LD     A, [SP, 0] ; str
   ST     [SP, 5], A ; token
   ADD    A, SP, 4 ; token
-  JMP    .L1
 .L1:
   ADD    SP, 9
   RET
@@ -51,7 +49,6 @@ charToken:
   LD.B   A, [SP, 0] ; c
   ST.B   [SP, 2], A ; token
   ADD    A, SP, 1 ; token
-  JMP    .L2
 .L2:
   ADD    SP, 6
   RET
@@ -126,7 +123,6 @@ getp1:
   ST     [SP, 0], A ; s
   LD     A, [SP, 0] ; s
   LD.H   A, [A]
-  JMP    .L9
 .L9:
   ADD    SP, 4
   RET
@@ -135,35 +131,30 @@ getp2:
   ST     [SP, 0], A ; s
   LD     A, [SP, 0] ; s
   LD.H   A, [A, 0] ; .num
-  JMP    .L10
 .L10:
   ADD    SP, 4
   RET
 gets1:
   SUB    SP, 2
   LD.H   A, [SP, 0] ; s
-  JMP    .L11
 .L11:
   ADD    SP, 2
   RET
 gets2:
   SUB    SP, 2
   LD.H   A, [SP, 0] ; box
-  JMP    .L12
 .L12:
   ADD    SP, 2
   RET
 geta1:
   SUB    SP, 10
   LD.H   A, [SP, 6] ; foo
-  JMP    .L13
 .L13:
   ADD    SP, 10
   RET
 geta2:
   SUB    SP, 10
   LD.H   A, [SP, 6] ; boxes
-  JMP    .L14
 .L14:
   ADD    SP, 10
   RET
@@ -171,7 +162,6 @@ getp3:
   SUB    SP, 20
   LD     A, [SP, 12] ; foo
   LD.H   A, [A]
-  JMP    .L15
 .L15:
   ADD    SP, 20
   RET
@@ -179,7 +169,6 @@ getp:
   SUB    SP, 20
   LD     A, [SP, 12] ; boxes
   LD.H   A, [A, 0] ; .num
-  JMP    .L16
 .L16:
   ADD    SP, 20
   RET

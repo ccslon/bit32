@@ -22,7 +22,6 @@ fib:
   SUB    A, C, 2
   CALL   fib
   ADD    B, A
-  JMP    .L0
 .L0:
   MOV    A, B
   ADD    SP, 4
@@ -52,7 +51,6 @@ fib2:
   SUB    A, C, 2
   CALL   fib
   ADD    B, A
-  JMP    .L4
 .L6:
 .L4:
   MOV    A, B

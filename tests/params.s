@@ -1,13 +1,11 @@
 params0:
   MOV    A, 0
-  JMP    .L0
 .L0:
   RET
 params1:
   SUB    SP, 4
   ST     [SP, 0], A ; foo
   LD     A, [SP, 0] ; foo
-  JMP    .L1
 .L1:
   ADD    SP, 4
   RET
@@ -18,7 +16,6 @@ params2:
   LD     A, [SP, 0] ; foo
   LD     B, [SP, 4] ; bar
   ADD    A, B
-  JMP    .L2
 .L2:
   ADD    SP, 8
   RET
@@ -32,7 +29,6 @@ params3:
   ADD    A, B
   LD     B, [SP, 8] ; baz
   ADD    A, B
-  JMP    .L3
 .L3:
   ADD    SP, 12
   RET
@@ -49,7 +45,6 @@ params4:
   ADD    A, B
   LD     B, [SP, 12] ; bif
   ADD    A, B
-  JMP    .L4
 .L4:
   ADD    SP, 16
   RET
@@ -70,7 +65,6 @@ params5:
   ADD    A, B
   LD     B, [SP, 20] ; e
   ADD    A, B
-  JMP    .L5
 .L5:
   ADD    SP, 20
   RET
@@ -95,7 +89,6 @@ params6:
   ADD    A, B
   LD     B, [SP, 20] ; f
   ADD    A, B
-  JMP    .L6
 .L6:
   ADD    SP, 16
   RET

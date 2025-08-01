@@ -13,7 +13,6 @@ fact:
   SUB    A, C, 1
   CALL   fact
   MUL    B, A
-  JMP    .L0
 .L0:
   MOV    A, B
   ADD    SP, 4

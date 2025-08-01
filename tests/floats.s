@@ -6,7 +6,6 @@ foo:
   LD     A, [SP, 0] ; a
   LD     B, [SP, 4] ; b
   ADDF   A, B
-  JMP    .L0
 .L0:
   ADD    SP, 8
   RET
@@ -24,7 +23,6 @@ half1:
   MOV    A, 1
   DIV    A, 2
   ITF    A, A
-  JMP    .L1
 .L1:
   RET
 half2:
@@ -32,7 +30,6 @@ half2:
   LDI    A, 1065353216
   ITF    B, 2
   DIVF   A, B
-  JMP    .L2
 .L2:
   POP    B
   RET
@@ -41,7 +38,6 @@ half3:
   ITF    A, 1
   ITF    B, 2
   DIVF   A, B
-  JMP    .L3
 .L3:
   POP    B
   RET

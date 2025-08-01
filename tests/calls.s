@@ -5,7 +5,6 @@ baz:
   LD     A, [SP, 0] ; y
   LD     B, [SP, 4] ; z
   MUL    A, B
-  JMP    .L0
 .L0:
   ADD    SP, 8
   RET
@@ -16,7 +15,6 @@ bar:
   LD     A, [SP, 0] ; x
   LD     B, [SP, 4] ; y
   MUL    A, B
-  JMP    .L1
 .L1:
   ADD    SP, 8
   RET
@@ -38,7 +36,6 @@ foo:
   MOV    B, E
   CALL   baz
   ADD    C, A
-  JMP    .L2
 .L2:
   MOV    A, C
   ADD    SP, 12

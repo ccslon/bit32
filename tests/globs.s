@@ -65,7 +65,6 @@ main:
   LD     A, [SP, 0] ; cat1
   CALL   print_cat
   MOV    B, 0
-  JMP    .L0
 .L0:
   MOV    A, B
   ADD    SP, 4
