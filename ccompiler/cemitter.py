@@ -190,12 +190,12 @@ class Load(Instruction):
         return max(self.target, Reg.max_reg(self.base))
     def display(self):
         if self.code == Code.STORE:
-            return 'ST{: <4} [{}{}], {}{}'.format(self.size,
+            return 'ST{: <4} [{}{}], {}{}'.format(str(self.size),
                                                   self.base.name,
                                                   f', {self.offset}' if self.offset is not None else '',
                                                   self.target.name,
                                                   f' ; {self.var}' if self.var else '')
-        return 'LD{: <4} {}, [{}{}]{}'.format(self.size,
+        return 'LD{: <4} {}, [{}{}]{}'.format(str(self.size),
                                               self.target.name,
                                               self.base.name,
                                               f', {self.offset}' if self.offset is not None else '',
@@ -352,8 +352,7 @@ class Emitter:
                                                         inst1.base,
                                                         inst1.offset+inst2.source,
                                                         inst1.var)]
-                    continue
-                    
+                    continue                    
                 elif inst2.code in [Code.LOAD, Code.STORE] and inst1.target == inst2.base:
                     '''
                     ADD A, B, n
