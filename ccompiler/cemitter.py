@@ -401,6 +401,8 @@ class Emitter:
         labels, body = self.body
         if body:
             body[0].labels += self.labels
+        else:
+            labels += self.labels
         self.instructions += body
         self.labels = labels
 

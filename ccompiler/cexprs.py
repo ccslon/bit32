@@ -40,7 +40,7 @@ class Glob(Var):
 class NumberBase(Const):
     def __init__(self, token):
         super().__init__(Int(), token)
-    def data(self, emitter):
+    def data(self, _):
         return self.value
     def reduce(self, emitter, n):
         if 0 <= self.value < 256:
@@ -97,7 +97,7 @@ class Decimal(Const):
     def __init__(self, token):
         super().__init__(Float(), token)
         self.value = itf(token.lexeme)
-    def data(self, emitter):
+    def data(self, _):
         return self.value
     def reduce(self, emitter, n):
         emitter.imm(self.width, Reg(n), self.value)
@@ -111,6 +111,7 @@ class NegDecimal(Decimal):
 class Character(Const):
     def __init__(self, token):
         super().__init__(Char(), token)
+        self.value = ord(token.lexeme.strip('\''))
     def data(self, _):
         return self.token.lexeme
     def reduce(self, emitter, n):

@@ -122,7 +122,7 @@ class FuncDefn(CNode):
         # peephole optimize
         emitter.optimize_body()        
         # find max register used in body
-        max_reg = Reg.A
+        max_reg = -1
         for inst in emitter.instructions:
             max_reg = max(max_reg, inst.max_reg())
             
