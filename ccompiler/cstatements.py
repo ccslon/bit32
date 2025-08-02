@@ -52,27 +52,48 @@ class Switch(Statement):
         m = n*self.test.soft_calls()
         self.test.reduce(emitter, m)
         labels = []
+        min_case = min(case.const.value for case in self.cases)
+        cases = sorted(case.const.value - min_case for case in self.cases)
         '''
-        if number of cases > 5
-        and range of cases / range of cases > threshhold (say 0.75)
-        create jump table
-        default at beginning jump if test > max case
+        It takes 8 clock cycles for the O(1) method. It takes 8 clock cycles
+        for the regular method for 4 cases. Therefore, O(1) method is only
+        considered if there are more than 4 cases
         '''
-        for case in self.cases:
-            labels.append(emitter.next_label())
-            emitter.binary(Op.CMP, self.test.width, Reg(m), case.const.reduce_num(emitter, m+1))
-            emitter.jump(Cond.EQ, labels[-1])
-        if self.default:
+        if len(cases) > 4 and len(cases) / cases[-1] > 0.5:
+            table = emitter.next_label()
+            jumps = {case:emitter.next_label() for case in cases}            
             default = emitter.next_label()
-            emitter.jump(Cond.AL, default)
-        else:
-            emitter.jump(Cond.AL, emitter.loop_tail())
-        for i, case in enumerate(self.cases):
-            emitter.append_label(labels[i])
-            case.block.generate(emitter, n)
-        if self.default:
+            emitter.datas(table, [(Size.WORD, jumps.get(c, default)) for c in range(cases[-1] + 1)])            
+            emitter.binary(Op.SUB, self.test.width, Reg(m), min(self.cases, key=lambda c: c.const.value).const.data(emitter))
+            emitter.binary(Op.CMP, self.test.width, Reg(m), max(self.cases, key=lambda c: c.const.value).const.data(emitter))
+            emitter.jump(Cond.HI, default)
+            emitter.load_glob(Reg(m+1), table)
+            emitter.binary(Op.SHL, Size.WORD, Reg(m), 2)
+            emitter.load(Size.WORD, Reg(m), Reg(m+1), Reg(m))
+            emitter.jump(Cond.AL, Reg(m))
+            for case in self.cases:
+                emitter.append_label(jumps[case.const.value - min_case])
+                case.block.generate(emitter, n)
             emitter.append_label(default)
-            self.default.generate(emitter, n)
+            if self.default:
+                self.default.generate(emitter, n)
+        else:    
+            labels = []
+            for case in self.cases:
+                labels.append(emitter.next_label())
+                emitter.binary(Op.CMP, self.test.width, Reg(m), case.const.reduce_num(emitter, m+1))
+                emitter.jump(Cond.EQ, labels[-1])
+            if self.default:
+                default = emitter.next_label()
+                emitter.jump(Cond.AL, default)
+            else:
+                emitter.jump(Cond.AL, emitter.loop_tail())
+            for i, case in enumerate(self.cases):
+                emitter.append_label(labels[i])
+                case.block.generate(emitter, n)
+            if self.default:
+                emitter.append_label(default)
+                self.default.generate(emitter, n)
         emitter.append_label(emitter.loop_tail())
         emitter.end_loop()
 

@@ -1,31 +1,31 @@
-#define HANDLE(action) (void handle#action() {})
+#define HANDLE(action) void handle##action() {}
 HANDLE(JUMP)
 HANDLE(LEFT)
 HANDLE(RIGHT)
 HANDLE(FRONT)
 HANDLE(BACK)
 enum Action {
-    LEFT,
-    RIGHT,
-    JUMP,
-    FRONT,
-    BACK
+    LEFT,   //0
+    RIGHT,  //1
+    JUMP,   //2
+    FRONT,  //3
+    BACK    //4
 };
 
-void error(char);
+void error(char*);
 
 void do_action(enum Action action) {
     switch (action) {
-        case FRONT:
+        case FRONT: // 3
             handleFRONT();
             break;
-        case BACK:
+        case BACK: // 4
             handleBACK();
             break;
-        case LEFT:
+        case LEFT: // 0
             handleLEFT();
             break;
-        case RIGHT:
+        case RIGHT: //1
             handleLEFT();
             break;
         default:
@@ -33,13 +33,17 @@ void do_action(enum Action action) {
     }
 }
 
-/*
-L0:
-    .L1
-    .L2
-    
-    .L3
-    .L4
-
-
-*/
+char test_char(char c) {
+    switch (c) {
+        case 'a':
+        case 'b':
+        case 'c':
+            return c + 1;
+        case 'i':
+        case 'j':
+        case 'k':
+            return c + 5;
+        default:
+            return c - 'a' + 'A';
+    }
+}
