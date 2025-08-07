@@ -46,12 +46,12 @@ class NumberBase(Const):
         if 0 <= self.value < 256:
             emitter.binary(Op.MOV, self.width, Reg(n), self.value)
         else:
-            emitter.imm(self.width, Reg(n), self.value)
+            emitter.imm(Reg(n), self.value)
         return Reg(n)
     def reduce_num(self, emitter, n):
         if 0 <= self.value < 256:
             return self.value
-        emitter.imm(self.width, Reg(n), self.value) #TODO test this branch
+        emitter.imm(Reg(n), self.value) #TODO test this branch
         return Reg(n)
     def reduce_subscr(self, emitter, n, size):
         mul = size*self.value
@@ -80,12 +80,12 @@ class NegNumber(Number):
         if 0 <= self.value < 256:
             emitter.binary(Op.MVN, self.width, Reg(n), self.value)
         else:
-            emitter.imm(self.width, Reg(n), negative(-self.value, 32)) #TODO test this branch
+            emitter.imm(Reg(n), negative(-self.value, 32)) #TODO test this branch
         return Reg(n)
     def reduce_num(self, emitter, n):
         if 0 <= self.value <= 128:
             return -self.value
-        emitter.imm(self.width, Reg(n), negative(-self.value, 32)) #TODO test this branch
+        emitter.imm(Reg(n), negative(-self.value, 32)) #TODO test this branch
         return Reg(n)
 
 class SizeOf(NumberBase):
@@ -100,7 +100,7 @@ class Decimal(Const):
     def data(self, _):
         return self.value
     def reduce(self, emitter, n):
-        emitter.imm(self.width, Reg(n), self.value)
+        emitter.imm(Reg(n), self.value, self.token.lexeme)
         return Reg(n)
 
 class NegDecimal(Decimal):

@@ -214,10 +214,10 @@ class Float(Bin):
     def itf(self, emitter, n):
         pass
     def reduce_pre(self, emitter, n, op):
-        emitter.imm(self.width, Reg(n+1), itf(1))
+        emitter.imm(Reg(n+1), itf(1))
         emitter.binary(op, self.width, Reg(n), Reg(n+1))
     def reduce_post(self, emitter, n, op):
-        emitter.imm(self.width, Reg(n+2), itf(1))
+        emitter.imm(Reg(n+2), itf(1))
         emitter.ternary(op, self.width, Reg(n+1), Reg(n), Reg(n+2))
     def reduce_binary(self, emitter, n, op, left, right):
         emitter.binary(op, self.width, left.reduce_float(emitter, n), right.reduce_float(emitter, n+1))
