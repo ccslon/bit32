@@ -9,7 +9,7 @@ func:
   ST.B   [SP, 6], A ; c
   MOV.B  A, 'c'
   ST.B   [SP, 7], A ; l
-  LDI    A, 1069547520
+  LDI    A, 1069547520 ; 1.5
   ST     [SP, 8], A ; f
   ADD    SP, 12
   POP    A

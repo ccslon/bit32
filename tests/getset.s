@@ -5,7 +5,7 @@ get:
   ST     [SP, 4], B ; i
   LD     A, [SP, 0] ; g
   LD     B, [SP, 4] ; i
-  MUL    B, 4
+  SHL    B, 2
   LD     A, [A, B]
 .L0:
   ADD    SP, 8
@@ -18,7 +18,7 @@ set:
   LD     A, [SP, 8] ; t
   LD     B, [SP, 0] ; g
   LD     C, [SP, 4] ; i
-  MUL    C, 4
+  SHL    C, 2
   ST     [B, C], A
   ADD    SP, 12
   RET
@@ -49,7 +49,7 @@ getarray:
   ST     [SP, 0], A ; i
   LDI    A, =array
   LD     B, [SP, 0] ; i
-  MUL    B, 4
+  SHL    B, 2
   LD     A, [A, B]
 .L2:
   ADD    SP, 4
@@ -63,7 +63,7 @@ setarray:
   LD     A, [SP, 4] ; t
   LDI    B, =array
   LD     C, [SP, 0] ; i
-  MUL    C, 4
+  SHL    C, 2
   ST     [B, C], A
   ADD    SP, 8
   POP    C
@@ -74,7 +74,7 @@ getstack:
   ST     [SP, 0], A ; i
   ADD    A, SP, 4 ; a
   LD     B, [SP, 0] ; i
-  MUL    B, 4
+  SHL    B, 2
   LD     A, [A, B]
 .L3:
   ADD    SP, 44
@@ -88,7 +88,7 @@ getstack:
   LD     A, [SP, 4] ; t
   ADD    B, SP, 8 ; a
   LD     C, [SP, 0] ; i
-  MUL    C, 4
+  SHL    C, 2
   ST     [B, C], A
 .L4:
   ADD    SP, 48

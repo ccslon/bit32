@@ -9,6 +9,8 @@ from enum import Enum
 from bit32 import Reg, Size, Op
 import bit32
 
+POWERS_OF_2 = {2**n:n for n in range(1, 8+1)}
+
 class Code(Enum):
     JUMP = 0
     UNARY = 1
@@ -38,7 +40,7 @@ class Code(Enum):
 [x] jump to next
 [] object output
 [] const eval
-[] real case?
+[x] real case?
 '''
 
 class Object:
@@ -201,15 +203,17 @@ class Load(Instruction):
                                               f', {self.offset}' if self.offset is not None else '',
                                               f' ; {self.var}' if self.var else '')
 class LoadImm(Instruction):
-    def __init__(self, labels, size, target, value):
+    def __init__(self, labels, target, value, comment):
         super().__init__(labels, Code.IMM)
-        self.size = size
         self.target = target
         self.value = value
+        self.comment = comment
     def max_reg(self):
         return self.target
     def display(self):
-        return f'LDI    {self.target}, {self.value}'
+        return 'LDI    {}, {}{}'.format(self.target,
+                                        self.value,
+                                        f' ; {self.comment}' if self.comment is not None else '')
 
 class LoadGlob(Instruction):
     def __init__(self, labels, target, name):
@@ -257,6 +261,21 @@ class Emitter:
         self.labels = []
 
     def optimize_body(self):
+        i = 0
+        while i < len(self.instructions)-1:
+            #peephole size = 1
+            inst1 = self.instructions[i]
+            if inst1.code == Code.BINARY and not isinstance(inst1.source, Reg) and inst1.source in POWERS_OF_2:
+                if inst1.op == Op.MUL:
+                    inst1.op = Op.SHL
+                    inst1.source = POWERS_OF_2[inst1.source]
+                    continue
+                elif inst1.op == Op.DIV:
+                    inst1.op = Op.SHR
+                    inst1.source = POWERS_OF_2[inst1.source]
+                    continue
+            i += 1
+                
         i = 0
         while i < len(self.instructions)-1:
             #peephole size = 2
@@ -446,8 +465,8 @@ class Emitter:
         self.add(Load(self.labels, Code.LOAD, size, target, base, offset, var))
     def store(self, size, target, base, offset=None, var=None):
         self.add(Load(self.labels, Code.STORE, size, target, base, offset, var))
-    def imm(self, size, target, value):
-        self.add(LoadImm(self.labels, size, target, value))
+    def imm(self, target, value, comment=None):
+        self.add(LoadImm(self.labels, target, value, comment))
     def unary(self, op, size, target):
         self.add(Unary(self.labels, op, size, target))
     def binary(self, op, size, target, source):

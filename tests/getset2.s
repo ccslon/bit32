@@ -6,10 +6,10 @@ get2:
   ST     [SP, 8], C ; j
   LD     A, [SP, 0] ; g
   LD     B, [SP, 4] ; i
-  MUL    B, 4
+  SHL    B, 2
   LD     A, [A, B]
   LD     B, [SP, 8] ; j
-  MUL    B, 4
+  SHL    B, 2
   LD     A, [A, B]
 .L0:
   ADD    SP, 12
@@ -23,10 +23,10 @@ set2:
   LD     A, [SP, 12] ; t
   LD     B, [SP, 0] ; g
   LD     C, [SP, 4] ; i
-  MUL    C, 4
+  SHL    C, 2
   LD     B, [B, C]
   LD     C, [SP, 8] ; j
-  MUL    C, 4
+  SHL    C, 2
   ST     [B, C], A
   ADD    SP, 16
   RET
@@ -37,7 +37,7 @@ getchar2:
   ST     [SP, 8], C ; j
   LD     A, [SP, 0] ; c
   LD     B, [SP, 4] ; i
-  MUL    B, 4
+  SHL    B, 2
   LD     A, [A, B]
   LD     B, [SP, 8] ; j
   LD.B   A, [A, B]
@@ -53,7 +53,7 @@ setchar2:
   LD.B   A, [SP, 12] ; t
   LD     B, [SP, 0] ; c
   LD     C, [SP, 4] ; i
-  MUL    C, 4
+  SHL    C, 2
   LD     B, [B, C]
   LD     C, [SP, 8] ; j
   ST.B   [B, C], A
@@ -68,7 +68,7 @@ getarray2:
   MUL    B, 40
   ADD    A, B
   LD     B, [SP, 4] ; j
-  MUL    B, 4
+  SHL    B, 2
   LD     A, [A, B]
 .L2:
   ADD    SP, 8
@@ -84,7 +84,7 @@ setarray2:
   MUL    C, 40
   ADD    B, C
   LD     C, [SP, 4] ; j
-  MUL    C, 4
+  SHL    C, 2
   ST     [B, C], A
   ADD    SP, 12
   RET
@@ -97,7 +97,7 @@ getstack:
   MUL    B, 20
   ADD    A, B
   LD     B, [SP, 4] ; j
-  MUL    B, 4
+  SHL    B, 2
   LD     A, [A, B]
 .L3:
   ADD    SP, 108
@@ -113,7 +113,7 @@ getstack:
   MUL    C, 20
   ADD    B, C
   LD     C, [SP, 4] ; j
-  MUL    C, 4
+  SHL    C, 2
   ST     [B, C], A
 .L4:
   ADD    SP, 112

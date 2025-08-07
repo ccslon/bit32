@@ -7,7 +7,7 @@ func:
   LD     B, [SP, 0] ; i1
   SUB    A, B
   ST     [SP, 4], A ; i2
-  LDI    A, 1069547520
+  LDI    A, 1069547520 ; 1.5
   ST     [SP, 8], A ; f1
   ITF    A, 1
   LD     B, [SP, 8] ; f1

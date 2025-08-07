@@ -57,12 +57,7 @@ class Expr(CNode):
     def reduce_subscr(self, emitter, n, size):
         self.reduce(emitter, n)
         if size > 1:
-            if size == Size.HALF:
-                emitter.binary(Op.SHL, Size.WORD, Reg(n), 1)
-            elif size == Size.WORD:
-                emitter.binary(Op.SHL, Size.WORD, Reg(n), 2)
-            else:
-                emitter.binary(Op.MUL, Size.WORD, Reg(n), int(size))
+            emitter.binary(Op.MUL, Size.WORD, Reg(n), int(size))
         return Reg(n)
 
 class Var(Expr):    

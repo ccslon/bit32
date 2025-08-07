@@ -5,7 +5,7 @@ printf:
   SUB    SP, 17
   ADD    A, SP, 29 ; format
   MOV    B, 1
-  MUL    B, 4
+  SHL    B, 2
   ADD    A, B
   ST     [SP, 4], A ; ap
   MOV    A, 0

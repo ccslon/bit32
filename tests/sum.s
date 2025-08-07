@@ -17,7 +17,7 @@ sumfs:
   MOV    A, C
   LD     C, [SP, 4] ; f
   LD     D, [SP, 12] ; i
-  MUL    D, 4
+  SHL    D, 2
   LD     C, [C, D]
   CALL   C
   ADD    B, A

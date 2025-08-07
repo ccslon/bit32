@@ -12,22 +12,22 @@ foo:
 func1:
   PUSH   A, B, LR
   SUB    SP, 4
-  LDI    A, 1069547520
+  LDI    A, 1069547520 ; 1.5
   ST     [SP, 0], A ; f
   LD     A, [SP, 0] ; f
-  LDI    B, 3217031168
+  LDI    B, 3217031168 ; 1.5
   CALL   foo
   ADD    SP, 4
   POP    A, B, PC
 half1:
   MOV    A, 1
-  DIV    A, 2
+  SHR    A, 1
   ITF    A, A
 .L1:
   RET
 half2:
   PUSH   B
-  LDI    A, 1065353216
+  LDI    A, 1065353216 ; 1.0
   ITF    B, 2
   DIVF   A, B
 .L2:
@@ -44,7 +44,7 @@ half3:
 func2:
   PUSH   A, B
   SUB    SP, 16
-  LDI    A, 1069547520
+  LDI    A, 1069547520 ; 1.5
   FTI    A, A
   ST     [SP, 4], A ; foo
   LD     A, [SP, 0] ; foo
