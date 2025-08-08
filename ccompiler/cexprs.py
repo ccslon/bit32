@@ -111,7 +111,7 @@ class NegDecimal(Decimal):
 class Character(Const):
     def __init__(self, token):
         super().__init__(Char(), token)
-        self.value = ord(token.lexeme.strip('\''))
+        self.value = ord(unescape(token.lexeme.strip('\'')))
     def data(self, _):
         return self.token.lexeme
     def reduce(self, emitter, n):

@@ -1,7 +1,6 @@
 docs/
 __pycache__/
 bkp/
-std/*.s
 cprograms/*.s
 *.bit32
 *.pyc

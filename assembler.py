@@ -190,6 +190,10 @@ class Assembler:
 
                     elif self.match('jump', 'id'):
                         self.jump(*self.values())
+                        
+                    elif self.match('jump', 'reg'):
+                        cond, reg = self.values()
+                        self.binary(Op.MOV, cond, False, Size.WORD, Reg.PC, reg, False)
 
                     elif self.match('swi', 'id'):
                         self.interrupt(*self.values())
@@ -273,6 +277,7 @@ class Assembler:
                         self.binary(Op.OR, Cond.AL, False, Size.WORD, Reg.SR, Flag.HALT, True)
 
                     else:
+                        print(line)
                         self.error()
 
         return self.inst + self.data
