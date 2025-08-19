@@ -6,7 +6,7 @@ Created on Tue Nov 26 11:14:05 2024
 """
 import os
 import re
-from typing import NamedTuple
+from .clexer import Lex, Token, CLexer
 from .parser import Parser
 '''
 TODO:
@@ -17,67 +17,6 @@ TODO:
     [X] include
     [] ifelse
 '''
-
-CTYPES = {
-    'const','volatile','void',
-    'char','short','int',
-    'long','float','unsigned',
-    'signed','struct','enum','union'
-}
-
-class Token(NamedTuple):
-    type: str
-    lexeme: str
-    line: int
-    def error(self, msg):
-        raise SyntaxError(f'Line {self.line}: {msg}')
-
-class MetaLexer(type):
-    def __init__(self, name, bases, attrs):
-        self.action = {}
-        regex = []
-        for attr in attrs:
-            if attr.startswith('RE_'):
-                name = attr[3:]
-                if callable(attrs[attr]):
-                    pattern = attrs[attr].__doc__
-                    self.action[name] = attrs[attr]
-                else:
-                    pattern = attrs[attr]
-                    self.action[name] = lambda self, match: match
-                regex.append((name, pattern))
-        self.regex = re.compile('|'.join(rf'(?P<{name}>{pattern})' for name, pattern in regex))
-
-class LexerBase(metaclass=MetaLexer):
-    def lex(self, text):
-        self.line = 1
-        return [Token(match.lastgroup, result, self.line) for match in self.regex.finditer(text) if (result := self.action[match.lastgroup](self, match[0])) is not None]
-
-class CLexer(LexerBase):
-    RE_decimal = r'\d+\.\d+'
-    RE_number = r'0x[0-9A-Fa-f]+|0b[01]+|\d+'
-    RE_character = r"'(\\'|\\?[^'])'"
-    def RE_std(self, match):
-        r'<\s*\w+\.h\s*>'
-        return match[1:-1].strip()
-    def RE_string(self, match):
-        r'"(\\"|[^"])*"'
-        return match[1:-1]
-    RE_ctype = rf"\b({'|'.join(CTYPES)})\b"
-    RE_keyword = r'\b(include|define|undef|typedef|static|extern|sizeof|return|if|ifdef|ifndef|else|endif|switch|case|default|while|do|for|break|continue|goto)\b'
-    RE_symbol = r'[#]{2}|[]#;:()[{}]|[+]{2}|--|->|(<<|>>|[+*/%^|&=!<>-])?=|<<|>>|[|]{2}|[&]{2}|[+*/%^|&=!<>?~-]|\.\.\.|\.|,'
-    RE_name = r'[A-Za-z_]\w*'
-    RE_space = r'[ \t]+'
-    def RE_line_splice(self, match):
-        r'\\\s*\n'
-        self.line += 1
-    def RE_new_line(self, match):
-        r'\n'
-        self.line += 1
-        return match
-    def RE_invalid(self, match):
-        r'\S'
-        raise SyntaxError(f'line {self.line}: Invalid symbol "{match}"')
 
 class CPreProcessor(Parser):
 
@@ -97,11 +36,11 @@ class CPreProcessor(Parser):
               |'(' ARG ')'
                }
         '''
-        self.accept('space')
+        self.accept(Lex.SPACE)
         while not self.peek({')',','}):
             if self.peek_defined() and expand:
                 self.expand()
-            elif self.accept('name'):
+            elif self.accept(Lex.NAME):
                 if self.accept('('):
                     if not self.accept(')'):
                         self.arg(expand)
@@ -118,9 +57,9 @@ class CPreProcessor(Parser):
         '''
         PARAM -> name
         '''
-        self.accept('space')
-        name = self.expect('name')
-        self.accept('space')
+        self.accept(Lex.SPACE)
+        name = self.expect(Lex.NAME)
+        self.accept(Lex.SPACE)
         return name.lexeme
 
     def params(self):
@@ -128,7 +67,7 @@ class CPreProcessor(Parser):
         PARAMS -> [PARAM {',' PARAM}]
         '''
         params = {}
-        self.accept('space')
+        self.accept(Lex.SPACE)
         if not self.peek(')'):
             params[self.param()] = True
             while self.accept(','):
@@ -143,9 +82,9 @@ class CPreProcessor(Parser):
             self.tokens[start:self.index] = body
         else:
             args = {}
-            self.accept('space')
+            self.accept(Lex.SPACE)
             self.expect('(')
-            self.accept('space')
+            self.accept(Lex.SPACE)
             if not self.accept(')'):
                 for param, expand in params.items():
                     arg_start = self.index
@@ -156,8 +95,8 @@ class CPreProcessor(Parser):
                     self.expect(',')
             sub = []
             for token in body:
-                if token.type == 'stringize':
-                    sub.append(Token('string',''.join(arg.lexeme for arg in args[token.lexeme]),token.line))
+                if token.type == Lex.STRINGIZE:
+                    sub.append(Token(Lex.STRING,''.join(arg.lexeme for arg in args[token.lexeme]),token.line))
                 elif '##' in token.lexeme:
                     left, right = token.lexeme.split('##')
                     if left in args:
@@ -169,44 +108,44 @@ class CPreProcessor(Parser):
                     sub.extend(args[token.lexeme])
                 else:
                     sub.append(token)
-            if not self.peek('space'):
-                sub.append(Token('space',' ',token.line))
+            if not self.peek(Lex.SPACE):
+                sub.append(Token(Lex.SPACE,' ',token.line))
             self.tokens[start:self.index] = sub
         self.index = start
 
     def directive(self):
         start = self.index
         next(self)
-        self.accept('space')
+        self.accept(Lex.SPACE)
         if self.if_start is None:
             if self.accept('define'):
-                self.expect('space')
-                name = self.expect('name')
+                self.expect(Lex.SPACE)
+                name = self.expect(Lex.NAME)
                 if self.accept('('):
                     params = self.params()
                     self.expect(')')
-                    self.accept('space')
+                    self.accept(Lex.SPACE)
                     body = self.index
                     if self.peek('##'):
                         self.error()
-                    while not self.peek({'new_line','end'}):
+                    while not self.peek({Lex.NEW_LINE,Lex.END}):
                         if self.peek('#'):
                             local_start = self.index
                             next(self)
-                            local = self.expect('name')
+                            local = self.expect(Lex.NAME)
                             if local.lexeme in params:
                                 params[local.lexeme] = False
                             self.tokens[local_start:self.index] = \
-                                [Token('stringize',local.lexeme,local.line)]
+                                [Token(Lex.STRINGIZE,local.lexeme,local.line)]
                             self.index = local_start
                         else:
-                            self.accept('space')
+                            self.accept(Lex.SPACE)
                             local_start = self.index
                             left = next(self)
-                            self.accept('space')
+                            self.accept(Lex.SPACE)
                             if self.accept('##'):
-                                self.accept('space')
-                                if self.peek({'new_line','end'}):
+                                self.accept(Lex.SPACE)
+                                if self.peek({Lex.NEW_LINE,Lex.END}):
                                     self.error()
                                 right = next(self)
                                 if left.lexeme in params:
@@ -218,15 +157,15 @@ class CPreProcessor(Parser):
                                 self.index = local_start
                 else:
                     params = None
-                    self.accept('space')
+                    self.accept(Lex.SPACE)
                     body = self.index
-                    while not self.peek({'new_line','end'}):
+                    while not self.peek({Lex.NEW_LINE,Lex.END}):
                         next(self)
                 self.defined[name.lexeme] = params, self.tokens[body:self.index]
                 del self.tokens[start:self.index]
             elif self.accept('include'):
-                self.accept('space')
-                if self.peek('string'):
+                self.accept(Lex.SPACE)
+                if self.peek(Lex.STRING):
                     file_name = next(self).lexeme
                     file_path = os.path.sep.join([self.path, file_name])
                     if self.original.endswith(file_name):
@@ -235,7 +174,7 @@ class CPreProcessor(Parser):
                         text = file.read()
                     text = self.repl_comments(text)
                     self.tokens[start:self.index] = self.lexer.lex(text)
-                elif self.peek('std'):
+                elif self.peek(Lex.STD):
                     file_name = next(self).lexeme
                     if file_name not in self.std_included:
                         file_path = os.path.sep.join([os.getcwd(), 'ccompiler', 'std', file_name])
@@ -251,15 +190,15 @@ class CPreProcessor(Parser):
                 else:
                     self.error()
             elif self.accept('ifndef'):
-                self.expect('space')
-                if self.expect('name').lexeme in self.defined:
+                self.expect(Lex.SPACE)
+                if self.expect(Lex.NAME).lexeme in self.defined:
                     self.if_start = start
                 del self.tokens[start:self.index]
             elif self.accept('endif'):
                 del self.tokens[start:self.index]
             elif self.accept('undef'):
-                self.expect('space')
-                del self.defined[self.expect('name').lexeme]
+                self.expect(Lex.SPACE)
+                del self.defined[self.expect(Lex.NAME).lexeme]
                 del self.tokens[start:self.index]
             else:
                 del self.tokens[start:self.index]
@@ -279,19 +218,20 @@ class CPreProcessor(Parser):
                   |string string
                    }
         '''
-        while not self.peek('end'):
+        while not self.peek(Lex.END):
             if self.peek('#'):
                 self.directive()
             elif self.peek_defined():
                 self.expand()
-            elif self.peek('string'):
+            elif self.peek(Lex.STRING):
                 start = self.index
                 left = next(self)
-                self.accept('space')
-                if self.peek('string'):
+                self.accept(Lex.SPACE)
+                if self.peek(Lex.STRING):
                     right = next(self)
-                    self.tokens[start:self.index] = \
-                        [Token('string',left.lexeme+right.lexeme,left.line)]
+                    self.tokens[start:self.index] = [Token(Lex.STRING,
+                                                           left.lexeme+right.lexeme,
+                                                           left.line)]
                     self.index = start
             else:
                 next(self)
@@ -315,21 +255,20 @@ class CPreProcessor(Parser):
             self.path = os.path.dirname(os.path.abspath(file.name))
             text = file.read()
         text = self.repl_comments(text)
-        self.parse(self.lexer.lex(text) + [Token('end','',self.lexer.line)])
+        self.parse(self.lexer.lex(text) + [Token(Lex.END,'',self.lexer.line)])
 
     root = program
 
     def stream(self):
-        return [token for token in self.tokens if token.type in \
-                {'decimal','number','character','string','ctype','keyword','symbol','name','end'}]
+        return [token for token in self.tokens if token.type not in {Lex.SPACE, Lex.NEW_LINE}]
 
     def output(self):
-        return ''.join(f'"{token.lexeme}"' if token.type == 'string' else token.lexeme for token in self.tokens)
+        return ''.join(f'"{token.lexeme}"' if token.type == Lex.STRING else token.lexeme for token in self.tokens)
 
     def comment_repl(self, match):
         return ' ' + '\n'*match[0].count('\n')
 
     def peek_defined(self):
         token = self.tokens[self.index]
-        return token.type == 'name' and token.lexeme in self.defined and self.if_start is None
+        return token.type == Lex.NAME and token.lexeme in self.defined and self.if_start is None
     

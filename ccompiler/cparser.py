@@ -7,7 +7,7 @@ Created on Mon Jul  3 19:47:39 2023
 from dataclasses import dataclass
 from copy import copy
 from .parser import Parser
-from .cpreproc import CTYPES
+from .clexer import Lex, CTYPES
 from .cnodes import Frame, Translation, FuncDefn, VarFuncDefn
 from .cexprs import Number, NegNumber, EnumNumber, Decimal, NegDecimal, Character, String
 from .cexprs import Post, UnaryOp, Not, Pre, BinaryOp, Compare, Logic
@@ -110,7 +110,8 @@ class Scope:
 
 class CParser(Parser):
 
-    STATEMENTS = {'{','name','if','*','return','for','while','(','switch','do','++','--','break','continue',';','goto'}
+    STATEMENTS = {'{', Lex.NAME, 'if', '*', 'return', 'for', 'while', '(',
+                  'switch', 'do', '++', '--', 'break', 'continue', ';', 'goto'}
 
     def __init__(self):
         self.globs = {}
@@ -124,7 +125,7 @@ class CParser(Parser):
         self.stack.clear()
         return super().parse(tokens)
 
-    def resolve(self, name: str):
+    def resolve(self, name):
         if name in self.scope.locals:
             return self.scope.locals[name]
         if name in self.stack_params:
@@ -139,15 +140,15 @@ class CParser(Parser):
         '''
         PRIMARY -> name|number|character|string|'(' EXPR ')'
         '''
-        if self.peek('name'):
+        if self.peek(Lex.NAME):
             return self.resolve(next(self).lexeme)
-        if self.peek('decimal'):
+        if self.peek(Lex.DECIMAL):
             return Decimal(next(self))
-        if self.peek('number'):
+        if self.peek(Lex.NUMBER):
             return Number(next(self))
-        if self.peek('character'):
+        if self.peek(Lex.CHARACTER):
             return Character(next(self))
-        if self.peek('string'):
+        if self.peek(Lex.STRING):
             return String(next(self))
         if self.accept('('):
             primary = self.expr()
@@ -176,7 +177,7 @@ class CParser(Parser):
             elif self.accept('.'):
                 if not isinstance(postfix.type, (Struct,Union)):
                     self.error(f'"{postfix.token.lexeme}" is type {postfix.type}')
-                name = self.expect('name')
+                name = self.expect(Lex.NAME)
                 if name.lexeme not in postfix.type:
                     self.error(f'"{name.lexeme}" is not an attribute of {postfix.type}')
                 attr = postfix.type[name.lexeme]
@@ -184,7 +185,7 @@ class CParser(Parser):
             elif self.accept('->'):
                 if not isinstance(postfix.type, Pointer):
                     self.error(f'{postfix.type} is not pointer type')
-                name = self.expect('name')
+                name = self.expect(Lex.NAME)
                 if name.lexeme not in postfix.type.to:
                     self.error(f'"{name.lexeme}" is not an attribute of {postfix.type.to}')
                 attr = postfix.type.to[name.lexeme]
@@ -213,12 +214,12 @@ class CParser(Parser):
         '''
         if self.peek('*'):
             return Deref(next(self), self.cast())
-        if self.peek2('-', 'number'):
-            next(self)
-            return NegNumber(next(self))
-        if self.peek2('-', 'decimal'):
+        if self.peek2('-', Lex.DECIMAL):
             next(self)
             return NegDecimal(next(self))
+        if self.peek2('-', Lex.NUMBER):
+            next(self)
+            return NegNumber(next(self))
         if self.peek({'-','~'}):
             return UnaryOp(next(self), self.cast())
         if self.peek({'++','--'}):
@@ -385,9 +386,9 @@ class CParser(Parser):
         '''
         ENUM -> name ['=' CONST]
         '''
-        name = self.expect('name')
+        name = self.expect(Lex.NAME)
         if self.accept('='):
-            value = Number(self.expect('number')).value #todo
+            value = Number(self.expect(Lex.NUMBER)).value #todo
         if not name.lexeme not in self.scope.enum_consts:
             self.error(f'Redeclaration of enumerator "{name.lexeme}"')
         self.scope.enum_consts[name.lexeme] = EnumNumber(name, value)
@@ -399,7 +400,7 @@ class CParser(Parser):
         '''
         ctype, name = self.declr(ctype)
         if self.accept(':'):
-            self.expect('number')
+            self.expect(Lex.NUMBER)
         if name is None and isinstance(ctype, Union):
             for name, attr in ctype.items():
                 attr.offset = spec.size
@@ -418,13 +419,13 @@ class CParser(Parser):
         '''
         if self.accept('void'):
             spec = Void()
-        elif self.peek('name'):
+        elif self.peek(Lex.NAME):
             token = next(self)
             if token.lexeme not in self.scope.typedefs:
                 self.error(f'typedef "{token.lexeme}" not found')
             spec = copy(self.scope.typedefs[token.lexeme])
         elif self.accept('struct'):
-            name = self.accept('name')
+            name = self.accept(Lex.NAME)
             if name:
                 if name.lexeme not in self.scope.structs:
                     self.scope.structs[name.lexeme] = Struct(name)
@@ -439,7 +440,7 @@ class CParser(Parser):
                         self.attr(spec, qual)
                     self.expect(';')
         elif self.accept('union'):
-            name = self.accept('name')
+            name = self.accept(Lex.NAME)
             if name:
                 if name.lexeme not in self.scope.unions:
                     self.scope.unions[name.lexeme] = Union(name)
@@ -454,7 +455,7 @@ class CParser(Parser):
                         self.attr(spec, qual)
                     self.expect(';')
         elif self.accept('enum'):
-            name = self.accept('name')
+            name = self.accept(Lex.NAME)
             if self.accept('{'):
                 if name:
                     self.scope.enums.append(name.lexeme)
@@ -535,14 +536,14 @@ class CParser(Parser):
             name = self._declr(types)
             self.expect(')')
         else:
-            name = self.accept('name')
+            name = self.accept(Lex.NAME)
         while self.peek({'(','['}):
             if self.accept('('):
                 params, variable = self.params()
                 types.append((Func, (params, variable)))
                 self.expect(')')
             elif self.accept('['):
-                types.append((Array, (Number(next(self)) if self.peek('number') else None,)))
+                types.append((Array, (Number(next(self)) if self.peek(Lex.NUMBER) else None,)))
                 self.expect(']')
         return name
 
@@ -565,7 +566,7 @@ class CParser(Parser):
                     self.error('Cannot list-assign to scalar')
                 init_declr = InitListAssign(token, declr, self.init_list(parser))
                 self.expect('}')
-            elif isinstance(declr.type, Array) and self.peek('string'):
+            elif isinstance(declr.type, Array) and self.peek(Lex.STRING):
                 init_declr = InitArrayString(token, declr, String(next(self)))
             else:
                 init_declr = InitAssign(token, declr, parser())
@@ -755,10 +756,10 @@ class CParser(Parser):
             statement = Continue()
             self.expect(';')
         elif self.accept('goto'):
-            target = self.expect('name').lexeme
+            target = self.expect(Lex.NAME).lexeme
             statement = Goto(f'{self.func.name}_{target}')
             self.expect(';')
-        elif self.peek2('name',':'):
+        elif self.peek2(Lex.NAME,':'):
             label = next(self).lexeme
             statement = Label(f'{self.func.name}_{label}')
             next(self)
@@ -826,7 +827,6 @@ class CParser(Parser):
                     self.end_scope()
                     ext_decln.append(defn(ctype, name, compound, self.func))
                     self.expect('}')
-                    return ext_decln
                 else: #DECLN
                     ext_decln.append(self.glob_init_declr(ctype, name))
                     while self.accept(','):
@@ -840,7 +840,7 @@ class CParser(Parser):
         TRANS_UNIT -> {EXT_DECLN}
         '''
         translation = Translation()
-        while not self.peek('end'):
+        while not self.peek(Lex.END):
             translation.extend(self.ext_decln())
         return translation
 

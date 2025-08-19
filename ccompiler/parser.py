@@ -4,6 +4,7 @@ Created on Wed Mar 26 14:00:23 2025
 
 @author: Colin
 """
+from .clexer import Lex
 
 class Parser:        
 
@@ -20,7 +21,7 @@ class Parser:
         # for i, t in enumerate(self.tokens): print(i, t.type, t.lexeme)
         self.index = 0
         root = self.root()
-        self.expect('end')
+        self.expect(Lex.END)
         return root
         
     def __next__(self):
@@ -31,8 +32,13 @@ class Parser:
     def peek(self, peek, offset=0):
         token = self.tokens[self.index+offset]
         if isinstance(peek, set):
-            return token.type in peek or token.type in {'ctype','keyword','symbol','name'} and token.lexeme in peek
-        return token.type == peek or token.type in {'ctype','keyword','symbol'} and token.lexeme == peek
+            return token.type in peek or token.type in {Lex.CTYPE,
+                                                        Lex.KEYWORD,
+                                                        Lex.SYMBOL,
+                                                        Lex.NAME} and token.lexeme in peek
+        return token.type == peek or token.type in {Lex.CTYPE,
+                                                    Lex.KEYWORD,
+                                                    Lex.SYMBOL} and token.lexeme == peek
     
     def peek2(self, first, second):
         return self.peek(first) and self.peek(second, offset=1)
