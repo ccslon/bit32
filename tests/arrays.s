@@ -15,7 +15,8 @@ stack_int:
   MOV    B, 3
   ST     [A, 8], B
   ADD    A, SP, 12 ; ints2d
-  ADD    C, A, 0
+  ADD    B, A, 0
+  MOV    C, 1
   ST     [B, 0], C
   MOV    C, 2
   ST     [B, 4], C

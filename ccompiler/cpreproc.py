@@ -95,7 +95,7 @@ class CPreProcessor(Parser):
                     self.expect(',')
             sub = []
             for token in body:
-                if token.type == Lex.STRINGIZE:
+                if token.type is Lex.STRINGIZE:
                     sub.append(Token(Lex.STRING,''.join(arg.lexeme for arg in args[token.lexeme]),token.line))
                 elif '##' in token.lexeme:
                     left, right = token.lexeme.split('##')
@@ -263,12 +263,12 @@ class CPreProcessor(Parser):
         return [token for token in self.tokens if token.type not in {Lex.SPACE, Lex.NEW_LINE}]
 
     def output(self):
-        return ''.join(f'"{token.lexeme}"' if token.type == Lex.STRING else token.lexeme for token in self.tokens)
+        return ''.join(f'"{token.lexeme}"' if token.type is Lex.STRING else token.lexeme for token in self.tokens)
 
     def comment_repl(self, match):
         return ' ' + '\n'*match[0].count('\n')
 
     def peek_defined(self):
         token = self.tokens[self.index]
-        return token.type == Lex.NAME and token.lexeme in self.defined and self.if_start is None
+        return token.type is Lex.NAME and token.lexeme in self.defined and self.if_start is None
     

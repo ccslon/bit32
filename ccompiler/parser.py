@@ -36,7 +36,7 @@ class Parser:
                                                         Lex.KEYWORD,
                                                         Lex.SYMBOL,
                                                         Lex.NAME} and token.lexeme in peek
-        return token.type == peek or token.type in {Lex.CTYPE,
+        return token.type is peek or token.type in {Lex.CTYPE,
                                                     Lex.KEYWORD,
                                                     Lex.SYMBOL} and token.lexeme == peek
     

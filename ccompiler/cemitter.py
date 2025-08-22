@@ -26,7 +26,7 @@ class Code(Enum):
     POP = 11
     ADDR = 12
     CMOV = 13
-    
+
 '''
 [x] add CMovs
 [x] finish data portion
@@ -191,7 +191,7 @@ class Load(Instruction):
             return max(self.target, Reg.max_reg(self.base), self.offset)
         return max(self.target, Reg.max_reg(self.base))
     def display(self):
-        if self.code == Code.STORE:
+        if self.code is Code.STORE:
             return 'ST{: <4} [{}{}], {}{}'.format(str(self.size),
                                                   self.base.name,
                                                   f', {self.offset}' if self.offset is not None else '',
@@ -265,27 +265,31 @@ class Emitter:
         while i < len(self.instructions)-1:
             #peephole size = 1
             inst1 = self.instructions[i]
-            if inst1.code == Code.BINARY and not isinstance(inst1.source, Reg) and inst1.source in POWERS_OF_2:
-                if inst1.op == Op.MUL:
+            if inst1.code is Code.BINARY and not isinstance(inst1.source, Reg) and inst1.source in POWERS_OF_2:
+                if inst1.op is Op.MUL:
                     inst1.op = Op.SHL
                     inst1.source = POWERS_OF_2[inst1.source]
                     continue
-                elif inst1.op == Op.DIV:
+                if inst1.op is Op.DIV:
                     inst1.op = Op.SHR
                     inst1.source = POWERS_OF_2[inst1.source]
                     continue
+                if inst1.op is Op.MOD:
+                    inst1.op = Op.AND
+                    inst1.source -= 1
+                    continue
             i += 1
-                
+
         i = 0
         while i < len(self.instructions)-1:
             #peephole size = 2
             #get labels and code
             inst1 = self.instructions[i]
             inst2 = self.instructions[i+1]
-            
-            if inst1.code == Code.BINARY:
-                if inst2.code == Code.BINARY:
-                    if inst1.op == Op.MOV and inst1.target == inst2.source:
+
+            if inst1.code is Code.BINARY:
+                if inst2.code is Code.BINARY:
+                    if inst1.op is Op.MOV and inst1.target is inst2.source:
                         '''
                         MOV A, B
                         ADD C, A
@@ -296,8 +300,8 @@ class Emitter:
                                                            inst2.size,
                                                            inst2.target,
                                                            inst1.source)]
-                        continue                                           
-                    elif inst2.op == Op.MOV and inst1.target == inst2.source:
+                        continue
+                    if inst2.op is Op.MOV and inst1.target is inst2.source:
                         '''
                         ADD A, B
                         MOV C, A
@@ -310,13 +314,13 @@ class Emitter:
                                                             inst1.target,
                                                             inst1.source)]
                         continue
-                elif inst2.code == Code.TERNARY and inst1.op == Op.MOV:
+                elif inst2.code is Code.TERNARY and inst1.op is Op.MOV:
                     '''
                     MOV A, B
                     ADD C, A, D
                     = ADD C, B, D
                     '''
-                    if inst1.target == inst2.source:
+                    if inst1.target is inst2.source:
                         self.instructions[i:i+2] = [Ternary(inst1.labels+inst2.labels,
                                                             inst2.op,
                                                             inst2.size,
@@ -324,7 +328,7 @@ class Emitter:
                                                             inst1.source,
                                                             inst2.source2)]
                         continue
-                    elif inst1.target == inst2.source2:
+                    if inst1.target is inst2.source2:
                         '''
                         MOV A, B
                         ADD C, D, A
@@ -337,7 +341,7 @@ class Emitter:
                                                             inst2.source,
                                                             inst1.source2)]
                         continue
-            elif inst1.code == Code.TERNARY and inst2.code == Code.BINARY and inst2.op == Op.MOV and inst1.target == inst2.source:
+            elif inst1.code is Code.TERNARY and inst2.code is Code.BINARY and inst2.op is Op.MOV and inst1.target is inst2.source:
                 '''
                 ADD A, B, C
                 MOV D, A
@@ -349,9 +353,9 @@ class Emitter:
                                                     inst2.target,
                                                     inst1.source,
                                                     inst1.source2)]
-                continue                
-            elif inst1.code == Code.ADDR:
-                if inst2.code == Code.ADDR and inst1.target == inst2.base:
+                continue
+            elif inst1.code is Code.ADDR:
+                if inst2.code is Code.ADDR and inst1.target is inst2.base:
                     '''
                     ADD A, B, n
                     ADD C, A, m
@@ -364,15 +368,15 @@ class Emitter:
                                                         inst1.offset+inst2.offset,
                                                         inst1.var)]
                     continue
-                elif inst2.code == Code.BINARY and inst1.target == inst2.target and isinstance(inst2.source, int):
+                if inst2.code is Code.BINARY and inst1.target is inst2.target and not isinstance(inst2.source, Reg):
                     self.instructions[i:i+2] = [Address(inst1.labels+inst2.labels,
                                                         Op.ADD,
                                                         inst1.target,
                                                         inst1.base,
                                                         inst1.offset+inst2.source,
                                                         inst1.var)]
-                    continue                    
-                elif inst2.code in [Code.LOAD, Code.STORE] and inst1.target == inst2.base:
+                    continue
+                if inst2.code in [Code.LOAD, Code.STORE] and inst1.target is inst2.base:
                     '''
                     ADD A, B, n
                     LD C, [A, m]
@@ -399,7 +403,7 @@ class Emitter:
             JMP .Ln
             .Ln: ...
             '''
-            if inst1.code == Code.JUMP and inst1.target in inst2.labels:
+            if inst1.code is Code.JUMP and inst1.target in inst2.labels:
                 inst2.labels += inst1.labels
                 del self.instructions[i]
                 continue
@@ -427,7 +431,7 @@ class Emitter:
 
     def string_array(self, name, string):
         self.data.append(String(name, string))
-        
+
     def string_ptr(self, string):
         if string not in self.strings:
             self.strings.append(string)
@@ -438,10 +442,10 @@ class Emitter:
         self.data.append(Space(name, size))
     def glob(self, name, size, value):
         self.data.append(Glob(name, size, value))
-        
+
     def datas(self, label, datas):
         size, data = datas[0]
-        self.data.append(Data([label], size, data))        
+        self.data.append(Data([label], size, data))
         for size, data in datas[1:]:
             self.data.append(Data([], size, data))
 
@@ -458,7 +462,7 @@ class Emitter:
     def load_glob(self, target, name):
         self.add(LoadGlob(self.labels, target, name))
     def attr(self, base, var):
-        self.address(base, base, var.offset, var.name())        
+        self.address(base, base, var.offset, var.name())
     def address(self, target, base, offset, var=None):
         self.add(Address(self.labels, Op.ADD, target, base, offset, var))
     def load(self, size, target, base, offset=None, var=None):
@@ -477,7 +481,7 @@ class Emitter:
         self.add(Jump(self.labels, cond, target))
     def mov(self, cond, target, value):
         self.add(CMov(self.labels, cond, target, value))
-        
+
     def __str__(self):
         return '\n'.join(map(str, self.data+self.instructions))
 
