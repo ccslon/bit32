@@ -6,7 +6,7 @@ Created on Sat Sep  7 01:02:16 2024
 """
 
 from enum import Enum
-from bit32 import Reg, Size, Op
+from bit32 import Reg, Size, Op, Cond
 import bit32
 
 POWERS_OF_2 = {2**n:n for n in range(1, 8+1)}
@@ -101,6 +101,9 @@ class Push(Instruction):
         self.push = push
     def display(self):
         return f'PUSH   {", ".join(reg.name for reg in self.push)}'
+    def object(self, objects):
+        objects.append((self.labels, bit32.PushPop, (Cond.AL, Size.WORD, True, self.push[0])))
+        objects.extend(([], bit32.PushPop, (Cond.AL, Size.WORD, True, push)) for push in self.push[1:])
 
 class Pop(Instruction):
     def __init__(self, labels, pop):
@@ -108,6 +111,9 @@ class Pop(Instruction):
         self.pop = pop
     def display(self):
         return f'POP    {", ".join(reg.name for reg in self.pop)}'
+    def object(self, objects):
+        objects.append((self.labels, bit32.PushPop, (Cond.AL, Size.WORD, False, self.pop[0])))
+        objects.extend(([], bit32.PushPop, (Cond.AL, Size.WORD, False, pop)) for pop in self.pop[1:])
 
 class Jump(Instruction):
     def __init__(self, labels, cond, target):
@@ -116,8 +122,8 @@ class Jump(Instruction):
         self.target = target
     def display(self):
         return f'J{self.cond.jump(): <5} {self.target}'
-    def serialize(self):
-        return self.labels, bit32.Jump, (self.cond, self.target)
+    def object(self, objects):
+        objects.append((self.labels, bit32.Jump, (self.cond, False, self.target)))
 
 class Call(Instruction):
     def __init__(self, labels, target):
@@ -129,6 +135,8 @@ class Call(Instruction):
         return 0
     def display(self):
         return f'CALL   {self.target}'
+    def object(self, objects):
+        objects.append((self.labels, bit32.Jump, (self.cond, True, self.target)))
 
 class Unary(Instruction):
     def __init__(self, labels, op, size, target):
@@ -140,6 +148,8 @@ class Unary(Instruction):
         return self.target
     def display(self):
         return f'{self.op.name+str(self.size): <6} {self.target}'
+    def object(self, objects):
+        objects.append((self.labels, bit32.Unary, (self.cond, False, self.size, self.op, self.target)))
 
 class Binary(Unary):
     def __init__(self, labels, op, size, target, source):
