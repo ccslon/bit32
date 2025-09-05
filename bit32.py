@@ -255,7 +255,7 @@ class Binary(Inst):
     def __init__(self, cond, flag, size, imm, op, src, rd):
         super().__init__()
         self[31:28] = cond
-        self[27] = flag if op != Op.CMPF else True
+        self[27] = op == Op.CMPF or flag
         self[26:24] = InstOp.ALU | imm
         self[23:22] = size >> 1
         self[21:17] = op

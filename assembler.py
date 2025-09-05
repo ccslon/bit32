@@ -81,9 +81,9 @@ class Assembler:
             self.new_data(Char, char)
     def space(self, label, size):
         self.labels.append(label)
-        for _ in range(size // 4):
+        for _ in range(size // Size.WORD):
             self.new_data(Word, 0)
-        for _ in range(size % 4):
+        for _ in range(size % Size.WORD):
             self.new_data(Byte, 0)
     def jump(self, cond, label):
         self.new_inst(Jump, cond, False, label)
