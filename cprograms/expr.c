@@ -7,6 +7,7 @@
 #define EINV_SYM 200
 #define ENAME 201
 #define EEXPECTED 202
+
 // "HashMap"
 typedef struct {
     char* key;
@@ -39,7 +40,7 @@ enum TokenType {
     NUM,
     VAR,
     SYM,
-    INVALID,
+    BAD,
     END
 };
 
@@ -112,9 +113,9 @@ Token* lex(char* input) {
                         new->sym = input[i++];
                         break;
                     default:
-                        new->type = INVALID;
+                        new->type = BAD;
                         new->sym = input[i++];
-                        printf("Invalid token %c\n", new->sym);
+                        printf("Bad token %c\n", new->sym);
                         errno = EINV_SYM;
                 }
             }
@@ -321,7 +322,7 @@ Node* factor() {
 Node* term() {
     Node* term = factor();
     while (peek_sym('*') || peek_sym('/')) {
-	Token* token = next();
+	    Token* token = next();
         term = allocBinary(token, term, factor());
     }
     return term;
@@ -331,7 +332,7 @@ Node* expr() {
     Node* expr = term();
     while (peek_sym('+') || peek_sym('-')) {
         Token* token = next();
-	expr = allocBinary(token, expr, term());
+	    expr = allocBinary(token, expr, term());
     }
     return expr;
 }
@@ -371,7 +372,7 @@ int main() {
     //exec("9 / (3 * 3)");
     //exec("3+3");
     //exec("a");/
-    exec("a+b");
+    exec("a+b*5");
     //loop();
     return 0;
 }
