@@ -6,10 +6,11 @@ Created on Sat Sep  7 01:02:16 2024
 """
 
 from enum import Enum
-from bit32 import Reg, Size, Op, Cond
-import bit32
+from bit32 import Reg, Size, Op
 
 POWERS_OF_2 = {2**n:n for n in range(1, 8+1)}
+
+JUST = 6
 
 class Code(Enum):
     JUMP = 0
@@ -42,7 +43,6 @@ class Code(Enum):
 [] const eval
 [x] real case?
 '''
-
 class Object:
     def __init__(self, labels):
         self.labels = labels
@@ -91,21 +91,21 @@ class CMov(Instruction):
         self.target = target
         self.value = value
     def display(self):
-        return f'MOV{str(self.cond): <3} {self.target}, {self.value}'
+        return f'{"MOV"+str(self.cond): <{JUST}} {self.target}, {self.value}'
 
 class Push(Instruction):
     def __init__(self, labels, push):
         super().__init__(labels, Code.PUSH)
         self.push = push
     def display(self):
-        return f'PUSH   {", ".join(reg.name for reg in self.push)}'
+        return f'{"PUSH": <{JUST}} {", ".join(reg.name for reg in self.push)}'
 
 class Pop(Instruction):
     def __init__(self, labels, pop):
         super().__init__(labels, Code.POP)
         self.pop = pop
     def display(self):
-        return f'POP    {", ".join(reg.name for reg in self.pop)}'
+        return f'{"POP": <{JUST}} {", ".join(reg.name for reg in self.pop)}'
 
 class Jump(Instruction):
     def __init__(self, labels, cond, target):
@@ -113,7 +113,7 @@ class Jump(Instruction):
         self.cond = cond
         self.target = target
     def display(self):
-        return f'J{self.cond.jump(): <5} {self.target}'
+        return f'{"J"+self.cond.jump(): <{JUST}} {self.target}'
 
 class Call(Instruction):
     def __init__(self, labels, target):
@@ -124,7 +124,7 @@ class Call(Instruction):
             return self.target
         return 0
     def display(self):
-        return f'CALL   {self.target}'
+        return f'{"CALL": <{JUST}} {self.target}'
 
 class Unary(Instruction):
     def __init__(self, labels, op, size, target):
@@ -135,7 +135,7 @@ class Unary(Instruction):
     def max_reg(self):
         return self.target
     def display(self):
-        return f'{self.op.name+str(self.size): <6} {self.target}'
+        return f'{self.op.name+str(self.size): <{JUST}} {self.target}'
 
 class Binary(Unary):
     def __init__(self, labels, op, size, target, source):
@@ -147,7 +147,7 @@ class Binary(Unary):
             return max(Reg.max_reg(self.target), Reg.max_reg(self.source))
         return Reg.max_reg(self.target)
     def display(self):
-        return f'{self.op.name+str(self.size): <6} {self.target}, {self.source}'
+        return f'{self.op.name+str(self.size): <{JUST}} {self.target}, {self.source}'
 
 class Ternary(Binary):
     def __init__(self, labels, op, size, target, rs, source):
@@ -159,12 +159,11 @@ class Ternary(Binary):
             return max(self.target, Reg.max_reg(self.source), self.source2)
         return max(self.target, Reg.max_reg(self.source))
     def display(self):
-        return f'{self.op.name+str(self.size): <6} {self.target}, {self.source}, {self.source2}'
+        return f'{self.op.name+str(self.size): <{JUST}} {self.target}, {self.source}, {self.source2}'
 
 class Address(Instruction):
-    def __init__(self, labels, op, target, base, offset, var=None):
+    def __init__(self, labels, target, base, offset, var=None):
         super().__init__(labels, Code.ADDR)
-        self.op = op
         self.target = target
         self.base = base
         self.offset = offset
@@ -172,7 +171,7 @@ class Address(Instruction):
     def max_reg(self):
         return max(self.target, Reg.max_reg(self.base))
     def display(self):
-        return f'{self.op.name: <6} {self.target}, {self.base}, {self.offset} ; {self.var}'
+        return f'{"ADD": <{JUST}} {self.target}, {self.base}, {self.offset} ; {self.var}'
 
 class Load(Instruction):
     def __init__(self, labels, code, size, target, base, offset, var=None):
@@ -188,16 +187,16 @@ class Load(Instruction):
         return max(self.target, Reg.max_reg(self.base))
     def display(self):
         if self.code is Code.STORE:
-            return 'ST{: <4} [{}{}], {}{}'.format(str(self.size),
-                                                  self.base.name,
-                                                  f', {self.offset}' if self.offset is not None else '',
-                                                  self.target.name,
-                                                  f' ; {self.var}' if self.var else '')
-        return 'LD{: <4} {}, [{}{}]{}'.format(str(self.size),
-                                              self.target.name,
-                                              self.base.name,
-                                              f', {self.offset}' if self.offset is not None else '',
-                                              f' ; {self.var}' if self.var else '')
+            return '{} [{}{}], {}{}'.format(f'{"ST"+str(self.size): <{JUST}}',
+                                            self.base.name,
+                                            f', {self.offset}' if self.offset is not None else '',
+                                            self.target.name,
+                                            f' ; {self.var}' if self.var else '')
+        return '{} {}, [{}{}]{}'.format(f'{"LD"+str(self.size): <{JUST}}',
+                                        self.target.name,
+                                        self.base.name,
+                                        f', {self.offset}' if self.offset is not None else '',
+                                        f' ; {self.var}' if self.var else '')
 class LoadImm(Instruction):
     def __init__(self, labels, target, value, comment):
         super().__init__(labels, Code.IMM)
@@ -207,9 +206,10 @@ class LoadImm(Instruction):
     def max_reg(self):
         return self.target
     def display(self):
-        return 'LDI    {}, {}{}'.format(self.target,
-                                        self.value,
-                                        f' ; {self.comment}' if self.comment is not None else '')
+        return '{} {}, {}{}'.format(f'{"LDI": <{JUST}}',
+                                    self.target,
+                                    self.value,
+                                    f' ; {self.comment}' if self.comment is not None else '')
 
 class LoadGlob(Instruction):
     def __init__(self, labels, target, name):
@@ -219,7 +219,7 @@ class LoadGlob(Instruction):
     def max_reg(self):
         return self.target
     def display(self):
-        return f'LDI    {self.target}, ={self.name}'
+        return f'{"LDI": <{JUST}} {self.target}, ={self.name}'
 
 class Ret(Instruction):
     def __init__(self, labels):
@@ -265,15 +265,12 @@ class Emitter:
                 if inst1.op is Op.MUL:
                     inst1.op = Op.SHL
                     inst1.source = POWERS_OF_2[inst1.source]
-                    continue
-                if inst1.op is Op.DIV:
+                elif inst1.op is Op.DIV:
                     inst1.op = Op.SHR
                     inst1.source = POWERS_OF_2[inst1.source]
-                    continue
-                if inst1.op is Op.MOD:
+                elif inst1.op is Op.MOD:
                     inst1.op = Op.AND
                     inst1.source -= 1
-                    continue
             i += 1
 
         i = 0
@@ -283,74 +280,19 @@ class Emitter:
             inst1 = self.instructions[i]
             inst2 = self.instructions[i+1]
 
-            if inst1.code is Code.BINARY:
-                if inst2.code is Code.BINARY:
-                    if inst1.op is Op.MOV and inst1.target is inst2.source:
-                        '''
-                        MOV A, B
-                        ADD C, A
-                        = ADD C, B
-                        '''
-                        self.instructions[i:i+2] = [Binary(inst1.labels+inst2.labels,
-                                                           inst2.op,
-                                                           inst2.size,
-                                                           inst2.target,
-                                                           inst1.source)]
-                        continue
-                    if inst2.op is Op.MOV and inst1.target is inst2.source:
-                        '''
-                        ADD A, B
-                        MOV C, A
-                        = ADD C, A, B
-                        '''
-                        self.instructions[i:i+2] = [Ternary(inst1.labels+inst2.labels,
-                                                            inst1.op,
-                                                            inst1.size,
-                                                            inst2.target,
-                                                            inst1.target,
-                                                            inst1.source)]
-                        continue
-                elif inst2.code is Code.TERNARY and inst1.op is Op.MOV:
-                    '''
-                    MOV A, B
-                    ADD C, A, D
-                    = ADD C, B, D
-                    '''
-                    if inst1.target is inst2.source:
-                        self.instructions[i:i+2] = [Ternary(inst1.labels+inst2.labels,
-                                                            inst2.op,
-                                                            inst2.size,
-                                                            inst2.target,
-                                                            inst1.source,
-                                                            inst2.source2)]
-                        continue
-                    if inst1.target is inst2.source2:
-                        '''
-                        MOV A, B
-                        ADD C, D, A
-                        = ADD C, D, B
-                        '''
-                        self.instructions[i:i+2] = [Ternary(inst1.labels+inst2.labels,
-                                                            inst2.op,
-                                                            inst2.size,
-                                                            inst2.target,
-                                                            inst2.source,
-                                                            inst1.source2)]
-                        continue
-            elif inst1.code is Code.TERNARY and inst2.code is Code.BINARY and inst2.op is Op.MOV and inst1.target is inst2.source:
+            if inst1.code is Code.BINARY and inst1.op is Op.MOV and inst2.code is Code.BINARY and inst1.target is inst2.source:
+                #redundant MOV after function call
                 '''
-                ADD A, B, C
-                MOV D, A
-                = ADD D, B, C
+                MOV A, B
+                ADD C, A
+                = ADD C, B
                 '''
-                self.instructions[i:i+2] = [Ternary(inst1.labels+inst2.labels,
-                                                    inst1.op,
-                                                    inst1.size,
-                                                    inst2.target,
-                                                    inst1.source,
-                                                    inst1.source2)]
+                self.instructions[i:i+2] = [Binary(inst1.labels+inst2.labels,
+                                                   inst2.op, inst2.size,
+                                                   inst2.target, inst1.source)]
                 continue
-            elif inst1.code is Code.ADDR:
+            if inst1.code is Code.ADDR:
+                #address collapse
                 if inst2.code is Code.ADDR and inst1.target is inst2.base:
                     '''
                     ADD A, B, n
@@ -358,17 +300,18 @@ class Emitter:
                     = ADD C, B, n+m
                     '''
                     self.instructions[i:i+2] = [Address(inst1.labels+inst2.labels,
-                                                        Op.ADD,
-                                                        inst2.target,
-                                                        inst1.base,
+                                                        inst2.target, inst1.base,
                                                         inst1.offset+inst2.offset,
                                                         inst1.var)]
                     continue
-                if inst2.code is Code.BINARY and inst1.target is inst2.target and not isinstance(inst2.source, Reg):
+                if inst2.code is Code.BINARY and inst2.op is Op.ADD and inst1.target is inst2.target and not isinstance(inst2.source, Reg):
+                    '''
+                    ADD A, B, n
+                    ADD A, m
+                    = ADD A, B, n+m
+                    '''
                     self.instructions[i:i+2] = [Address(inst1.labels+inst2.labels,
-                                                        Op.ADD,
-                                                        inst1.target,
-                                                        inst1.base,
+                                                        inst1.target, inst1.base,
                                                         inst1.offset+inst2.source,
                                                         inst1.var)]
                     continue
@@ -379,14 +322,40 @@ class Emitter:
                     = LD C, [B, n+m]
                     '''
                     self.instructions[i:i+2] = [Load(inst1.labels+inst2.labels,
-                                                     inst2.code,
-                                                     inst2.size,
-                                                     inst2.target,
-                                                     inst1.base,
+                                                     inst2.code, inst2.size,
+                                                     inst2.target, inst1.base,
                                                      inst1.offset+inst2.offset,
                                                      inst1.var)]
                     continue
             i += 1
+
+        # "you don't need to be a pilot to know planes don't belong in trees"
+
+        #general redundant MOV before function call
+        for j in range(1, 4+1):
+            i = 0
+            while i < len(self.instructions) - 2*j - 1:
+                for k in range(j):
+                    inst1 = self.instructions[i+k]
+                    inst2 = self.instructions[i+j+k]
+                    if inst1.code not in [Code.BINARY, Code.TERNARY, Code.ADDR, Code.LOAD, Code.IMM, Code.GLOB] or inst2.code is not Code.BINARY or inst2.op is not Op.MOV or inst1.target is not inst2.source:
+                        break
+                else:
+                    for k in range(j):
+                        inst1 = self.instructions[i+k]
+                        inst2 = self.instructions[i+j+k]
+                        if inst1.code is Code.BINARY and inst1.op not in [Op.MOV, Op.MVN]:
+                            self.instructions[i+k] = Ternary(inst1.labels+inst2.labels,
+                                                             inst1.op, inst1.size,
+                                                             inst2.target,
+                                                             inst1.target,
+                                                             inst1.source)
+                        else:
+                            inst1.target = inst2.target
+                    del self.instructions[i+j:i + 2*j]
+                    i += j
+                    continue
+                i += 1
 
     def optimize(self):
         i = 0
@@ -460,7 +429,7 @@ class Emitter:
     def attr(self, base, var):
         self.address(base, base, var.offset, var.name())
     def address(self, target, base, offset, var=None):
-        self.add(Address(self.labels, Op.ADD, target, base, offset, var))
+        self.add(Address(self.labels, target, base, offset, var))
     def load(self, size, target, base, offset=None, var=None):
         self.add(Load(self.labels, Code.LOAD, size, target, base, offset, var))
     def store(self, size, target, base, offset=None, var=None):

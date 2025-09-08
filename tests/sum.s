@@ -13,8 +13,7 @@ sumfs:
   CMP    A, B
   JGE    .L3
   LD     B, [SP, 8] ; s
-  LD     C, [SP, 12] ; i
-  MOV    A, C
+  LD     A, [SP, 12] ; i
   LD     C, [SP, 4] ; f
   LD     D, [SP, 12] ; i
   SHL    D, 2
@@ -59,8 +58,7 @@ sum:
   CMP    A, B
   JGE    .L8
   LD     B, [SP, 8] ; sum
-  LD     C, [SP, 12] ; i
-  MOV    A, C
+  LD     A, [SP, 12] ; i
   LD     C, [SP, 4] ; f
   CALL   C
   ADD    B, A
@@ -92,10 +90,8 @@ main:
   ADD    B, SP, 0 ; funcs
   CALL   sumfs
   ST     [SP, 16], A ; result
-  MOV    C, 5
-  LDI    D, =sqr
-  MOV    A, C
-  MOV    B, D
+  MOV    A, 5
+  LDI    B, =sqr
   CALL   sum
   MOV    C, A
 .L9:

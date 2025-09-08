@@ -33,8 +33,7 @@ sum:
   CMP    A, B
   JGE    .L5
   LD     B, [SP, 8] ; s
-  LD     C, [SP, 12] ; i
-  MOV    A, C
+  LD     A, [SP, 12] ; i
   LD     C, [SP, 4] ; f
   CALL   C
   ADD    B, A
