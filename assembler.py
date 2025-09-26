@@ -8,13 +8,17 @@ from enum import IntEnum, IntFlag
 import re
 
 from bit32 import Size, Flag, Reg, Op, Cond, Byte, Char, Half, Word, Jump, Interrupt, Unary, Binary, Ternary, Load, PushPop, LoadImm, unescape
-#TODO Maybe turn it back into a real parser?
+
+
 class Debug(IntFlag):
+    """Flag enum class for debugging options."""
+
     NONE = 0
     OBJECT_FILE = 1
     FULL = 2
     SHORT = 4
     PRINT_BYTES = 8
+
 
 DEBUG = Debug.NONE
 
@@ -57,7 +61,9 @@ TOKENS = {
 
 RE = re.compile('|'.join(rf'(?P<{token}>{pattern})' for token, pattern in TOKENS.items()), re.I)
 
+
 def lex(text):
+    """Produce list of tokens from input."""
     return [(match.lastgroup, match.group(), match) for match in RE.finditer(text)]
 
 class Assembler:
@@ -190,7 +196,7 @@ class Assembler:
 
                     elif self.match('jump', 'id'):
                         self.jump(*self.values())
-                        
+
                     elif self.match('jump', 'reg'):
                         cond, reg = self.values()
                         self.binary(Op.MOV, cond, False, Size.WORD, Reg.PC, reg, False)
@@ -424,17 +430,17 @@ class Color(IntEnum):
 
 # ANSI 8-bit color mode (look it up)
 PATTERNS = {
-    r'"(\\"|[^"])*"': Color.GREEN, #string
-    r"'(\\'|\\?[^'])'": Color.GREEN, #char
-    r'\b-?(0x[0-9a-f]+|0b[01]+|\d+)\b': Color.ORANGE, #const
-    rf'\b({RE_REG})\b': Color.WHITE, #register
+    r'"(\\"|[^"])*"': Color.GREEN,  # string
+    r"'(\\'|\\?[^'])'": Color.GREEN,  # char
+    r'\b-?(0x[0-9a-f]+|0b[01]+|\d+)\b': Color.ORANGE,  # const
+    rf'\b({RE_REG})\b': Color.WHITE,  # register
     r'\b(nop)\b': Color.BLUE,
-    rf'\b({RE_OP})({RE_COND})?s?(\.({RE_SIZE}))?\b': Color.BLUE, #ops
-    rf'\b(call|ret|halt|j(mp)?)({RE_COND})?\b': Color.BLUE, #ops
-    rf'\b(ldi|ld|st|push|pop)({RE_COND})?(\.({RE_SIZE}))?\b': Color.BLUE, #ops
-    r'\.(byte|half|word|space)\b': Color.BLUE, #size|space
-    r'\.?[a-z_]\w*': Color.CYAN, #id
-    r';.*$': Color.GREY #comment
+    rf'\b({RE_OP})({RE_COND})?s?(\.({RE_SIZE}))?\b': Color.BLUE,  # ops
+    rf'\b(call|ret|halt|j(mp)?)({RE_COND})?\b': Color.BLUE,  # ops
+    rf'\b(ldi|ld|st|push|pop)({RE_COND})?(\.({RE_SIZE}))?\b': Color.BLUE,  # ops
+    r'\.(byte|half|word|space)\b': Color.BLUE,  # size|space
+    r'\.?[a-z_]\w*': Color.CYAN,  # id
+    r';.*$': Color.GREY  # comment
 }
 
 def repl(text, color):

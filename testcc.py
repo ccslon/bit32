@@ -8,6 +8,7 @@ from unittest import TestCase, main, expectedFailure
 
 from ccompiler import cpreproc, cparser
 
+
 class TestCompiler(TestCase):
 
     @classmethod
@@ -132,6 +133,7 @@ class TestCompiler(TestCase):
     
     def test_floats(self):
         self.code_eq_asm('floats')
+
 
 if __name__ == '__main__':
     main()

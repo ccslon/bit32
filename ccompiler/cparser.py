@@ -74,16 +74,26 @@ Test:
     [ ] extern
 '''
 
+
 @dataclass
 class FuncInfo:
-    ret: Type    
+    """Containment class for C function info."""
+
+    ret: Type
     name: str
     space: int = 0
     returns: bool = False
     calls: bool = False
     max_args: int = 0
 
+    def __iter__(self):
+        """For unpacking."""
+        return iter((self.returns, self.calls, self.max_args, self.space))
+
+
 class Scope:
+    """Class the represents scope in a C program."""
+
     def __init__(self):
         self.locals = Frame()
         self.structs = {}
@@ -91,7 +101,9 @@ class Scope:
         self.unions = {}
         self.enums = []
         self.enum_consts = {}
+
     def copy(self):
+        """Create a copy of the scope ."""
         new = Scope()
         new.locals.update(self.locals)
         new.structs.update(self.structs)
@@ -100,7 +112,9 @@ class Scope:
         new.enums.extend(self.enums)
         new.enum_consts.update(self.enum_consts)
         return new
+
     def clear(self):
+        """Clear the scope."""
         self.locals.clear()
         self.structs.clear()
         self.typedefs.clear()
@@ -108,7 +122,9 @@ class Scope:
         self.enums.clear()
         self.enum_consts.clear()
 
+
 class CParser(Parser):
+    """Parser class for parsing the C programming language."""
 
     STATEMENTS = {'{', Lex.NAME, 'if', '*', 'return', 'for', 'while', '(',
                   'switch', 'do', '++', '--', 'break', 'continue', ';', 'goto'}
@@ -120,12 +136,14 @@ class CParser(Parser):
         super().__init__()
 
     def parse(self, tokens):
+        """Override of parse."""
         self.globs.clear()
         self.scope.clear()
         self.stack.clear()
         return super().parse(tokens)
 
     def resolve(self, name):
+        """Resolve name of variables."""
         if name in self.scope.locals:
             return self.scope.locals[name]
         if name in self.stack_params:
@@ -161,7 +179,7 @@ class CParser(Parser):
         POST -> PRIMARY {'(' ARGS ')'|'[' EXPR ']'|'++'|'--'|'.' name|'->' name}
         '''
         postfix = self.primary()
-        while self.peek({'(','[','++','--','.','->'}):
+        while self.peek({'(', '[', '++', '--', '.', '->'}):
             if self.peek('('):
                 if not isinstance(postfix.type, Func):
                     self.error(f'"{postfix.token.lexeme}" is not a function')
@@ -172,10 +190,10 @@ class CParser(Parser):
             elif self.peek('['):
                 postfix = SubScr(next(self), postfix, self.expr())
                 self.expect(']')
-            elif self.peek({'++','--'}):
+            elif self.peek({'++', '--'}):
                 postfix = Post(next(self), postfix)
             elif self.accept('.'):
-                if not isinstance(postfix.type, (Struct,Union)):
+                if not isinstance(postfix.type, (Struct, Union)):
                     self.error(f'"{postfix.token.lexeme}" is type {postfix.type}')
                 name = self.expect(Lex.NAME)
                 if name.lexeme not in postfix.type:
@@ -220,9 +238,9 @@ class CParser(Parser):
         if self.peek2('-', Lex.NUMBER):
             next(self)
             return NegNumber(next(self))
-        if self.peek({'-','~'}):
+        if self.peek({'-', '~'}):
             return UnaryOp(next(self), self.cast())
-        if self.peek({'++','--'}):
+        if self.peek({'++', '--'}):
             return Pre(next(self), self.unary())
         if self.peek('!'):
             return Not(next(self), self.cast())
@@ -255,7 +273,7 @@ class CParser(Parser):
         MUL -> CAST {('*'|'/'|'%') CAST}
         '''
         mul = self.cast()
-        while self.peek({'*','/','%'}):
+        while self.peek({'*', '/', '%'}):
             mul = BinaryOp(next(self), mul, self.cast())
         return mul
 
@@ -264,7 +282,7 @@ class CParser(Parser):
         ADD -> MUL {('+'|'-') MUL}
         '''
         add = self.mul()
-        while self.peek({'+','-'}):
+        while self.peek({'+', '-'}):
             add = BinaryOp(next(self), add, self.mul())
         return add
 
@@ -273,7 +291,7 @@ class CParser(Parser):
         SHIFT -> ADD {('<<'|'>>') ADD}
         '''
         shift = self.add()
-        while self.peek({'<<','>>'}):
+        while self.peek({'<<', '>>'}):
             shift = BinaryOp(next(self), shift, self.add())
         return shift
 
@@ -282,7 +300,7 @@ class CParser(Parser):
         RELA -> SHIFT {('<'|'>'|'<='|'>=') SHIFT}
         '''
         relation = self.shift()
-        while self.peek({'<','>','<=','>='}):
+        while self.peek({'<', '>', '<=', '>='}):
             relation = Compare(next(self), relation, self.shift())
         return relation
 
@@ -291,7 +309,7 @@ class CParser(Parser):
         EQUA -> RELA {('=='|'!=') RELA}
         '''
         equality = self.relation()
-        while self.peek({'==','!='}):
+        while self.peek({'==', '!='}):
             equality = Compare(next(self), equality, self.relation())
         return equality
 
@@ -356,14 +374,17 @@ class CParser(Parser):
                  |COND
         '''
         assign = self.cond()
-        if self.peek({'=','+=','-=','*=','/=','%=','<<=','>>=','^=','|=','&=','/=','%='}):
-            if not isinstance(assign, (Local,Glob,Dot,Arrow,SubScr,Deref)):
+        if self.peek({'=', '+=', '-=', '*=', '/=', '%=',
+                      '<<=', '>>=', '^=', '|=', '&=', '/=', '%='}):
+            if not isinstance(assign, (Local, Glob, Dot,
+                                       Arrow, SubScr, Deref)):
                 self.error(f'Cannot assign to {type(assign)}')
             if self.peek('='):
                 assign = Assign(next(self), assign, self.assign())
             else:
                 token = next(self)
-                assign = Assign(token, assign, BinaryOp(token, assign, self.assign()))
+                assign = Assign(token, assign,
+                                BinaryOp(token, assign, self.assign()))
         return assign
 
     def expr(self):
@@ -388,7 +409,7 @@ class CParser(Parser):
         '''
         name = self.expect(Lex.NAME)
         if self.accept('='):
-            value = Number(self.expect(Lex.NUMBER)).value #todo
+            value = Number(self.expect(Lex.NUMBER)).value  # todo
         if not name.lexeme not in self.scope.enum_consts:
             self.error(f'Redeclaration of enumerator "{name.lexeme}"')
         self.scope.enum_consts[name.lexeme] = EnumNumber(name, value)
@@ -467,7 +488,7 @@ class CParser(Parser):
             else:
                 if not name:
                     self.error("Did not specify enum name")
-                if not name.lexeme in self.scope.enums:
+                if name.lexeme not in self.scope.enums:
                     self.error(f'Enum name "{name.lexeme}" not found')
             spec = Char()
         elif self.accept('float'):
@@ -537,13 +558,15 @@ class CParser(Parser):
             self.expect(')')
         else:
             name = self.accept(Lex.NAME)
-        while self.peek({'(','['}):
+        while self.peek({'(', '['}):
             if self.accept('('):
                 params, variable = self.params()
                 types.append((Func, (params, variable)))
                 self.expect(')')
             elif self.accept('['):
-                types.append((Array, (Number(next(self)) if self.peek(Lex.NUMBER) else None,)))
+                types.append((Array,
+                              (Number(next(self))
+                               if self.peek(Lex.NUMBER) else None,)))
                 self.expect(']')
         return name
 
@@ -555,16 +578,17 @@ class CParser(Parser):
         if declr.token is None:
             self.error('Expected ;')
         init_declr = declr
-        if self.peek('='): # INIT
-            if not declr.token is not None:
+        if self.peek('='):  # INIT
+            if declr.token is None:
                 self.error('Assigning to nothing')
-            if not not isinstance(declr.type, Void):
+            if isinstance(declr.type, Void):
                 self.error('Cannot assign a void type a value')
             token = next(self)
             if self.accept('{'):
-                if not isinstance(declr.type, (Array,Struct)):
+                if not isinstance(declr.type, (Array, Struct)):
                     self.error('Cannot list-assign to scalar')
-                init_declr = InitListAssign(token, declr, self.init_list(parser))
+                init_declr = InitListAssign(token, declr,
+                                            self.init_list(parser))
                 self.expect('}')
             elif isinstance(declr.type, Array) and self.peek(Lex.STRING):
                 init_declr = InitArrayString(token, declr, String(next(self)))
@@ -578,7 +602,8 @@ class CParser(Parser):
         INIT_DECLR -> DECLR ['=' INIT]
         '''
         ctype, name = self.declr(qual)
-        return self.init_declr(Local(ctype, name), self.scope.locals, self.assign)
+        return self.init_declr(Local(ctype, name),
+                               self.scope.locals, self.assign)
 
     def glob_init_declr(self, ctype, name):
         '''
@@ -702,7 +727,7 @@ class CParser(Parser):
                 const = self.const()
                 self.expect(':')
                 compound = Compound()
-                while not self.peek({'case','default','}'}):
+                while not self.peek({'case', 'default', '}'}):
                     compound.append(self.statement())
                 statement.cases.append(Case(const, compound))
             if self.accept('default'):
@@ -759,7 +784,7 @@ class CParser(Parser):
             target = self.expect(Lex.NAME).lexeme
             statement = Goto(f'{self.func.name}_{target}')
             self.expect(';')
-        elif self.peek2(Lex.NAME,':'):
+        elif self.peek2(Lex.NAME, ':'):
             label = next(self).lexeme
             statement = Label(f'{self.func.name}_{label}')
             next(self)
@@ -776,7 +801,8 @@ class CParser(Parser):
         compound = Compound()
         while self.peek({'typedef'} | CTYPES | self.scope.typedefs.keys()):
             compound.extend(self.decln())
-        while self.peek(self.STATEMENTS) and not self.peek(set(self.scope.typedefs.keys())):
+        while (self.peek(self.STATEMENTS)
+               and not self.peek(set(self.scope.typedefs.keys()))):
             compound.append(self.statement())
         if compound:
             compound.extend(self.compound())
@@ -807,8 +833,8 @@ class CParser(Parser):
             qual = self.qual()
             if not self.accept(';'):
                 ctype, name = self.declr(qual)
-                if self.accept('{'): # FUNC_DEFN
-                    if not name is not None:
+                if self.accept('{'):  # FUNC_DEFN
+                    if name is None:
                         self.error('Function definition needs a name')
                     self.globs[name.lexeme] = Glob(ctype, name)
                     if not isinstance(ctype, Func):
@@ -827,7 +853,7 @@ class CParser(Parser):
                     self.end_scope()
                     ext_decln.append(defn(ctype, name, compound, self.func))
                     self.expect('}')
-                else: #DECLN
+                else:  # DECLN
                     ext_decln.append(self.glob_init_declr(ctype, name))
                     while self.accept(','):
                         ctype, name = self.declr(qual)
@@ -847,13 +873,17 @@ class CParser(Parser):
     root = translation
 
     def begin_scope(self):
+        """Begin a new scope."""
         self.stack.append(self.scope)
         self.scope = self.scope.copy()
 
     def end_scope(self):
+        """End a scope."""
         self.func.space = max(self.func.space, self.scope.locals.size)
         self.scope = self.stack.pop()
 
+
 def parse(tokens):
+    """Util function for parsing."""
     parser = CParser()
     return parser.parse(tokens)

@@ -8,25 +8,29 @@ Created on Sat Sep  7 01:02:16 2024
 from enum import Enum
 from bit32 import Reg, Size, Op
 
-POWERS_OF_2 = {2**n:n for n in range(1, 8+1)}
+POWERS_OF_2 = {2**n: n for n in range(1, 8+1)}
 
-JUST = 6
+JUST = 6  # justification
+
 
 class Code(Enum):
+    """Enum for code instruction types."""
+
     JUMP = 0
     UNARY = 1
     BINARY = 2
     TERNARY = 3
     LOAD = 4
     STORE = 5
-    IMM = 6
-    GLOB = 7
+    IMMEDIATE = 6
+    GLOBAL = 7
     CALL = 8
     RET = 9
     PUSH = 10
     POP = 11
-    ADDR = 12
+    ADDRESS = 12
     CMOV = 13
+
 
 '''
 [x] add CMovs
@@ -43,137 +47,225 @@ class Code(Enum):
 [] const eval
 [x] real case?
 '''
+
+
 class Object:
+    """Base class for bit32 objects."""
+
     def __init__(self, labels):
         self.labels = labels
+
     def __str__(self):
+        """Get default string object representation."""
         return ''.join(f'{label}:\n' for label in self.labels) + f'  {self.display()}'
 
+
 class Data(Object):
+    """Base class for bit32 data objects."""
+
     def __init__(self, labels, size, value):
         super().__init__(labels)
         self.size = size
         self.value = value
+
     def display(self):
+        """Display data as string."""
         return f'.{self.size.name.lower()} {self.value}'
 
+
 class String(Data):
+    """Class for String objects."""
+
     def __init__(self, name, string):
         super().__init__([name], Size.WORD, string)
+
     def __str__(self):
+        """Get string representaion for string objects."""
         return rf'{self.labels[0]}: "{self.value}\0"'
 
+
 class Space(Object):
+    """Class for space allocation object."""
+
     def __init__(self, name, size):
         super().__init__([name])
         self.size = int(size)
+
     def __str__(self):
+        """Get space string representation."""
         return f'{self.labels[0]}: .space {self.size}'
 
-class Glob(Data):
+
+class Global(Data):
+    """Class for global objects."""
+
     def __init__(self, name, size, value):
         super().__init__([name], size, value)
+
     def __str__(self):
+        """Get global string representation."""
         return f'{self.labels[0]}: .{self.size.name.lower()} {self.value}'
 
+
 class Instruction(Object):
+    """Base class for bit32 instruction objects."""
+
     def __init__(self, labels, code):
         super().__init__(labels)
         self.code = code
         self.var = None
+
     def max_reg(self):
+        """Find max register used by this instuction."""
         return 0
 
+
 class CMov(Instruction):
+    """Class for conditional move instruction objects."""
+
     def __init__(self, labels, cond, target, value):
         super().__init__(labels, Code.CMOV)
         self.cond = cond
         self.target = target
         self.value = value
+
     def display(self):
+        """Display cmov instruction as string."""
         return f'{"MOV"+str(self.cond): <{JUST}} {self.target}, {self.value}'
 
+
 class Push(Instruction):
+    """Class for push instruction objects."""
+
     def __init__(self, labels, push):
         super().__init__(labels, Code.PUSH)
         self.push = push
+
     def display(self):
+        """Display push instruction as string."""
         return f'{"PUSH": <{JUST}} {", ".join(reg.name for reg in self.push)}'
 
+
 class Pop(Instruction):
+    """Class for pop instruction objects."""
+
     def __init__(self, labels, pop):
         super().__init__(labels, Code.POP)
         self.pop = pop
+
     def display(self):
+        """Display pop instruction as string."""
         return f'{"POP": <{JUST}} {", ".join(reg.name for reg in self.pop)}'
 
+
 class Jump(Instruction):
+    """Class for jump instructions objects."""
+
     def __init__(self, labels, cond, target):
         super().__init__(labels, Code.JUMP)
         self.cond = cond
         self.target = target
+
     def display(self):
+        """Display jump instruction as string."""
         return f'{"J"+self.cond.jump(): <{JUST}} {self.target}'
 
+
 class Call(Instruction):
+    """Class for call instruction objects."""
+
     def __init__(self, labels, target):
         super().__init__(labels, Code.CALL)
         self.target = target
+
     def max_reg(self):
+        """Find max register used by this instuction."""
         if isinstance(self.target, Reg):
             return self.target
         return 0
+
     def display(self):
+        """Display call instruction as string."""
         return f'{"CALL": <{JUST}} {self.target}'
 
 class Unary(Instruction):
+    """Class for unary ALU instruction objects."""
+
     def __init__(self, labels, op, size, target):
         super().__init__(labels, Code.UNARY)
         self.op = op
         self.size = size
         self.target = target
+
     def max_reg(self):
+        """Find max register used by this instuction."""
         return self.target
+
     def display(self):
+        """Display unary instruction as string."""
         return f'{self.op.name+str(self.size): <{JUST}} {self.target}'
 
+
 class Binary(Unary):
+    """Class for binary ALU instruction objects."""
+
     def __init__(self, labels, op, size, target, source):
         super().__init__(labels, op, size, target)
         self.code = Code.BINARY
         self.source = source
+
     def max_reg(self):
+        """Find max register used by this instuction."""
         if isinstance(self.source, Reg):
             return max(Reg.max_reg(self.target), Reg.max_reg(self.source))
         return Reg.max_reg(self.target)
+
     def display(self):
+        """Display binary instruction as string."""
         return f'{self.op.name+str(self.size): <{JUST}} {self.target}, {self.source}'
 
+
 class Ternary(Binary):
+    """Class for ternary ALU instruction objects."""
+
     def __init__(self, labels, op, size, target, rs, source):
         super().__init__(labels, op, size, target, rs)
         self.code = Code.TERNARY
         self.source2 = source
+
     def max_reg(self):
+        """Find max register used by this instuction."""
         if isinstance(self.source2, Reg):
             return max(self.target, Reg.max_reg(self.source), self.source2)
         return max(self.target, Reg.max_reg(self.source))
+
     def display(self):
+        """Display ternary instruction as string."""
         return f'{self.op.name+str(self.size): <{JUST}} {self.target}, {self.source}, {self.source2}'
 
+
 class Address(Instruction):
+    """Class for address instruction objects."""
+
     def __init__(self, labels, target, base, offset, var=None):
-        super().__init__(labels, Code.ADDR)
+        super().__init__(labels, Code.ADDRESS)
         self.target = target
         self.base = base
         self.offset = offset
         self.var = var
+
     def max_reg(self):
+        """Find max register used by this instuction."""
         return max(self.target, Reg.max_reg(self.base))
+
     def display(self):
+        """Display address instruction as string."""
         return f'{"ADD": <{JUST}} {self.target}, {self.base}, {self.offset} ; {self.var}'
 
+
 class Load(Instruction):
+    """Class for load/store instruction objects."""
+
     def __init__(self, labels, code, size, target, base, offset, var=None):
         super().__init__(labels, code)
         self.size = size
@@ -181,11 +273,15 @@ class Load(Instruction):
         self.base = base
         self.offset = offset
         self.var = var
+
     def max_reg(self):
+        """Find max register used by this instuction."""
         if isinstance(self.offset, Reg):
             return max(self.target, Reg.max_reg(self.base), self.offset)
         return max(self.target, Reg.max_reg(self.base))
+
     def display(self):
+        """Display load instruction as string."""
         if self.code is Code.STORE:
             return '{} [{}{}], {}{}'.format(f'{"ST"+str(self.size): <{JUST}}',
                                             self.base.name,
@@ -197,40 +293,65 @@ class Load(Instruction):
                                         self.base.name,
                                         f', {self.offset}' if self.offset is not None else '',
                                         f' ; {self.var}' if self.var else '')
+
+
 class LoadImm(Instruction):
+    """Class for load-immediate instruction objects."""
+
     def __init__(self, labels, target, value, comment):
-        super().__init__(labels, Code.IMM)
+        super().__init__(labels, Code.IMMEDIATE)
         self.target = target
         self.value = value
         self.comment = comment
+
     def max_reg(self):
+        """Find max register used by this instuction."""
         return self.target
+
     def display(self):
+        """Display load-immediate instruction as string."""
         return '{} {}, {}{}'.format(f'{"LDI": <{JUST}}',
                                     self.target,
                                     self.value,
                                     f' ; {self.comment}' if self.comment is not None else '')
 
-class LoadGlob(Instruction):
+
+class LoadGlobal(Instruction):
+    """Class for load-global instruction objects."""
+
     def __init__(self, labels, target, name):
-        super().__init__(labels, Code.GLOB)
+        super().__init__(labels, Code.GLOBAL)
         self.target = target
         self.name = name
+
     def max_reg(self):
+        """Find max register used by this instuction."""
         return self.target
+
     def display(self):
+        """Display load-global instruction as string."""
         return f'{"LDI": <{JUST}} {self.target}, ={self.name}'
 
+
 class Ret(Instruction):
+    """Class for return instruction objects."""
+
     def __init__(self, labels):
         super().__init__(labels, Code.RET)
+
     def display(self):
+        """Display return instruction as string."""
         return 'RET'
 
+
 class Emitter:
+    """Class for emitting bit32 objects."""
+
     def __init__(self):
         self.clear()
+
     def clear(self):
+        """Reset the emitter."""
         self.n_labels = 0
         self.if_jump_end = []
         self.loop = []
@@ -238,28 +359,49 @@ class Emitter:
         self.instructions = []
         self.data = []
         self.strings = []
+
     def begin_loop(self):
+        """
+        Begin loop or swtich block.
+
+        Head and tail labels are created for the current loop/switch block
+        that are used for continue and break instructions.
+        """
         self.loop.append((self.next_label(), self.next_label()))
+
     def loop_head(self):
+        """Get the current loop head label."""
         return self.loop[-1][0]
+
     def loop_tail(self):
+        """Get the current loop tail label."""
         return self.loop[-1][1]
+
     def end_loop(self):
+        """End current loop or switch block."""
         self.loop.pop()
+
     def next_label(self):
+        """Create a new unique label."""
         label = self.n_labels
         self.n_labels += 1
         return f'.L{label}'
+
     def append_label(self, label):
+        """Append the given label to the current label list."""
         self.labels.append(label)
-    def add(self, inst):
-        self.instructions.append(inst)
-        self.labels = []
+
+    def add(self, instruction):
+        """Append the given instruction to the current list of instructions."""
+        self.instructions.append(instruction)
+        self.labels = []  # reset label list
 
     def optimize_body(self):
+        """Peephole optimize the current function body."""
         i = 0
         while i < len(self.instructions)-1:
-            #peephole size = 1
+            # peephole size = 1
+            # strength reduction
             inst1 = self.instructions[i]
             if inst1.code is Code.BINARY and not isinstance(inst1.source, Reg) and inst1.source in POWERS_OF_2:
                 if inst1.op is Op.MUL:
@@ -275,13 +417,13 @@ class Emitter:
 
         i = 0
         while i < len(self.instructions)-1:
-            #peephole size = 2
-            #get labels and code
+            # peephole size = 2
+            # get labels and code
             inst1 = self.instructions[i]
             inst2 = self.instructions[i+1]
 
             if inst1.code is Code.BINARY and inst1.op is Op.MOV and inst2.code is Code.BINARY and inst1.target is inst2.source:
-                #redundant MOV after function call
+                # redundant MOV after function call
                 '''
                 MOV A, B
                 ADD C, A
@@ -291,9 +433,9 @@ class Emitter:
                                                    inst2.op, inst2.size,
                                                    inst2.target, inst1.source)]
                 continue
-            if inst1.code is Code.ADDR:
-                #address collapse
-                if inst2.code is Code.ADDR and inst1.target is inst2.base:
+            if inst1.code is Code.ADDRESS:
+                # address collapse
+                if inst2.code is Code.ADDRESS and inst1.target is inst2.base:
                     '''
                     ADD A, B, n
                     ADD C, A, m
@@ -331,37 +473,48 @@ class Emitter:
 
         # "you don't need to be a pilot to know planes don't belong in trees"
 
-        #general redundant MOV before function call
-        for j in range(1, 4+1):
+        # general redundant MOV before function call
+        for args in range(1, 4+1):
             i = 0
-            while i < len(self.instructions) - 2*j - 1:
-                for k in range(j):
-                    inst1 = self.instructions[i+k]
-                    inst2 = self.instructions[i+j+k]
-                    if inst1.code not in [Code.BINARY, Code.TERNARY, Code.ADDR, Code.LOAD, Code.IMM, Code.GLOB] or inst2.code is not Code.BINARY or inst2.op is not Op.MOV or inst1.target is not inst2.source:
+            while i < len(self.instructions) - 2*args - 1:
+                for j in range(args):
+                    inst1 = self.instructions[i+j]
+                    inst2 = self.instructions[i+args+j]
+                    if (inst1.code not in [Code.BINARY, Code.TERNARY,
+                                           Code.ADDRESS, Code.LOAD,
+                                           Code.IMMEDIATE, Code.GLOBAL]
+                        or inst2.code is not Code.BINARY
+                        or inst2.op is not Op.MOV
+                        or inst1.target is not inst2.source):
                         break
                 else:
-                    for k in range(j):
-                        inst1 = self.instructions[i+k]
-                        inst2 = self.instructions[i+j+k]
+                    for j in range(args):
+                        inst1 = self.instructions[i+j]
+                        inst2 = self.instructions[i+args+j]
                         if inst1.code is Code.BINARY and inst1.op not in [Op.MOV, Op.MVN]:
-                            self.instructions[i+k] = Ternary(inst1.labels+inst2.labels,
+                            self.instructions[i+j] = Ternary(inst1.labels+inst2.labels,
                                                              inst1.op, inst1.size,
                                                              inst2.target,
                                                              inst1.target,
                                                              inst1.source)
                         else:
                             inst1.target = inst2.target
-                    del self.instructions[i+j:i + 2*j]
-                    i += j
+                    del self.instructions[i+args:i + 2*args]
+                    i += args
                     continue
                 i += 1
 
     def optimize(self):
+        """
+        Peephole optimize entire program.
+
+        This happens after all functions are generated.
+        """
         i = 0
         while i < len(self.instructions)-1:
-            #peephole size = 2
-            #get labels and code
+            # peephole size = 2
+            # eliminate redundant jumps
+            # get labels and code
             inst1 = self.instructions[i]
             inst2 = self.instructions[i+1]
             '''
@@ -375,17 +528,20 @@ class Emitter:
             i += 1
 
     def begin_body(self, defn):
+        """Begin the body of a function."""
         if defn.returns or defn.type.ret.width:
             self.return_label = self.next_label()
         self.temp = self.instructions
         self.instructions = []
 
     def end_body(self):
+        """End the body of a function."""
         self.body = self.labels, self.instructions
         self.labels = []
         self.instructions = self.temp
 
     def add_body(self):
+        """Add stored body to rest of code."""
         labels, body = self.body
         if body:
             body[0].labels += self.labels
@@ -395,58 +551,97 @@ class Emitter:
         self.labels = labels
 
     def string_array(self, name, string):
+        """Emit string array object."""
         self.data.append(String(name, string))
 
     def string_ptr(self, string):
+        """Emit string pointer object."""
         if string not in self.strings:
             self.strings.append(string)
             self.string_array(f'.S{self.strings.index(string)}', string)
         return f'.S{self.strings.index(string)}'
 
     def space(self, name, size):
+        """Emit space allocation object."""
         self.data.append(Space(name, size))
+
     def glob(self, name, size, value):
-        self.data.append(Glob(name, size, value))
+        """Emit gloabl object."""
+        self.data.append(Global(name, size, value))
 
     def datas(self, label, datas):
+        """
+        Emit multiple data objects.
+
+        For global structs or arrays.
+        """
         size, data = datas[0]
         self.data.append(Data([label], size, data))
         for size, data in datas[1:]:
             self.data.append(Data([], size, data))
 
     def push(self, regs):
+        """Emit push instruction object."""
         if regs:
             self.add(Push(self.labels, regs))
+
     def pop(self, regs):
+        """Emit pop instruction object."""
         if regs:
             self.add(Pop(self.labels, regs))
+
     def call(self, proc):
+        """Emit call instruction object."""
         self.add(Call(self.labels, proc))
+
     def ret(self):
+        """Emit return instruction object."""
         self.add(Ret(self.labels))
+
     def load_glob(self, target, name):
-        self.add(LoadGlob(self.labels, target, name))
+        """Emit load-global instruction object."""
+        self.add(LoadGlobal(self.labels, target, name))
+
     def attr(self, base, var):
+        """Emit address instruction object. Specifically for attributes."""
         self.address(base, base, var.offset, var.name())
+
     def address(self, target, base, offset, var=None):
+        """Emit address instruction object."""
         self.add(Address(self.labels, target, base, offset, var))
+
     def load(self, size, target, base, offset=None, var=None):
+        """Emit load instruction object."""
         self.add(Load(self.labels, Code.LOAD, size, target, base, offset, var))
+
     def store(self, size, target, base, offset=None, var=None):
+        """Emit store instruction object."""
         self.add(Load(self.labels, Code.STORE, size, target, base, offset, var))
+
     def imm(self, target, value, comment=None):
+        """Emit load-immediate instruction object."""
         self.add(LoadImm(self.labels, target, value, comment))
+
     def unary(self, op, size, target):
+        """Emit unary ALU instruction object."""
         self.add(Unary(self.labels, op, size, target))
+
     def binary(self, op, size, target, source):
+        """Emit binary ALU instruction object."""
         self.add(Binary(self.labels, op, size, target, source))
+
     def ternary(self, op, size, target, rs, source):
+        """Emit ternary ALU instruction object."""
         self.add(Ternary(self.labels, op, size, target, rs, source))
+
     def jump(self, cond, target):
+        """Emit jump instruction object."""
         self.add(Jump(self.labels, cond, target))
+
     def mov(self, cond, target, value):
+        """Emit cmov instruction object."""
         self.add(CMov(self.labels, cond, target, value))
 
     def __str__(self):
+        """Get string representaion of all emmitted objects."""
         return '\n'.join(map(str, self.data+self.instructions))
-

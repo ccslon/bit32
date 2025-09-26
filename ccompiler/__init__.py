@@ -8,7 +8,15 @@ import assembler
 from . import cpreproc
 from . import cparser
 
+
 def compile_file(file_name, iflag=False, sflag=False, fflag=True):
+    """
+    Compile file based on the flags given the file name.
+
+    iflag: Output only preprocessed C code.
+    sflag: Output only bit32 assembly code.
+    fflag: Output to file.
+    """
     if file_name.endswith('.c') or file_name.endswith('.h'):
         preproc = cpreproc.CPreProcessor()
         preproc.process(file_name)
