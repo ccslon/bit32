@@ -295,7 +295,7 @@ class Load(Instruction):
                                         f' ; {self.var}' if self.var else '')
 
 
-class LoadImm(Instruction):
+class LoadImmediate(Instruction):
     """Class for load-immediate instruction objects."""
 
     def __init__(self, labels, target, value, comment):
@@ -514,12 +514,11 @@ class Emitter:
         while i < len(self.instructions)-1:
             # peephole size = 2
             # eliminate redundant jumps
-            # get labels and code
             inst1 = self.instructions[i]
             inst2 = self.instructions[i+1]
             '''
-            JMP .Ln
-            .Ln: ...
+            JMP label
+            label: ...
             '''
             if inst1.code is Code.JUMP and inst1.target in inst2.labels:
                 inst2.labels += inst1.labels
@@ -620,7 +619,7 @@ class Emitter:
 
     def imm(self, target, value, comment=None):
         """Emit load-immediate instruction object."""
-        self.add(LoadImm(self.labels, target, value, comment))
+        self.add(LoadImmediate(self.labels, target, value, comment))
 
     def unary(self, op, size, target):
         """Emit unary ALU instruction object."""

@@ -6,7 +6,7 @@ Created on Fri Sep  6 14:25:05 2024
 """
 from collections import UserList
 from bit32 import Op, Cond, Reg, Size, escape
-from .cnodes import Statement, Expr, Binary
+from .cnodes import Statement, Expression, Binary
 from .ctypes import Array
 
 
@@ -326,7 +326,7 @@ class InitialStringArray(Statement):
         emitter.string_array(self.array.token.lexeme, self.string.token.lexeme)
 
 
-class Call(Expr, Statement):
+class Call(Expression, Statement):
     """Class for function calls."""
 
     def __init__(self, token, func, args):

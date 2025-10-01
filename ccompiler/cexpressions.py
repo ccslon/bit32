@@ -5,11 +5,11 @@ Created on Fri Sep  6 14:09:48 2024
 @author: ccslon
 """
 from bit32 import Size, Op, Reg, Cond, negative, int_to_float, unescape
-from .cnodes import Expr, Var, Const, Unary, Binary, Access, Statement
+from .cnodes import Expression, Variable, Constant, Unary, Binary, Access, Statement
 from .ctypes import Char, Int, Float, Pointer, Array
 
 
-class Local(Var):
+class Local(Variable):
     """Class for local variables and parameters."""
 
     def address(self, emitter, n):
@@ -25,7 +25,7 @@ class Local(Var):
         return self.type.store(emitter, n, self, Reg.SP)
 
 
-class Attribute(Var):
+class Attribute(Variable):
     """Class for attributes found in structs or unions."""
 
     def name(self):
@@ -45,7 +45,7 @@ class Attribute(Var):
         return self.type.store(emitter, n, self, n+1)
 
 
-class Global(Var):
+class Global(Variable):
     """Class for global variables."""
 
     def address(self, emitter, n):
@@ -66,7 +66,7 @@ class Global(Var):
             emitter.space(self.token.lexeme, self.type.size)
 
 
-class NumberBase(Const):
+class NumberBase(Constant):
     """Base class for number literals."""
 
     def __init__(self, token):
@@ -148,7 +148,7 @@ class SizeOf(NumberBase):
         self.value = int(ctype.size)
 
 
-class Decimal(Const):
+class Decimal(Constant):
     """Class for basic decimal numbers found anywhere in C code."""
 
     def __init__(self, token):
@@ -173,7 +173,7 @@ class NegativeDecimal(Decimal):
         self.value = int_to_float(f'-{token.lexeme}')
 
 
-class Character(Const):
+class Character(Constant):
     """Class for character literals."""
 
     def __init__(self, token):
@@ -194,7 +194,7 @@ class Character(Const):
         return self.data(emitter)
 
 
-class String(Const):
+class String(Constant):
     """Class for string literals."""
 
     def __init__(self, token):
@@ -441,7 +441,7 @@ class Logic(BinaryOp):
         return Reg(n)
 
 
-class Condition(Expr):
+class Conditional(Expression):
     """Class for condition ternary operator."""
 
     def __init__(self, token, cond, true, false):

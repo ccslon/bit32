@@ -6,7 +6,7 @@ Created on Fri Sep  8 14:37:22 2023
 """
 from unittest import TestCase, main, expectedFailure
 
-from ccompiler import cpreproc, cparser
+from ccompiler import cpreprocessor, cparser
 
 
 class TestCompiler(TestCase):
@@ -14,7 +14,7 @@ class TestCompiler(TestCase):
     @classmethod
     def setUpClass(cls):
         cls.tests = []
-        cls.preproc = cpreproc.CPreProcessor()
+        cls.preproc = cpreprocessor.CPreProcessor()
 
     @classmethod
     def tearDownClass(cls):

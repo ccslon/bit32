@@ -36,13 +36,13 @@ class CPreProcessor(Parser):
         self.std_included = set()
         super().__init__()
 
-    def repl_comments(self, text):
+    def replace_comments(self, text):
         """Ignore/replace comments in C input."""
-        return self.COMMENT.sub(self.comment_repl, text)
+        return self.COMMENT.sub(self.comment_replacement, text)
 
     def argument(self, expand):
         '''
-        ARG -> {TOKEN|name '(' [ARG {',' ARG}] ')'|'(' ARG ')'}
+        ARGUMENT -> {TOKEN|name '(' [ARGUMENT {',' ARGUMENT}] ')'|'(' ARGUMENT ')'}
         '''
         self.accept(Lex.SPACE)
         while not self.peek({')', ','}):
@@ -63,7 +63,7 @@ class CPreProcessor(Parser):
 
     def parameter(self):
         '''
-        PARAM -> name
+        PARAMETER -> name
         '''
         self.accept(Lex.SPACE)
         name = self.expect(Lex.NAME)
@@ -72,7 +72,7 @@ class CPreProcessor(Parser):
 
     def parameters(self):
         '''
-        PARAMS -> [PARAM {',' PARAM}]
+        PARAMETERS -> [PARAMETER {',' PARAMETER}]
         '''
         parameters = {}
         self.accept(Lex.SPACE)
@@ -190,7 +190,7 @@ class CPreProcessor(Parser):
                         self.error(f'Circular dependency originating in {self.original}')
                     with open(file_path) as file:
                         text = file.read()
-                    text = self.repl_comments(text)
+                    text = self.replace_comments(text)
                     self.tokens[start:self.index] = self.lexer.lex(text)
                 elif self.peek(Lex.STD):
                     file_name = next(self).lexeme
@@ -202,7 +202,7 @@ class CPreProcessor(Parser):
                             self.error(f'Circular dependency originating in {self.original}')
                         with open(file_path) as file:
                             text = file.read()
-                        text = self.repl_comments(text)
+                        text = self.replace_comments(text)
                         self.tokens[start:self.index] = self.lexer.lex(text)
                         self.std_included.add(file_name)
                     else:
@@ -234,7 +234,7 @@ class CPreProcessor(Parser):
         PROGRAM -> {TOKEN
                   |'#' DIRECTIVE
                   |name
-                  |name '(' ARGS ')'
+                  |name '(' ARGUMENTS ')'
                   |string string
                    }
         '''
@@ -269,7 +269,7 @@ class CPreProcessor(Parser):
         with open(file_name) as file:
             self.path = os.path.dirname(os.path.abspath(file.name))
             text = file.read()
-        text = self.repl_comments(text)
+        text = self.replace_comments(text)
         self.parse(self.lexer.lex(text)
                    + [Token(Lex.END, '', self.lexer.line)])
 
@@ -285,7 +285,7 @@ class CPreProcessor(Parser):
         return ''.join(f'"{token.lexeme}"' if token.type is Lex.STRING
                        else token.lexeme for token in self.tokens)
 
-    def comment_repl(self, match):
+    def comment_replacement(self, match):
         """Replace comments with space/newlines to preserve line numbers."""
         return ' ' + '\n'*match[0].count('\n')
 

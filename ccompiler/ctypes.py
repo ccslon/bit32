@@ -7,7 +7,6 @@ Created on Fri Sep  6 14:05:50 2024
 from collections import UserDict
 from bit32 import Op, Size, Reg, Cond, int_to_float
 from .cnodes import Frame
-from . import cexprs
 
 
 class Type:
@@ -497,9 +496,9 @@ class Union(UserDict, Value):
 class Function(Value):
     """Class for function type."""
 
-    def __init__(self, ret, params, variable):
+    def __init__(self, ret, params, variadic):
         super().__init__()
-        self.ret, self.params, self.variable = ret, params, variable
+        self.ret, self.params, self.variadic = ret, params, variadic
         self.size = 0
         self.width = Size.WORD
 
@@ -516,7 +515,7 @@ class Function(Value):
         return (isinstance(other, Function)
                 and self.ret == other.ret
                 and len(self.params) == len(other.params)
-                and self.variable == other.variable
+                and self.variadic == other.variadic
                 and all(param.type == other.params[i].type
                         for i, param in enumerate(self.params)))
 

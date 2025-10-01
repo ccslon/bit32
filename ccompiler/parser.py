@@ -50,8 +50,7 @@ class Parser:
         token = self.tokens[self.index+offset]
         if isinstance(peek, set):
             return (token.type in peek
-                    or token.type in {Lex.CTYPE, Lex.KEYWORD,
-                                      Lex.SYMBOL, Lex.NAME}
+                    or token.type in {Lex.CTYPE, Lex.KEYWORD, Lex.SYMBOL, Lex.NAME}
                     and token.lexeme in peek)
         return (token.type is peek
                 or token.type in {Lex.CTYPE, Lex.KEYWORD, Lex.SYMBOL}

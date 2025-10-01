@@ -6,7 +6,7 @@ Created on Sat Mar  1 11:43:13 2025
 """
 from collections import UserDict, UserList
 from bit32 import Op, Cond, Size, Reg
-from .cemitter import Emitter
+from .emitter import Emitter
 
 
 class Frame(UserDict):
@@ -48,11 +48,11 @@ class Statement(CNode):
     """Base class for C statements."""
 
     def last_is_return(self):
-        """D if the last instruction is a return."""
+        """Determine if the last instruction is a return."""
         return False
 
 
-class Expr(CNode):
+class Expression(CNode):
     """Base class for C expressions."""
 
     def __init__(self, ctype, token):
@@ -150,7 +150,7 @@ class Expr(CNode):
         return Reg(n)
 
 
-class Var(Expr):
+class Variable(Expression):
     """Base class for variable nodes."""
 
     def name(self):
@@ -170,7 +170,7 @@ class Var(Expr):
         emitter.call(self.token.lexeme)
 
 
-class Const(Expr):
+class Constant(Expression):
     """Class for constant nodes."""
 
     def is_const(self):
@@ -186,7 +186,7 @@ class Const(Expr):
         return False
 
 
-class Unary(Expr):
+class Unary(Expression):
     """Base class for unary nodes."""
 
     def __init__(self, ctype, token, expr):
@@ -206,7 +206,7 @@ class Unary(Expr):
         return self.expr.soft_calls()
 
 
-class Binary(Expr):
+class Binary(Expression):
     """Base class for binary nodes."""
 
     def __init__(self, ctype, token, left, right):
@@ -226,7 +226,7 @@ class Binary(Expr):
         return self.left.hard_calls() or self.right.hard_calls()  # self.left.soft_calls() ?
 
 
-class Access(Expr):
+class Access(Expression):
     """Base class for array access nodes."""
 
     def __init__(self, token, struct, attr):
@@ -311,7 +311,7 @@ class Definition(CNode):
                     inst.offset += offset
 
 
-class VariadicDefinition(Definition): #TODO test
+class VariadicDefinition(Definition):  # TODO test
     """Class for variadic function definition nodes."""
 
     def prologue(self, emitter, push):
