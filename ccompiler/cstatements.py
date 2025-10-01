@@ -243,7 +243,7 @@ class Compound(UserList, Statement):
             statement.generate(emitter, n)
 
 
-class InitAssign(Binary, Statement):
+class InitialAssign(Binary, Statement):
     """Class for initial assignments."""
 
     def __init__(self, token, left, right):
@@ -271,7 +271,7 @@ class InitAssign(Binary, Statement):
         emitter.glob(self.left.token.lexeme, self.width, self.right.data(emitter))
 
 
-class Assign(InitAssign):
+class Assign(InitialAssign):
     """Class for assignments."""
 
     def __init__(self, token, left, right):
@@ -280,7 +280,7 @@ class Assign(InitAssign):
             token.error('Cannot assign to a const')
 
 
-class InitListAssign(Statement):
+class InitialListAssign(Statement):
     """Class for initial list assignments."""
 
     def __init__(self, token, left, right):
@@ -303,7 +303,7 @@ class InitListAssign(Statement):
         emitter.datas(self.left.token.lexeme, self.left.type.glob_data(emitter, self.right, []))
 
 
-class InitArrayString(Statement):
+class InitialStringArray(Statement):
     """Class for local string array assignments."""
 
     def __init__(self, token, array, string):
@@ -372,7 +372,7 @@ class Call(Expr, Statement):
         self.func.call(emitter, n)
 
 
-class VarCall(Call):
+class VariadicCall(Call):
     """Class for variadic function calls."""
 
     def reduce_args(self, emitter, n):

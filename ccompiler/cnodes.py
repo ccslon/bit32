@@ -242,7 +242,7 @@ class Access(Expr):
         return self.struct.soft_calls()
 
 
-class FuncDefn(CNode):
+class Definition(CNode):
     """Class for function definition nodes."""
 
     def __init__(self, ctype, name, block, info):
@@ -311,7 +311,7 @@ class FuncDefn(CNode):
                     inst.offset += offset
 
 
-class VarFuncDefn(FuncDefn): #TODO test
+class VariadicDefinition(Definition): #TODO test
     """Class for variadic function definition nodes."""
 
     def prologue(self, emitter, push):

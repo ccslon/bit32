@@ -7,7 +7,7 @@ Created on Fri Aug 25 10:49:03 2023
 from enum import IntEnum, IntFlag
 import re
 
-from bit32 import Size, Flag, Reg, Op, Cond, Byte, Char, Half, Word, Jump, Interrupt, Unary, Binary, Ternary, Load, PushPop, LoadImm, unescape
+from bit32 import Size, Flag, Reg, Op, Cond, Byte, Char, Half, Word, Jump, Interrupt, Unary, Binary, Ternary, Load, PushPop, LoadImmediate, unescape
 
 
 class Debug(IntFlag):
@@ -113,7 +113,7 @@ class Assembler:
     def store(self, cond, size, rb, offset, rd, imm):
         self.new_inst(Load, cond, size, imm, True, rd, rb, offset)
     def load_imm(self, cond, size, rd, value):
-        self.new_inst(LoadImm, cond, size, rd)
+        self.new_inst(LoadImmediate, cond, size, rd)
         self.new_inst(Word, value)
     def pop(self, cond, size, rd):
         self.new_inst(PushPop, cond, size, False, rd)

@@ -9,12 +9,12 @@ from enum import IntEnum
 from struct import pack
 
 
-def negative(num, base):
+def negative(number, base):
     """Make a 2's compliment negative number."""
-    return (-num ^ (2**base - 1)) + 1
+    return (-number ^ (2**base - 1)) + 1
 
 
-def itf(i):
+def int_to_float(i):
     """Integer to floating point number (big endian)."""
     return int.from_bytes(pack('>f', float(i)), 'big')
 
@@ -37,6 +37,8 @@ class Size(IntEnum):
 
 
 class Flag(IntEnum):
+    """Enum class for CPU status register flags."""
+
     Z =         0b00000001  # zero flag
     N =         0b00000010  # negative flag
     V =         0b00000100  # overflow flag
@@ -144,17 +146,6 @@ class Cond(IntEnum):
     def __str__(self):
         """Get condition string representation."""
         return self.name if self != self.AL else ''
-
-
-class InstOp(IntEnum):
-    """Enum for the different instruction types."""
-
-    JUMP = 0
-    INT = 1
-    ALU = 2
-    LOAD = 4
-    STACK = 6
-    WORD = 7
 
 
 ESCAPE = {
@@ -301,20 +292,28 @@ class Word(Data):
         self.str = f'0x{word:08x}'
 
 
-class Inst(Data):
+class InstructionOp(IntEnum):
+    """Enum for the different instruction types."""
+
+    JUMP = 0
+    INTERRUPT = 1
+    ALU = 2
+    LOAD = 4
+    STACK = 6
+    WORD = 7
+
+
+class Instruction(Data):
     """Base class for bit32 instructions."""
 
-    pass
-
-
-class Jump(Inst):
+class Jump(Instruction):
     """Class for Jump instructions."""
 
     def __init__(self, cond, link, offset24):
         super().__init__()
         self[31:28] = cond
         self[27] = link
-        self[26:24] = InstOp.JUMP
+        self[26:24] = InstructionOp.JUMP
         op = f'CALL{cond}' if link else f'J{cond.jump()}'
         if offset24 < 0:
             self.str = f'{op} -0x{-offset24:06X}'
@@ -324,26 +323,26 @@ class Jump(Inst):
         self[23:0] = offset24
 
 
-class Interrupt(Inst):
+class Interrupt(Instruction):
     """Class for interrupt instructions."""
 
     def __init__(self, cond, software, code24):
         super().__init__()
         self[31:28] = cond
         self[27] = software
-        self[26:24] = InstOp.INT
+        self[26:24] = InstructionOp.INTERRUPT
         self[23:0] = code24
         self.str = f'INT{cond} 0x{code24:06X}'
 
 
-class Unary(Inst):
+class Unary(Instruction):
     """Class for unary ALU instructions."""
 
     def __init__(self, cond, flag, size, op, rd):
         super().__init__()
         self[31:28] = cond
         self[27] = flag
-        self[26:24] = InstOp.ALU
+        self[26:24] = InstructionOp.ALU
         self[23:22] = size >> 1
         self[21:17] = op
         self[16:12] = None
@@ -353,14 +352,14 @@ class Unary(Inst):
         self.str = f'{op.name}{cond}{"S"*flag}.{size} {rd}'
 
 
-class Binary(Inst):
+class Binary(Instruction):
     """Class for binary ALU instructions."""
 
     def __init__(self, cond, flag, size, imm, op, src, rd):
         super().__init__()
         self[31:28] = cond
         self[27] = op == Op.CMPF or flag
-        self[26:24] = InstOp.ALU | imm
+        self[26:24] = InstructionOp.ALU | imm
         self[23:22] = size >> 1
         self[21:17] = op
         if imm:
@@ -385,14 +384,14 @@ class Binary(Inst):
         self.str = f"{op.name}{cond}{'S'*flag}{size} {rd}, {src}"
 
 
-class Ternary(Inst):
+class Ternary(Instruction):
     """Class for ternary ALU instructions."""
 
     def __init__(self, cond, flag, size, imm, op, src, rs, rd):
         super().__init__()
         self[31:28] = cond
         self[27] = flag
-        self[26:24] = InstOp.ALU | imm
+        self[26:24] = InstructionOp.ALU | imm
         self[23:22] = size >> 1
         self[21:17] = op
         if imm:
@@ -412,14 +411,14 @@ class Ternary(Inst):
         self.str = f'{op.name}{cond}{"S"*flag}{size} {rd}, {rs}, {src}'
 
 
-class Load(Inst):
+class Load(Instruction):
     """Class for load and store instructions."""
 
     def __init__(self, cond, size, imm, storing, rd, rb, offset):
         super().__init__()
         self[31:28] = cond
         self[27] = storing
-        self[26:24] = InstOp.LOAD | imm
+        self[26:24] = InstructionOp.LOAD | imm
         self[23:22] = size >> 1
         if imm:
             assert -128 <= offset < 256
@@ -442,7 +441,7 @@ class Load(Inst):
             self.str = f'LD{cond}{size} {rd}, [{rb}, {offset}]'
 
 
-class PushPop(Inst):
+class PushPop(Instruction):
     """Class for push and pop instructions."""
 
     def __init__(self, cond, size, pushing, rd):
@@ -450,7 +449,7 @@ class PushPop(Inst):
         self[31:28] = cond
         op = 'PUSH' if pushing else 'POP'
         self[27] = pushing
-        self[26:24] = InstOp.STACK
+        self[26:24] = InstructionOp.STACK
         self[23:22] = size >> 1
         self[21:17] = None
         if pushing:
@@ -464,14 +463,14 @@ class PushPop(Inst):
         self.str = f'{op}{cond}{size} {rd}'
 
 
-class LoadImm(Inst):
+class LoadImmediate(Instruction):
     """Class for load-immediate instruction."""
 
     def __init__(self, cond, size, rd, link=None):
         super().__init__()
         self[31:28] = cond
         self[27] = link
-        self[26:24] = InstOp.WORD
+        self[26:24] = InstructionOp.WORD
         self[23:22] = size >> 1
         self[21:4] = None
         self[3:0] = rd

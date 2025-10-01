@@ -4,7 +4,7 @@ Created on Fri Sep  6 14:09:48 2024
 
 @author: ccslon
 """
-from bit32 import Size, Op, Reg, Cond, negative, itf, unescape
+from bit32 import Size, Op, Reg, Cond, negative, int_to_float, unescape
 from .cnodes import Expr, Var, Const, Unary, Binary, Access, Statement
 from .ctypes import Char, Int, Float, Pointer, Array
 
@@ -25,7 +25,7 @@ class Local(Var):
         return self.type.store(emitter, n, self, Reg.SP)
 
 
-class Attr(Var):
+class Attribute(Var):
     """Class for attributes found in structs or unions."""
 
     def name(self):
@@ -45,7 +45,7 @@ class Attr(Var):
         return self.type.store(emitter, n, self, n+1)
 
 
-class Glob(Var):
+class Global(Var):
     """Class for global variables."""
 
     def address(self, emitter, n):
@@ -121,7 +121,7 @@ class Number(NumberBase):
             self.value = int(token.lexeme)
 
 
-class NegNumber(Number):
+class Negative(Number):
     """Class for negative number nodes."""
 
     def reduce(self, emitter, n):
@@ -153,7 +153,7 @@ class Decimal(Const):
 
     def __init__(self, token):
         super().__init__(Float(), token)
-        self.value = itf(token.lexeme)
+        self.value = int_to_float(token.lexeme)
 
     def data(self, _):
         """Get data representation of decimal."""
@@ -165,12 +165,12 @@ class Decimal(Const):
         return Reg(n)
 
 
-class NegDecimal(Decimal):
+class NegativeDecimal(Decimal):
     """Class for negative decimals."""
 
     def __init__(self, token):
         super().__init__(token)
-        self.value = itf(f'-{token.lexeme}')
+        self.value = int_to_float(f'-{token.lexeme}')
 
 
 class Character(Const):
@@ -256,7 +256,7 @@ class Post(UnaryOp, Statement):
         self.reduce(emitter, 0)
 
 
-class AddrOf(Unary):
+class AddressOf(Unary):
     """Class for address-of operator."""
 
     def __init__(self, token, expr):
@@ -267,7 +267,7 @@ class AddrOf(Unary):
         return self.expr.address(emitter, n)
 
 
-class Deref(Unary):
+class Dereference(Unary):
     """Class for dereference operator."""
 
     def __init__(self, token, expr):
@@ -516,7 +516,7 @@ class Arrow(Access):
         return self.attr.store(emitter, n)
 
 
-class SubScr(Binary):
+class SubScript(Binary):
     """Class for array access."""
 
     def __init__(self, token, left, right):

@@ -5,7 +5,7 @@ Created on Fri Sep  6 14:05:50 2024
 @author: ccslon
 """
 from collections import UserDict
-from bit32 import Op, Size, Reg, Cond, itf
+from bit32 import Op, Size, Reg, Cond, int_to_float
 from .cnodes import Frame
 from . import cexprs
 
@@ -305,12 +305,12 @@ class Float(Numeric):
 
     def reduce_pre(self, emitter, n, op):
         """Generate code for pre operator."""
-        emitter.imm(Reg(n+1), itf(1))
+        emitter.imm(Reg(n+1), int_to_float(1))
         emitter.binary(op, self.width, Reg(n), Reg(n+1))
 
     def reduce_post(self, emitter, n, op):
         """Generate code for post operator."""
-        emitter.imm(Reg(n+2), itf(1))
+        emitter.imm(Reg(n+2), int_to_float(1))
         emitter.ternary(op, self.width, Reg(n+1), Reg(n), Reg(n+2))
 
     def reduce_binary(self, emitter, n, op, left, right):
@@ -357,7 +357,7 @@ class Pointer(Int):
         return isinstance(other, (Numeric, Array))
 
     def __eq__(self, other):
-        """Determine if given ttpe is equal to this type."""
+        """Determine if given type is equal to this pointer type."""
         return (isinstance(other, Pointer)
                 and (self.to == other.to
                      or isinstance(self.to, Void)
@@ -365,7 +365,7 @@ class Pointer(Int):
                 or isinstance(other, Array)
                 and (self.of == other.of
                      or isinstance(self.to, Void))
-                or isinstance(other, Func) and self.to == other)
+                or isinstance(other, Function) and self.to == other)
 
     def __str__(self):
         """Get string representation for pointer type."""
@@ -494,7 +494,7 @@ class Union(UserDict, Value):
         super().__setitem__(name, attr)
 
 
-class Func(Value):
+class Function(Value):
     """Class for function type."""
 
     def __init__(self, ret, params, variable):
@@ -513,7 +513,7 @@ class Func(Value):
 
     def __eq__(self, other):
         """Determine if given type is equal to this function type."""
-        return (isinstance(other, Func)
+        return (isinstance(other, Function)
                 and self.ret == other.ret
                 and len(self.params) == len(other.params)
                 and self.variable == other.variable

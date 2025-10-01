@@ -8,13 +8,13 @@ from dataclasses import dataclass
 from copy import copy
 from .parser import Parser
 from .clexer import Lex, CTYPES
-from .cnodes import Frame, Translation, FuncDefn, VarFuncDefn
-from .cexprs import Number, NegNumber, EnumNumber, Decimal, NegDecimal, Character, String
+from .cnodes import Frame, Translation, Definition, VariadicDefinition
+from .cexprs import Number, Negative, EnumNumber, Decimal, NegativeDecimal, Character, String
 from .cexprs import Post, UnaryOp, Not, Pre, BinaryOp, Compare, Logic
-from .cexprs import Local, Attr, Glob, Dot, SubScr, Arrow, AddrOf, Deref, SizeOf, Cast, Condition
-from .ctypes import Type, Void, Float, Int, Short, Char, Pointer, Struct, Union, Array, Func
+from .cexprs import Local, Attribute, Global, Dot, SubScript, Arrow, AddressOf, Dereference, SizeOf, Cast, Condition
+from .ctypes import Type, Void, Float, Int, Short, Char, Pointer, Struct, Union, Array, Function
 from .cstatements import Statement, If, Case, Switch, While, Do, For, Continue, Break, Goto, Label, Return, Compound
-from .cstatements import Call, VarCall, InitAssign, Assign, InitListAssign, InitArrayString
+from .cstatements import Call, VariadicCall, InitialAssign, Assign, InitialListAssign, InitialStringArray
 r'''( |\t)+$''' #to delete weird whitespace spyder adds
 '''
 TODO
@@ -66,7 +66,7 @@ TODO
 Test:
     [ ] Union arrow op
     [ ] Pre
-    [ ] NegDecimal
+    [ ] NegativeDecimal
     [ ] cast
     [ ] local typedef
     [ ] return;
@@ -76,7 +76,7 @@ Test:
 
 
 @dataclass
-class FuncInfo:
+class FunctionInfo:
     """Containment class for C function info."""
 
     ret: Type
@@ -84,11 +84,11 @@ class FuncInfo:
     space: int = 0
     returns: bool = False
     calls: bool = False
-    max_args: int = 0
+    max_arguments: int = 0
 
     def __iter__(self):
         """For unpacking."""
-        return iter((self.returns, self.calls, self.max_args, self.space))
+        return iter((self.returns, self.calls, self.max_arguments, self.space))
 
 
 class Scope:
@@ -100,7 +100,7 @@ class Scope:
         self.typedefs = {}
         self.unions = {}
         self.enums = []
-        self.enum_consts = {}
+        self.enum_numbers = {}
 
     def copy(self):
         """Create a copy of the scope ."""
@@ -110,7 +110,7 @@ class Scope:
         new.typedefs.update(self.typedefs)
         new.unions.update(self.unions)
         new.enums.extend(self.enums)
-        new.enum_consts.update(self.enum_consts)
+        new.enum_numbers.update(self.enum_numbers)
         return new
 
     def clear(self):
@@ -120,7 +120,7 @@ class Scope:
         self.typedefs.clear()
         self.unions.clear()
         self.enums.clear()
-        self.enum_consts.clear()
+        self.enum_numbers.clear()
 
 
 class CParser(Parser):
@@ -150,8 +150,8 @@ class CParser(Parser):
             return self.stack_params[name]
         if name in self.globs:
             return self.globs[name]
-        if name in self.scope.enum_consts:
-            return self.scope.enum_consts[name]
+        if name in self.scope.enum_numbers:
+            return self.scope.enum_numbers[name]
         self.error(f'Name "{name}" not found')
 
     def primary(self):
@@ -176,19 +176,19 @@ class CParser(Parser):
 
     def postfix(self):
         '''
-        POST -> PRIMARY {'(' ARGS ')'|'[' EXPR ']'|'++'|'--'|'.' name|'->' name}
+        POST -> PRIMARY {'(' arguments ')'|'[' EXPR ']'|'++'|'--'|'.' name|'->' name}
         '''
         postfix = self.primary()
         while self.peek({'(', '[', '++', '--', '.', '->'}):
             if self.peek('('):
-                if not isinstance(postfix.type, Func):
+                if not isinstance(postfix.type, Function):
                     self.error(f'"{postfix.token.lexeme}" is not a function')
-                call_type = VarCall if postfix.type.variable else Call
+                call_type = VariadicCall if postfix.type.variable else Call
                 self.func.calls = True
-                postfix = call_type(next(self), postfix, self.args())
+                postfix = call_type(next(self), postfix, self.arguments())
                 self.expect(')')
             elif self.peek('['):
-                postfix = SubScr(next(self), postfix, self.expr())
+                postfix = SubScript(next(self), postfix, self.expr())
                 self.expect(']')
             elif self.peek({'++', '--'}):
                 postfix = Post(next(self), postfix)
@@ -210,17 +210,17 @@ class CParser(Parser):
                 postfix = Arrow(name, postfix, attr)
         return postfix
 
-    def args(self):
+    def arguments(self):
         '''
-        ARGS -> [ASSIGN {',' ASSIGN}]
+        arguments -> [ASSIGN {',' ASSIGN}]
         '''
-        args = []
+        arguments = []
         if not self.peek(')'):
-            args.append(self.assign())
+            arguments.append(self.assign())
             while self.accept(','):
-                args.append(self.assign())
-        self.func.max_args = min(max(self.func.max_args, len(args)), 4)
-        return args
+                arguments.append(self.assign())
+        self.func.max_arguments = min(max(self.func.max_arguments, len(arguments)), 4)
+        return arguments
 
     def unary(self):
         '''
@@ -231,13 +231,13 @@ class CParser(Parser):
                 |'sizeof' UNARY
         '''
         if self.peek('*'):
-            return Deref(next(self), self.cast())
+            return Dereference(next(self), self.cast())
         if self.peek2('-', Lex.DECIMAL):
             next(self)
-            return NegDecimal(next(self))
+            return NegativeDecimal(next(self))
         if self.peek2('-', Lex.NUMBER):
             next(self)
-            return NegNumber(next(self))
+            return Negative(next(self))
         if self.peek({'-', '~'}):
             return UnaryOp(next(self), self.cast())
         if self.peek({'++', '--'}):
@@ -245,7 +245,7 @@ class CParser(Parser):
         if self.peek('!'):
             return Not(next(self), self.cast())
         if self.peek('&'):
-            return AddrOf(next(self), self.cast())
+            return AddressOf(next(self), self.cast())
         if self.peek('sizeof'):
             token = next(self)
             if self.accept('('):
@@ -376,8 +376,8 @@ class CParser(Parser):
         assign = self.cond()
         if self.peek({'=', '+=', '-=', '*=', '/=', '%=',
                       '<<=', '>>=', '^=', '|=', '&=', '/=', '%='}):
-            if not isinstance(assign, (Local, Glob, Dot,
-                                       Arrow, SubScr, Deref)):
+            if not isinstance(assign, (Local, Global, Dot,
+                                       Arrow, SubScript, Dereference)):
                 self.error(f'Cannot assign to {type(assign)}')
             if self.peek('='):
                 assign = Assign(next(self), assign, self.assign())
@@ -410,9 +410,9 @@ class CParser(Parser):
         name = self.expect(Lex.NAME)
         if self.accept('='):
             value = Number(self.expect(Lex.NUMBER)).value  # todo
-        if not name.lexeme not in self.scope.enum_consts:
+        if not name.lexeme not in self.scope.enum_numbers:
             self.error(f'Redeclaration of enumerator "{name.lexeme}"')
-        self.scope.enum_consts[name.lexeme] = EnumNumber(name, value)
+        self.scope.enum_numbers[name.lexeme] = EnumNumber(name, value)
         return value
 
     def attr(self, spec, ctype):
@@ -428,7 +428,7 @@ class CParser(Parser):
                 spec.data[name] = attr
             spec.size += ctype.size
         else:
-            spec[name.lexeme] = Attr(ctype, name)
+            spec[name.lexeme] = Attribute(ctype, name)
 
     def spec(self):
         '''
@@ -533,8 +533,8 @@ class CParser(Parser):
         name = self._declr(types)
         if name is not None:
             self.error(f'Did not expect name "{name.lexeme}" in TYPE NAME')
-        for new_type, args in reversed(types):
-            type_name = new_type(type_name, *args)
+        for new_type, arguments in reversed(types):
+            type_name = new_type(type_name, *arguments)
         return type_name
 
     def _declr(self, types):
@@ -561,7 +561,7 @@ class CParser(Parser):
         while self.peek({'(', '['}):
             if self.accept('('):
                 params, variable = self.params()
-                types.append((Func, (params, variable)))
+                types.append((Function, (params, variable)))
                 self.expect(')')
             elif self.accept('['):
                 types.append((Array,
@@ -587,13 +587,13 @@ class CParser(Parser):
             if self.accept('{'):
                 if not isinstance(declr.type, (Array, Struct)):
                     self.error('Cannot list-assign to scalar')
-                init_declr = InitListAssign(token, declr,
-                                            self.init_list(parser))
+                init_declr = InitialListAssign(token, declr,
+                                               self.init_list(parser))
                 self.expect('}')
             elif isinstance(declr.type, Array) and self.peek(Lex.STRING):
-                init_declr = InitArrayString(token, declr, String(next(self)))
+                init_declr = InitialStringArray(token, declr, String(next(self)))
             else:
-                init_declr = InitAssign(token, declr, parser())
+                init_declr = InitialAssign(token, declr, parser())
         scope[declr.token.lexeme] = declr
         return init_declr
 
@@ -609,13 +609,13 @@ class CParser(Parser):
         '''
         INIT_DECLR -> DECLR ['=' INIT]
         '''
-        return self.init_declr(Glob(ctype, name), self.globs, self.const)
+        return self.init_declr(Global(ctype, name), self.globs, self.const)
 
     def declr(self, ctype):
         types = []
         name = self._declr(types)
-        for new_type, args in reversed(types):
-            ctype = new_type(ctype, *args)
+        for new_type, arguments in reversed(types):
+            ctype = new_type(ctype, *arguments)
         return ctype, name
 
     def decln(self):
@@ -662,11 +662,11 @@ class CParser(Parser):
         ctype = self.qual()
         types = []
         name = self._declr(types)
-        for new_type, args in reversed(types):
+        for new_type, arguments in reversed(types):
             if new_type is Array:
                 ctype = Pointer(ctype)
             else:
-                ctype = new_type(ctype, *args)
+                ctype = new_type(ctype, *arguments)
         return Local(ctype, name)
 
     def params(self):
@@ -824,7 +824,7 @@ class CParser(Parser):
             qual = self.qual()
             ctype, name = self.declr(qual)
             if name:
-                self.globs[name.lexeme] = Glob(ctype, name)
+                self.globs[name.lexeme] = Global(ctype, name)
             self.expect(';')
         elif self.accept('register'):
             raise NotImplementedError()
@@ -836,19 +836,19 @@ class CParser(Parser):
                 if self.accept('{'):  # FUNC_DEFN
                     if name is None:
                         self.error('Function definition needs a name')
-                    self.globs[name.lexeme] = Glob(ctype, name)
-                    if not isinstance(ctype, Func):
+                    self.globs[name.lexeme] = Global(ctype, name)
+                    if not isinstance(ctype, Function):
                         self.error(f'"{name.lexeme}" is not of function type')
                     if any(param.token is None for param in ctype.params):
                         self.error(f'"{name.lexeme}" cannot have abstract parameters')
-                    self.func = FuncInfo(ctype.ret, name.lexeme)
+                    self.func = FunctionInfo(ctype.ret, name.lexeme)
                     self.stack_params = Frame()
                     self.begin_scope()
                     for param in ctype.params[:4]:
                         self.scope.locals[param.token.lexeme] = param
                     for param in ctype.params[4:]:
                         self.stack_params[param.token.lexeme] = param
-                    defn = VarFuncDefn if ctype.variable else FuncDefn
+                    defn = VariadicDefinition if ctype.variable else Definition
                     compound = self.compound()
                     self.end_scope()
                     ext_decln.append(defn(ctype, name, compound, self.func))

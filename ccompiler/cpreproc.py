@@ -40,7 +40,7 @@ class CPreProcessor(Parser):
         """Ignore/replace comments in C input."""
         return self.COMMENT.sub(self.comment_repl, text)
 
-    def arg(self, expand):
+    def argument(self, expand):
         '''
         ARG -> {TOKEN|name '(' [ARG {',' ARG}] ')'|'(' ARG ')'}
         '''
@@ -51,17 +51,17 @@ class CPreProcessor(Parser):
             elif self.accept(Lex.NAME):
                 if self.accept('('):
                     if not self.accept(')'):
-                        self.arg(expand)
+                        self.argument(expand)
                         while self.accept(','):
-                            self.arg(expand)
+                            self.argument(expand)
                         self.expect(')')
             elif self.accept('('):
-                self.arg(expand)
+                self.argument(expand)
                 self.expect(')')
             else:
                 next(self)
 
-    def param(self):
+    def parameter(self):
         '''
         PARAM -> name
         '''
@@ -70,17 +70,17 @@ class CPreProcessor(Parser):
         self.accept(Lex.SPACE)
         return name.lexeme
 
-    def params(self):
+    def parameters(self):
         '''
         PARAMS -> [PARAM {',' PARAM}]
         '''
-        params = {}
+        parameters = {}
         self.accept(Lex.SPACE)
         if not self.peek(')'):
-            params[self.param()] = True
+            parameters[self.parameter()] = True
             while self.accept(','):
-                params[self.param()] = True
-        return params
+                parameters[self.parameter()] = True
+        return parameters
 
     def expand(self):
         """Expand definitions."""
@@ -97,7 +97,7 @@ class CPreProcessor(Parser):
             if not self.accept(')'):
                 for param, expand in params.items():
                     arg_start = self.index
-                    self.arg(expand)
+                    self.argument(expand)
                     args[param] = self.tokens[arg_start:self.index]
                     if self.accept(')'):
                         break
@@ -135,7 +135,7 @@ class CPreProcessor(Parser):
                 self.expect(Lex.SPACE)
                 name = self.expect(Lex.NAME)
                 if self.accept('('):
-                    params = self.params()
+                    params = self.parameters()
                     self.expect(')')
                     self.accept(Lex.SPACE)
                     body = self.index
