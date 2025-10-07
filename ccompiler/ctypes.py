@@ -37,7 +37,7 @@ class Value(Type):
 
     def __init__(self):
         self.const = False
-        self.inc = 1
+        self.interval = 1
         self.width = 0
 
     def convert(self, emitter, n, other):
@@ -54,59 +54,59 @@ class Value(Type):
 
     def address(self, emitter, n, var, base):
         """Generate address code for generic type."""
-        emitter.address(Reg(n), Reg(base), var.offset, var.name())
+        emitter.emit_address(Reg(n), Reg(base), var.offset, var.name())
         return Reg(n)
 
     def reduce(self, emitter, n, var, base):
         """Generate code for generic type."""
-        emitter.load(self.width, Reg(n), Reg(base), var.offset, var.name())
+        emitter.emit_load(self.width, Reg(n), Reg(base), var.offset, var.name())
         return Reg(n)
 
     def store(self, emitter, n, var, base):
         """Generate code for storing to generic type."""
-        emitter.store(self.width, Reg(n), Reg(base), var.offset, var.name())
+        emitter.emit_store(self.width, Reg(n), Reg(base), var.offset, var.name())
         return Reg(n)
 
     def reduce_pre(self, emitter, n, op):
         """Generate code for pre operator."""
-        emitter.binary(op, self.width, Reg(n), self.inc)
+        emitter.emit_binary(op, self.width, Reg(n), self.interval)
 
     def reduce_post(self, emitter, n, op):
         """Generate code for post operator."""
-        emitter.ternary(op, self.width, Reg(n+1), Reg(n), self.inc)
+        emitter.emit_ternary(op, self.width, Reg(n+1), Reg(n), self.interval)
 
     def reduce_binary(self, emitter, n, op, left, right):
         """Generate code for binary opertor."""
-        emitter.binary(op, self.width, left.reduce(emitter, n), right.reduce_num(emitter, n+1))
+        emitter.emit_binary(op, self.width, left.reduce(emitter, n), right.reduce_number(emitter, n+1))
 
     def reduce_compare(self, emitter, n, left, right):
         """Generate code for compare operator."""
-        emitter.binary(Op.CMP, self.width, left.reduce(emitter, n), right.reduce_num(emitter, n+1))
+        emitter.emit_binary(Op.CMP, self.width, left.reduce(emitter, n), right.reduce_number(emitter, n+1))
 
     def list_generate(self, emitter, n, right, loc):
         """Generate code for initialization lists."""
         right.reduce(emitter, n+1)
         self.convert(emitter, n+1, right.type)
-        emitter.store(self.width, Reg(n+1), Reg(n), loc)
+        emitter.emit_store(self.width, Reg(n+1), Reg(n), loc)
 
-    def glob_address(self, emitter, n, glob):
+    def global_address(self, emitter, n, glob):
         """Generate address code for global variable."""
-        emitter.load_glob(Reg(n), glob.token.lexeme)
+        emitter.emit_load_global(Reg(n), glob.token.lexeme)
         return Reg(n)
 
-    def glob_reduce(self, emitter, n, glob):
+    def global_reduce(self, emitter, n, glob):
         """Generate code for global variable."""
-        self.glob_address(emitter, n, glob)
-        emitter.load(self.width, Reg(n), Reg(n))
+        self.global_address(emitter, n, glob)
+        emitter.emit_load(self.width, Reg(n), Reg(n))
         return Reg(n)
 
-    def glob_store(self, emitter, n, glob):  # TODO test
+    def global_store(self, emitter, n, glob):  # TODO test
         """Generate code for storing a global variable."""
-        emitter.load_glob(Reg(n+1), glob.token.lexeme)
-        emitter.store(self.width, Reg(n), Reg(n+1))
+        emitter.emit_load_global(Reg(n+1), glob.token.lexeme)
+        emitter.emit_store(self.width, Reg(n), Reg(n+1))
         return Reg(n)
 
-    def glob_data(self, emitter, expr, data):
+    def global_data(self, emitter, expr, data):
         """Generate code for global data."""
         data.append((self.width, expr.data(emitter)))
 
@@ -190,7 +190,7 @@ class Numeric(Value):
 
     def itf(self, emitter, n):
         """Convert integer to float."""
-        emitter.binary(Op.ITF, Size.WORD, Reg(n), Reg(n))
+        emitter.emit_binary(Op.ITF, Size.WORD, Reg(n), Reg(n))
 
     def get_unary_op(self, op):
         """Get unary operator for this type."""
@@ -296,7 +296,7 @@ class Float(Numeric):
 
     def fti(self, emitter, n):
         """Convert float to integer."""
-        emitter.binary(Op.FTI, Size.WORD, Reg(n), Reg(n))
+        emitter.emit_binary(Op.FTI, Size.WORD, Reg(n), Reg(n))
 
     def itf(self, emitter, n):
         """Convert integer to float."""
@@ -304,21 +304,21 @@ class Float(Numeric):
 
     def reduce_pre(self, emitter, n, op):
         """Generate code for pre operator."""
-        emitter.imm(Reg(n+1), int_to_float(1))
-        emitter.binary(op, self.width, Reg(n), Reg(n+1))
+        emitter.emit_load_immediate(Reg(n+1), int_to_float(1))
+        emitter.emit_binary(op, self.width, Reg(n), Reg(n+1))
 
     def reduce_post(self, emitter, n, op):
         """Generate code for post operator."""
-        emitter.imm(Reg(n+2), int_to_float(1))
-        emitter.ternary(op, self.width, Reg(n+1), Reg(n), Reg(n+2))
+        emitter.emit_load_immediate(Reg(n+2), int_to_float(1))
+        emitter.emit_ternary(op, self.width, Reg(n+1), Reg(n), Reg(n+2))
 
     def reduce_binary(self, emitter, n, op, left, right):
         """Generate code for binary operator."""
-        emitter.binary(op, self.width, left.reduce_float(emitter, n), right.reduce_float(emitter, n+1))
+        emitter.emit_binary(op, self.width, left.reduce_float(emitter, n), right.reduce_float(emitter, n+1))
 
     def reduce_compare(self, emitter, n, left, right):
         """Generate code for compare operator."""
-        emitter.binary(Op.CMPF, self.width, left.reduce_float(emitter, n), right.reduce_float(emitter, n+1))
+        emitter.emit_binary(Op.CMPF, self.width, left.reduce_float(emitter, n), right.reduce_float(emitter, n+1))
 
     def __eq__(self, other):
         """Determine if given type is equal to this type."""
@@ -335,15 +335,15 @@ class Pointer(Int):
     def __init__(self, ctype):
         super().__init__(False)
         self.to = self.of = ctype
-        self.inc = int(self.to.size)
+        self.interval = int(self.to.size)
 
     def reduce_binary(self, emitter, n, op, left, right):
         """Generate code for binary operator."""
         if self.to.size > 1:
             left.reduce(emitter, n)
             right.reduce(emitter, n+1)
-            emitter.binary(Op.MUL, Size.WORD, Reg(n+1), int(self.to.size))
-            emitter.binary(op, Size.WORD, Reg(n), Reg(n+1))
+            emitter.emit_binary(Op.MUL, Size.WORD, Reg(n+1), int(self.to.size))
+            emitter.emit_binary(op, Size.WORD, Reg(n), Reg(n+1))
         else:
             super().reduce_binary(emitter, n, op, left, right)
 
@@ -377,14 +377,14 @@ class List(Value):
     def list_generate(self, emitter, n, right, loc):
         """Generate code for initialization lists."""
         # can't be address or it will be optimized away incorrectly.
-        emitter.ternary(Op.ADD, Size.WORD, Reg(n+1), Reg(n), loc)
+        emitter.emit_ternary(Op.ADD, Size.WORD, Reg(n+1), Reg(n), loc)
         for i, (loc, ctype) in enumerate(self):
             ctype.list_generate(emitter, n+1, right[i], loc)
 
-    def glob_data(self, emitter, expr, data):
+    def global_data(self, emitter, expr, data):
         """Generate code for global data."""
         for i, (_, ctype) in enumerate(self):
-            ctype.glob_data(emitter, expr[i], data)
+            ctype.global_data(emitter, expr[i], data)
         return data
 
 
@@ -413,15 +413,15 @@ class Struct(Frame, List):
                 frame[loc] = ctype
         for loc, ctype in frame.items():
             if ctype.size in [Size.WORD, Size.BYTE, Size.HALF]:
-                emitter.load(ctype.width, Reg(n+2), Reg(n), loc)
-                emitter.store(ctype.width, Reg(n+2), Reg(n+1), loc)
+                emitter.emit_load(ctype.width, Reg(n+2), Reg(n), loc)
+                emitter.emit_store(ctype.width, Reg(n+2), Reg(n+1), loc)
             else:
                 for i in range(ctype.size // Size.WORD):
-                    emitter.load(Size.WORD, Reg(n+2), Reg(n), loc + Size.WORD*i)
-                    emitter.store(Size.WORD, Reg(n+2), Reg(n+1), loc + Size.WORD*i)
+                    emitter.emit_load(Size.WORD, Reg(n+2), Reg(n), loc + Size.WORD*i)
+                    emitter.emit_store(Size.WORD, Reg(n+2), Reg(n+1), loc + Size.WORD*i)
                 for j in range(ctype.size % Size.WORD):
-                    emitter.load(Size.BYTE, Reg(n+2), Reg(n), loc + Size.WORD*(i+1)+j)
-                    emitter.store(Size.BYTE, Reg(n+2), Reg(n+1), loc + Size.WORD*(i+1)+j)
+                    emitter.emit_load(Size.BYTE, Reg(n+2), Reg(n), loc + Size.WORD*(i+1)+j)
+                    emitter.emit_store(Size.BYTE, Reg(n+2), Reg(n+1), loc + Size.WORD*(i+1)+j)
 
     def __iter__(self):
         """Iterate through struct."""
@@ -458,9 +458,9 @@ class Array(List):
         """Generate code for special array access."""
         return array.address(emitter, n)
 
-    def glob_reduce(self, emitter, n, glob):
+    def global_reduce(self, emitter, n, glob):
         """Generate code for global array."""
-        self.glob_address(emitter, n, glob)
+        self.global_address(emitter, n, glob)
 
     def __iter__(self):
         """Iterate through array."""
@@ -496,15 +496,17 @@ class Union(UserDict, Value):
 class Function(Value):
     """Class for function type."""
 
-    def __init__(self, ret, params, variadic):
+    def __init__(self, return_type, parameters, variadic):
         super().__init__()
-        self.ret, self.params, self.variadic = ret, params, variadic
+        self.return_type = return_type
+        self.parameters = parameters
+        self.variadic = variadic
         self.size = 0
         self.width = Size.WORD
 
-    def glob_reduce(self, emitter, n, glob):
+    def global_reduce(self, emitter, n, glob):
         """Generate code for loading global function."""
-        return self.glob_address(emitter, n, glob)
+        return self.global_address(emitter, n, glob)
 
     def cast(self, other):
         """Determine if type can be cast to given type (functions cannot)."""
@@ -513,12 +515,12 @@ class Function(Value):
     def __eq__(self, other):
         """Determine if given type is equal to this function type."""
         return (isinstance(other, Function)
-                and self.ret == other.ret
-                and len(self.params) == len(other.params)
+                and self.return_type == other.return_type
+                and len(self.parameters) == len(other.parameters)
                 and self.variadic == other.variadic
-                and all(param.type == other.params[i].type
-                        for i, param in enumerate(self.params)))
+                and all(param.type == other.parameters[i].type
+                        for i, param in enumerate(self.parameters)))
 
     def __str__(self):
         """Get string representation for this function type."""
-        return f'{self.ret} func('+','.join(map(str, (param.type for param in self.params)))+')'
+        return f'{self.return_type} func('+','.join(map(str, (param.type for param in self.parameters)))+')'

@@ -41,6 +41,7 @@ TODO
 [X] Typedef
 [X] Const expressions
 [ ] Const eval
+[ ] Register variables (use max_args)
 [X] Function pointers
 [ ] Function defs in function defs
 [X] Error handling
@@ -79,7 +80,7 @@ Test:
 class FunctionInfo:
     """Containment class for C function info."""
 
-    ret: Type
+    return_type: Type
     name: str
     space: int = 0
     returns: bool = False
@@ -130,14 +131,14 @@ class CParser(Parser):
                   'switch', 'do', '++', '--', 'break', 'continue', ';', 'goto'}
 
     def __init__(self):
-        self.globs = {}
+        self.globals = {}
         self.scope = Scope()
         self.stack = []
         super().__init__()
 
     def parse(self, tokens):
         """Override of parse."""
-        self.globs.clear()
+        self.globals.clear()
         self.scope.clear()
         self.stack.clear()
         return super().parse(tokens)
@@ -146,10 +147,10 @@ class CParser(Parser):
         """Resolve name of variables."""
         if name in self.scope.locals:
             return self.scope.locals[name]
-        if name in self.stack_params:
-            return self.stack_params[name]
-        if name in self.globs:
-            return self.globs[name]
+        if name in self.stack_parameters:
+            return self.stack_parameters[name]
+        if name in self.globals:
+            return self.globals[name]
         if name in self.scope.enum_numbers:
             return self.scope.enum_numbers[name]
         self.error(f'Name "{name}" not found')
@@ -184,7 +185,7 @@ class CParser(Parser):
                 if not isinstance(postfix.type, Function):
                     self.error(f'"{postfix.token.lexeme}" is not a function')
                 call_type = VariadicCall if postfix.type.variadic else Call
-                self.func.calls = True
+                self.function.calls = True
                 postfix = call_type(next(self), postfix, self.arguments())
                 self.expect(')')
             elif self.peek('['):
@@ -219,7 +220,7 @@ class CParser(Parser):
             arguments.append(self.assign())
             while self.accept(','):
                 arguments.append(self.assign())
-        self.func.max_arguments = min(max(self.func.max_arguments, len(arguments)), 4)
+        self.function.max_arguments = min(max(self.function.max_arguments, len(arguments)), 4)
         return arguments
 
     def unary(self):
@@ -383,8 +384,7 @@ class CParser(Parser):
                 assign = Assign(next(self), assign, self.assign())
             else:
                 token = next(self)
-                assign = Assign(token, assign,
-                                BinaryOp(token, assign, self.assign()))
+                assign = Assign(token, assign, BinaryOp(token, assign, self.assign()))
         return assign
 
     def expression(self):
@@ -398,9 +398,9 @@ class CParser(Parser):
         CONSTANT -> CONDITIONAL
         '''
         constant = self.conditional()
-        if not constant.is_const():
+        if not constant.is_constant():
             self.error('Must be a constant expression')
-        # TODO return const.eval()
+        # TODO return constant.evaluate()
         return constant
 
     def enum(self, value):
@@ -551,7 +551,7 @@ class CParser(Parser):
 
     def direct_declarator(self, types):
         '''
-        DIRECT_DECLARATOR -> ('(' _DECLARATOR ')'|[name]){'(' PARAMETERS ')'|'[' number ']'}
+        DIRECT_DECLARATOR -> ('(' _DECLARATOR ')'|[name]){'(' PARAMETERS ')'|'[' [number] ']'}
         '''
         if self.accept('('):
             name = self._declarator(types)
@@ -608,7 +608,7 @@ class CParser(Parser):
         '''
         INIT_DECLARATOR -> DECLARATOR ['=' INITIALIZER]
         '''
-        return self.init_declarator(Global(ctype, name), self.globs, self.constant)
+        return self.init_declarator(Global(ctype, name), self.globals, self.constant)
 
     def declarator(self, ctype):
         '''
@@ -630,6 +630,8 @@ class CParser(Parser):
             ctype, name = self.declarator(qualifier)
             self.scope.typedefs[name.lexeme] = ctype
             self.expect(';')
+        elif self.accept('register'):
+            raise NotImplementedError()
         else:
             qualifier = self.qualifier()
             if not self.accept(';'):
@@ -769,12 +771,12 @@ class CParser(Parser):
             self.expect(')')
             self.expect(';')
         elif self.peek('return'):
-            self.func.returns = True
+            self.function.returns = True
             token = next(self)
             if self.accept(';'):
-                statement = Return(token, self.func.ret, None)
+                statement = Return(token, self.function.return_type, None)
             else:
-                statement = Return(token, self.func.ret, self.expression())
+                statement = Return(token, self.function.return_type, self.expression())
                 self.expect(';')
         elif self.accept('break'):
             statement = Break()
@@ -784,11 +786,11 @@ class CParser(Parser):
             self.expect(';')
         elif self.accept('goto'):
             target = self.expect(Lex.NAME).lexeme
-            statement = Goto(f'{self.func.name}_{target}')
+            statement = Goto(f'{self.function.name}_{target}')
             self.expect(';')
         elif self.peek2(Lex.NAME, ':'):
             label = next(self).lexeme
-            statement = Label(f'{self.func.name}_{label}')
+            statement = Label(f'{self.function.name}_{label}')
             next(self)
         else:
             statement = self.expression()
@@ -801,7 +803,7 @@ class CParser(Parser):
         COMPOUND -> {DECLARATION} {STATEMENT} [COMPOUND]
         '''
         compound = Compound()
-        while self.peek({'typedef'} | CTYPES | self.scope.typedefs.keys()):
+        while self.peek({'typedef', 'register'} | CTYPES | self.scope.typedefs.keys()):
             compound.extend(self.declaration())
         while (self.peek(self.STATEMENTS)
                and not self.peek(set(self.scope.typedefs.keys()))):
@@ -826,10 +828,8 @@ class CParser(Parser):
             qualifier = self.qualifier()
             ctype, name = self.declarator(qualifier)
             if name:
-                self.globs[name.lexeme] = Global(ctype, name)
+                self.globals[name.lexeme] = Global(ctype, name)
             self.expect(';')
-        elif self.accept('register'):
-            raise NotImplementedError()
         else:
             self.accept('static')
             qualifier = self.qualifier()
@@ -838,22 +838,22 @@ class CParser(Parser):
                 if self.accept('{'):  # DEFINITION
                     if name is None:
                         self.error('Function definition needs a name')
-                    self.globs[name.lexeme] = Global(ctype, name)
+                    self.globals[name.lexeme] = Global(ctype, name)
                     if not isinstance(ctype, Function):
                         self.error(f'"{name.lexeme}" is not of function type')
-                    if any(param.token is None for param in ctype.params):
+                    if any(param.token is None for param in ctype.parameters):
                         self.error(f'"{name.lexeme}" cannot have abstract parameters')
-                    self.func = FunctionInfo(ctype.ret, name.lexeme)
-                    self.stack_params = Frame()
+                    self.function = FunctionInfo(ctype.return_type, name.lexeme)
+                    self.stack_parameters = Frame()
                     self.begin_scope()
-                    for param in ctype.params[:4]:
+                    for param in ctype.parameters[:4]:
                         self.scope.locals[param.token.lexeme] = param
-                    for param in ctype.params[4:]:
-                        self.stack_params[param.token.lexeme] = param
+                    for param in ctype.parameters[4:]:
+                        self.stack_parameters[param.token.lexeme] = param
                     defn = VariadicDefinition if ctype.variadic else Definition
                     compound = self.compound()
                     self.end_scope()
-                    external.append(defn(ctype, name, compound, self.func))
+                    external.append(defn(ctype, name, compound, self.function))
                     self.expect('}')
                 else:  # DECLARATION
                     external.append(self.global_init_declarator(ctype, name))
@@ -881,7 +881,7 @@ class CParser(Parser):
 
     def end_scope(self):
         """End a scope."""
-        self.func.space = max(self.func.space, self.scope.locals.size)
+        self.function.space = max(self.function.space, self.scope.locals.size)
         self.scope = self.stack.pop()
 
 

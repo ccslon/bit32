@@ -13,19 +13,21 @@ from .ctypes import Array
 class If(Statement):
     """Class for if statements."""
 
-    def __init__(self, cond, state):
-        self.cond, self.true, self.false = cond, state, None
+    def __init__(self, test, true):
+        self.test = test
+        self.true = true
+        self.false = None
 
     def generate(self, emitter, n):
         """Generate code for if statement."""
         emitter.if_jump_end.append(False)
         label = emitter.next_label()
         sublabel = emitter.next_label() if self.false else label
-        self.cond.compare(emitter, n*self.cond.soft_calls(), sublabel)
+        self.test.compare(emitter, n*self.test.soft_calls(), sublabel)
         self.true.generate(emitter, n)
         if self.false:
             if not self.true.last_is_return():
-                emitter.jump(Cond.AL, label)
+                emitter.emit_jump(Cond.AL, label)
                 emitter.if_jump_end[-1] = True
             emitter.append_label(sublabel)
             self.false.branch(emitter, n, label)
@@ -38,11 +40,11 @@ class If(Statement):
     def branch(self, emitter, n, root):
         """Generate code for else statement."""
         sublabel = emitter.next_label() if self.false else root
-        self.cond.compare(emitter, n*self.cond.soft_calls(), sublabel)
+        self.test.compare(emitter, n*self.test.soft_calls(), sublabel)
         self.true.generate(emitter, n)
         if self.false:
             if not self.true.last_is_return():
-                emitter.jump(Cond.AL, root)
+                emitter.emit_jump(Cond.AL, root)
                 emitter.if_jump_end[-1] = True
             emitter.append_label(sublabel)
             self.false.branch(emitter, n, root)
@@ -51,15 +53,18 @@ class If(Statement):
 class Case:
     """Class for a single case in a switch statement."""
 
-    def __init__(self, const, block):
-        self.const, self.block = const, block
+    def __init__(self, constant, statement):
+        self.constant = constant
+        self.statement = statement
 
 
 class Switch(Statement):
     """Class for switch statements."""
 
     def __init__(self, test):
-        self.test, self.cases, self.default = test, [], None
+        self.test = test
+        self.cases = []
+        self.default = None
 
     def generate(self, emitter, n):
         """Generate code for switch statement."""
@@ -67,8 +72,8 @@ class Switch(Statement):
         m = n*self.test.soft_calls()
         self.test.reduce(emitter, m)
         labels = []
-        min_case = min(case.const.value for case in self.cases)
-        cases = sorted(case.const.value - min_case for case in self.cases)
+        min_case = min(case.constant.value for case in self.cases)
+        cases = sorted(case.constant.value - min_case for case in self.cases)
         '''
         It takes 8 clock cycles for the O(1) method. It takes 9 clock cycles
         for the regular method for 4 cases. Therefore, O(1) method is only
@@ -78,17 +83,17 @@ class Switch(Statement):
             table = emitter.next_label()
             jumps = {case: emitter.next_label() for case in cases}
             default = emitter.next_label()
-            emitter.datas(table, [(Size.WORD, jumps.get(c, default)) for c in range(cases[-1] + 1)])
-            emitter.binary(Op.SUB, self.test.width, Reg(m), min(self.cases, key=lambda c: c.const.value).const.data(emitter))
-            emitter.binary(Op.CMP, self.test.width, Reg(m), cases[-1])
-            emitter.jump(Cond.HI, default)
-            emitter.load_glob(Reg(m+1), table)
-            emitter.binary(Op.SHL, Size.WORD, Reg(m), 2)
-            emitter.load(Size.WORD, Reg(m), Reg(m+1), Reg(m))
-            emitter.jump(Cond.AL, Reg(m))
+            emitter.emit_datas(table, [(Size.WORD, jumps.get(c, default)) for c in range(cases[-1] + 1)])
+            emitter.emit_binary(Op.SUB, self.test.width, Reg(m), min(self.cases, key=lambda c: c.constant.value).constant.data(emitter))
+            emitter.emit_binary(Op.CMP, self.test.width, Reg(m), cases[-1])
+            emitter.emit_jump(Cond.HI, default)
+            emitter.emit_load_global(Reg(m+1), table)
+            emitter.emit_binary(Op.SHL, Size.WORD, Reg(m), 2)
+            emitter.emit_load(Size.WORD, Reg(m), Reg(m+1), Reg(m))
+            emitter.emit_jump(Cond.AL, Reg(m))
             for case in self.cases:
-                emitter.append_label(jumps[case.const.value - min_case])
-                case.block.generate(emitter, n)
+                emitter.append_label(jumps[case.constant.value - min_case])
+                case.statement.generate(emitter, n)
             emitter.append_label(default)
             if self.default:
                 self.default.generate(emitter, n)
@@ -96,16 +101,16 @@ class Switch(Statement):
             labels = []
             for case in self.cases:
                 labels.append(emitter.next_label())
-                emitter.binary(Op.CMP, self.test.width, Reg(m), case.const.reduce_num(emitter, m+1))
-                emitter.jump(Cond.EQ, labels[-1])
+                emitter.emit_binary(Op.CMP, self.test.width, Reg(m), case.constant.reduce_number(emitter, m+1))
+                emitter.emit_jump(Cond.EQ, labels[-1])
             if self.default:
                 default = emitter.next_label()
-                emitter.jump(Cond.AL, default)
+                emitter.emit_jump(Cond.AL, default)
             else:
-                emitter.jump(Cond.AL, emitter.loop_tail())
+                emitter.emit_jump(Cond.AL, emitter.loop_tail())
             for i, case in enumerate(self.cases):
                 emitter.append_label(labels[i])
-                case.block.generate(emitter, n)
+                case.statement.generate(emitter, n)
             if self.default:
                 emitter.append_label(default)
                 self.default.generate(emitter, n)
@@ -116,16 +121,17 @@ class Switch(Statement):
 class While(Statement):
     """Class for while loops."""
 
-    def __init__(self, cond, state):
-        self.cond, self.state = cond, state
+    def __init__(self, test, statement):
+        self.test = test
+        self.statement = statement
 
     def generate(self, emitter, n):
         """Generate code for while loop."""
         emitter.begin_loop()
         emitter.append_label(emitter.loop_head())
-        self.cond.compare(emitter, n*self.cond.soft_calls(), emitter.loop_tail())
-        self.state.generate(emitter, n)
-        emitter.jump(Cond.AL, emitter.loop_head())
+        self.test.compare(emitter, n*self.test.soft_calls(), emitter.loop_tail())
+        self.statement.generate(emitter, n)
+        emitter.emit_jump(Cond.AL, emitter.loop_head())
         emitter.append_label(emitter.loop_tail())
         emitter.end_loop()
 
@@ -133,15 +139,16 @@ class While(Statement):
 class Do(Statement):
     """Class for do loops."""
 
-    def __init__(self, state, cond):
-        self.state, self.cond = state, cond
+    def __init__(self, statement, test):
+        self.statement = statement
+        self.test = test
 
     def generate(self, emitter, n):
         """Generate code for do loop."""
         emitter.begin_loop()
         emitter.append_label(emitter.loop_head())
-        self.state.generate(emitter, n)
-        self.cond.compare_inv(emitter, n*self.cond.soft_calls(), emitter.loop_head())
+        self.statement.generate(emitter, n)
+        self.test.inverse_compare(emitter, n*self.test.soft_calls(), emitter.loop_head())
         emitter.append_label(emitter.loop_tail())
         emitter.end_loop()
 
@@ -149,23 +156,24 @@ class Do(Statement):
 class For(While):
     """Class for for loops."""
 
-    def __init__(self, inits, cond, steps, state):
-        super().__init__(cond, state)
-        self.inits, self.steps = inits, steps
+    def __init__(self, initials, test, steps, statement):
+        super().__init__(test, statement)
+        self.initials = initials
+        self.steps = steps
 
     def generate(self, emitter, n):
         """Generate code for for loop."""
-        for init in self.inits:
+        for init in self.initials:
             init.generate(emitter, n)
         loop = emitter.next_label()
         emitter.begin_loop()
         emitter.append_label(loop)
-        self.cond.compare(emitter, n*self.cond.soft_calls(), emitter.loop_tail())
-        self.state.generate(emitter, n)
+        self.test.compare(emitter, n*self.test.soft_calls(), emitter.loop_tail())
+        self.statement.generate(emitter, n)
         emitter.append_label(emitter.loop_head())
         for step in self.steps:
             step.generate(emitter, n)
-        emitter.jump(Cond.AL, loop)
+        emitter.emit_jump(Cond.AL, loop)
         emitter.append_label(emitter.loop_tail())
         emitter.end_loop()
 
@@ -175,7 +183,7 @@ class Continue(Statement):
 
     def generate(self, emitter, _):
         """Generate code for continue statement."""
-        emitter.jump(Cond.AL, emitter.loop_head())
+        emitter.emit_jump(Cond.AL, emitter.loop_head())
 
 
 class Break(Statement):
@@ -183,7 +191,7 @@ class Break(Statement):
 
     def generate(self, emitter, _):
         """Generate code for break statement."""
-        emitter.jump(Cond.AL, emitter.loop_tail())
+        emitter.emit_jump(Cond.AL, emitter.loop_tail())
 
 
 class Goto(Statement):
@@ -194,7 +202,7 @@ class Goto(Statement):
 
     def generate(self, emitter, _):
         """Generate code for goto statement."""
-        emitter.jump(Cond.AL, self.target)
+        emitter.emit_jump(Cond.AL, self.target)
 
 
 class Label(Statement):
@@ -211,12 +219,13 @@ class Label(Statement):
 class Return(Statement):
     """Class for return statements."""
 
-    def __init__(self, token, ret, expr):
-        if expr is not None:
-            if ret != expr.type:
-                token.error(f'Return expression type {expr.type} != function return type {ret}')
-            expr.width = ret.width
-        self.ret, self.expr = ret, expr
+    def __init__(self, token, ctype, value):
+        if value is not None:
+            if ctype != value.type:
+                token.error(f'Return expression type {value.type} != function return type {ctype}')
+            value.width = ctype.width
+        self.type = ctype
+        self.value = value
 
     def last_is_return(self):
         """Determine if the last statement in a function body is a return."""
@@ -224,10 +233,10 @@ class Return(Statement):
 
     def generate(self, emitter, n):
         """Generate code return statement."""
-        if self.expr:
-            self.expr.reduce(emitter, n)
-            self.ret.convert(emitter, n, self.expr.type)
-        emitter.jump(Cond.AL, emitter.return_label)
+        if self.value:
+            self.value.reduce(emitter, n)
+            self.type.convert(emitter, n, self.value.type)
+        emitter.emit_jump(Cond.AL, emitter.return_label)
 
 
 class Compound(UserList, Statement):
@@ -266,9 +275,9 @@ class InitialAssign(Binary, Statement):
         """Generate code for initial assignment."""
         self.reduce(emitter, n*self.soft_calls())
 
-    def glob_generate(self, emitter):
+    def global_generate(self, emitter):
         """Generate initial assignment as global."""
-        emitter.glob(self.left.token.lexeme, self.width, self.right.data(emitter))
+        emitter.emit_global(self.left.token.lexeme, self.width, self.right.data(emitter))
 
 
 class Assign(InitialAssign):
@@ -290,7 +299,8 @@ class InitialListAssign(Statement):
                 left.type.size = len(right) * left.type.of.size
             elif left.type.length < len(right):
                 token.error('Not large enough')
-        self.left, self.right = left, right
+        self.left = left
+        self.right = right
 
     def generate(self, emitter, n):
         """Generate code for initial list assignment."""
@@ -298,9 +308,9 @@ class InitialListAssign(Statement):
         for i, (loc, ctype) in enumerate(self.left.type):
             ctype.list_generate(emitter, n, self.right[i], loc)
 
-    def glob_generate(self, emitter):
+    def global_generate(self, emitter):
         """Generate code for initial list assignment as a global."""
-        emitter.datas(self.left.token.lexeme, self.left.type.glob_data(emitter, self.right, []))
+        emitter.emit_datas(self.left.token.lexeme, self.left.type.global_data(emitter, self.right, []))
 
 
 class InitialStringArray(Statement):
@@ -318,25 +328,27 @@ class InitialStringArray(Statement):
         """Generate code for local string array assignments."""
         self.array.address(emitter, n)
         for i, c in enumerate(self.string.value+'\0'):
-            emitter.binary(Op.MOV, Size.BYTE, Reg(n+1), f"'{escape(c)}'")
-            emitter.store(Size.BYTE, Reg(n+1), Reg(n), i)
+            emitter.emit_binary(Op.MOV, Size.BYTE, Reg(n+1), f"'{escape(c)}'")
+            emitter.emit_store(Size.BYTE, Reg(n+1), Reg(n), i)
 
-    def glob_generate(self, emitter):
+    def global_generate(self, emitter):
         """Generate code for local string array assignments as a global."""
-        emitter.string_array(self.array.token.lexeme, self.string.token.lexeme)
+        emitter.emit_string_array(self.array.token.lexeme, self.string.token.lexeme)
 
 
 class Call(Expression, Statement):
     """Class for function calls."""
 
-    def __init__(self, token, func, args):
-        super().__init__(func.type.ret, token)
-        if len(args) < len(func.type.params):
-            token.error(f'Not enough arguments provided in function call "{func.token.lexeme}"')
-        for i, param in enumerate(func.type.params):
-            if param.type != args[i].type:
-                token.error(f'Argument #{i+1} of "{func.token.lexeme}" {param.type} != {args[i].type}')
-        self.func, self.args, self.params = func, args, func.type.params
+    def __init__(self, token, function, arguments):
+        super().__init__(function.type.return_type, token)
+        if len(arguments) < len(function.type.parameters):
+            token.error(f'Not enough arguments provided in function call "{function.token.lexeme}"')
+        for i, param in enumerate(function.type.parameters):
+            if param.type != arguments[i].type:
+                token.error(f'Argument #{i+1} of "{function.token.lexeme}" {param.type} != {arguments[i].type}')
+        self.function = function
+        self.arguments = arguments
+        self.parameters = function.type.parameters
 
     def hard_calls(self):
         """Determine if function calls "hard call" (they do)."""
@@ -344,32 +356,32 @@ class Call(Expression, Statement):
 
     def soft_calls(self):
         """Determine if a funciton call "soft calls"."""
-        return self.func.hard_calls() or any(arg.hard_calls() for arg in self.args)
+        return self.function.hard_calls() or any(arg.hard_calls() for arg in self.arguments)
 
     def reduce_args(self, emitter, n):
         """Generate code for arguments."""
-        for i, arg in enumerate(self.args):
+        for i, arg in enumerate(self.arguments):
             arg.reduce(emitter, n+i)
-            self.params[i].type.convert(emitter, n+i, arg.type)
+            self.parameters[i].type.convert(emitter, n+i, arg.type)
         if n > 0:
-            for i, arg in enumerate(self.args[:4]):
-                emitter.binary(Op.MOV, arg.width, Reg(i), Reg(n+i))
-        for i, arg in reversed(list(enumerate(self.args[4:]))): #TODO test thsi branch
+            for i, arg in enumerate(self.arguments[:4]):
+                emitter.emit_binary(Op.MOV, arg.width, Reg(i), Reg(n+i))
+        for i, arg in reversed(list(enumerate(self.arguments[4:]))): #TODO test thsi branch
             # emitter.push(arg.width, Reg(n+4+i))
-            emitter.push([Reg(n+4+i)])
+            emitter.emit_push([Reg(n+4+i)])
 
     def reduce(self, emitter, n):
         """Generate code for function call (as an expression)."""
         self.reduce_args(emitter, n)
-        self.func.call(emitter, n if n else min(4, len(self.args)))
+        self.function.call(emitter, n if n else min(4, len(self.arguments)))
         if n > 0 and self.width:
-            emitter.binary(Op.MOV, Size.WORD, Reg(n), Reg.A)
+            emitter.emit_binary(Op.MOV, Size.WORD, Reg(n), Reg.A)
         return Reg(n)
 
     def generate(self, emitter, n):
         """Generate code for function call (as a statement)."""
         self.reduce_args(emitter, n*self.soft_calls())
-        self.func.call(emitter, n)
+        self.function.call(emitter, n)
 
 
 class VariadicCall(Call):
@@ -377,33 +389,33 @@ class VariadicCall(Call):
 
     def reduce_args(self, emitter, n):
         """Generate code for arguments."""
-        for i, param in enumerate(self.params):
-            self.args[i].reduce(emitter, n+i)
-            param.type.convert(emitter, n+i, self.args[i].type)
-        for i, arg in enumerate(self.args[len(self.params):]):
-            arg.reduce(emitter, len(self.params)+n+i)
+        for i, param in enumerate(self.parameters):
+            self.arguments[i].reduce(emitter, n+i)
+            param.type.convert(emitter, n+i, self.arguments[i].type)
+        for i, arg in enumerate(self.arguments[len(self.parameters):]):
+            arg.reduce(emitter, len(self.parameters)+n+i)
         if n > 0:
-            for i, arg in enumerate(self.args[:4]):
-                emitter.binary(Op.MOV, arg.width, Reg(i), Reg(n+i))
-        for i, arg in reversed(list(enumerate(self.args[4:]))):
-            emitter.push([Reg(n+4+i)])  # TODO test
+            for i, arg in enumerate(self.arguments[:4]):
+                emitter.emit_binary(Op.MOV, arg.width, Reg(i), Reg(n+i))
+        for i, arg in reversed(list(enumerate(self.arguments[4:]))):
+            emitter.emit_push([Reg(n+4+i)])  # TODO test
 
     def adjust_stack(self, emitter):
         """Adjust remove remaining arguments from stack."""
-        if len(self.args) > 4:
-            emitter.binary(Op.ADD, Size.WORD, Reg.SP, len(self.args[4:]) * Size.WORD)  # TODO test
+        if len(self.arguments) > 4:
+            emitter.emit_binary(Op.ADD, Size.WORD, Reg.SP, len(self.arguments[4:]) * Size.WORD)  # TODO test
 
     def reduce(self, emitter, n):
         """Generate code for variadic function call (as an expression)."""
         self.reduce_args(emitter, n)
-        self.func.call(emitter, n if n else min(4, len(self.args)))
+        self.function.call(emitter, n if n else min(4, len(self.arguments)))
         self.adjust_stack(emitter)
         if n > 0 and self.width:
-            emitter.binary(Op.MOV, Size.WORD, Reg(n), Reg.A)
+            emitter.emit_binary(Op.MOV, Size.WORD, Reg(n), Reg.A)
         return Reg(n)
 
     def generate(self, emitter, n):
         """Generate code for variadic function call (as a statement)."""
         self.reduce_args(emitter, n*self.soft_calls())
-        self.func.call(emitter, n)
+        self.function.call(emitter, n)
         self.adjust_stack(emitter)

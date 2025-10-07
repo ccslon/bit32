@@ -60,7 +60,7 @@ class Expression(CNode):
         self.width = ctype.width
         self.token = token
 
-    def is_const(self):
+    def is_constant(self):
         """
         Determine if subexpression is constant.
 
@@ -105,19 +105,19 @@ class Expression(CNode):
 
     def compare(self, emitter, n, label):
         """Generate code for comparing nodes. Default is comparing to 0."""
-        emitter.binary(self.type.CMP, self.width, self.reduce(emitter, n), 0)
-        emitter.jump(Cond.EQ, label)
+        emitter.emit_binary(self.type.CMP, self.width, self.reduce(emitter, n), 0)
+        emitter.emit_jump(Cond.EQ, label)
 
-    def compare_inv(self, emitter, n, label):
+    def inverse_compare(self, emitter, n, label):
         """Generate code for inverse comparing nodes."""
-        emitter.binary(self.type.CMP, self.width, self.reduce(emitter, n), 0)
-        emitter.jump(Cond.NE, label)
+        emitter.emit_binary(self.type.CMP, self.width, self.reduce(emitter, n), 0)
+        emitter.emit_jump(Cond.NE, label)
 
     def reduce_branch(self, emitter, n, _):
         """Reduce expression for ternary condition operator."""
         self.reduce(emitter, n)
 
-    def reduce_num(self, emitter, n):
+    def reduce_number(self, emitter, n):
         """
         Reduce to number constant if applicable.
 
@@ -133,12 +133,12 @@ class Expression(CNode):
         return self.reduce(emitter, n)
 
     def reduce_float(self, emitter, n):
-        """Similar to reduce_num but for floats."""
+        """Reduce to float (convert if applicable)."""
         self.reduce(emitter, n)
         self.type.itf(emitter, n)
         return Reg(n)
 
-    def reduce_subscr(self, emitter, n, size):
+    def reduce_subscript(self, emitter, n, size):
         """
         Generate special reduction case for subscript nodes.
 
@@ -146,7 +146,7 @@ class Expression(CNode):
         """
         self.reduce(emitter, n)
         if size > 1:
-            emitter.binary(Op.MUL, Size.WORD, Reg(n), int(size))
+            emitter.emit_binary(Op.MUL, Size.WORD, Reg(n), int(size))
         return Reg(n)
 
 
@@ -167,13 +167,13 @@ class Variable(Expression):
 
     def call(self, emitter, _):
         """Generate default call behavior."""
-        emitter.call(self.token.lexeme)
+        emitter.emit_call(self.token.lexeme)
 
 
 class Constant(Expression):
     """Class for constant nodes."""
 
-    def is_const(self):
+    def is_constant(self):
         """Constants are constant."""
         return True
 
@@ -189,21 +189,21 @@ class Constant(Expression):
 class Unary(Expression):
     """Base class for unary nodes."""
 
-    def __init__(self, ctype, token, expr):
+    def __init__(self, ctype, token, value):
         super().__init__(ctype, token)
-        self.expr = expr
+        self.value = value
 
-    def is_const(self):
+    def is_constant(self):
         """Determine if subtree is const."""
-        return self.expr.is_const()
+        return self.value.is_constant()
 
     def hard_calls(self):
         """Determine if subtree hard calls."""
-        return self.expr.hard_calls()
+        return self.value.hard_calls()
 
     def soft_calls(self):
         """Determine if subtree soft calls."""
-        return self.expr.soft_calls()
+        return self.value.soft_calls()
 
 
 class Binary(Expression):
@@ -213,9 +213,9 @@ class Binary(Expression):
         super().__init__(ctype, token)
         self.left, self.right = left, right
 
-    def is_const(self):
+    def is_constant(self):
         """Determine if subtree is const."""
-        return self.left.is_const() and self.right.is_const()
+        return self.left.is_constant() and self.right.is_constant()
 
     def hard_calls(self):
         """Determine if subtree hard calls."""
@@ -229,9 +229,10 @@ class Binary(Expression):
 class Access(Expression):
     """Base class for array access nodes."""
 
-    def __init__(self, token, struct, attr):
-        super().__init__(attr.type, token)
-        self.struct, self.attr = struct, attr
+    def __init__(self, token, struct, attribute):
+        super().__init__(attribute.type, token)
+        self.struct = struct
+        self.attribute = attribute
 
     def hard_calls(self):
         """Determine if subtree hard calls."""
@@ -246,13 +247,15 @@ class Definition(CNode):
     """Class for function definition nodes."""
 
     def __init__(self, ctype, name, block, info):
-        self.type, self.name = ctype, name
-        self.params, self.block = ctype.params, block
-        self.returns, self.calls, self.max_args, self.space = info
+        self.type = ctype
+        self.name = name
+        self.parameters = ctype.parameters
+        self.block = block
+        self.returns, self.calls, self.max_arguments, self.space = info
 
-    def glob_generate(self, emitter):
+    def global_generate(self, emitter):
         """Generate all of the code for the function."""
-        max_args = max(self.calls, self.max_args)
+        max_args = max(self.calls, self.max_arguments)
         emitter.begin_body(self)
         # generate function body
         self.block.generate(emitter, max_args)
@@ -261,11 +264,11 @@ class Definition(CNode):
         # find max register used in body
         max_reg = -1
         for inst in emitter.instructions:
-            max_reg = max(max_reg, inst.max_reg())
+            max_reg = max(max_reg, inst.max_used())
 
         # calculate list of register to push onto the stack
-        push = list(map(Reg, range(max(bool(self.type.ret.width),
-                                       len(self.params)), max_reg+1)))
+        push = list(map(Reg, range(max(bool(self.type.return_type.width),
+                                       len(self.parameters)), max_reg+1)))
         pop = push.copy()
 
         self.adjust_offsets(emitter, push)
@@ -274,40 +277,40 @@ class Definition(CNode):
         self.prologue(emitter, push)
         emitter.add_body()
         # epilogue
-        if self.returns or self.type.ret.width:
+        if self.returns or self.type.return_type.width:
             emitter.append_label(emitter.return_label)
-        if self.returns and self.type.ret.width and max_args:
-            emitter.binary(Op.MOV, Size.WORD, Reg.A, Reg(max_args))
+        if self.returns and self.type.return_type.width and max_args:
+            emitter.emit_binary(Op.MOV, Size.WORD, Reg.A, Reg(max_args))
         if self.space:
-            emitter.binary(Op.ADD, Size.WORD, Reg.SP, self.space)
+            emitter.emit_binary(Op.ADD, Size.WORD, Reg.SP, self.space)
         self.ret(emitter, pop)
 
     def prologue(self, emitter, push):
         """Generate prologue code specific to regular functions."""
         if self.calls:
-            emitter.push(push + [Reg.LR])
+            emitter.emit_push(push + [Reg.LR])
         else:
-            emitter.push(push)
+            emitter.emit_push(push)
         if self.space:
-            emitter.binary(Op.SUB, Size.WORD, Reg.SP, self.space)
-        for i, param in enumerate(self.params[:4]):
-            emitter.store(param.width, Reg(i), Reg.SP, param.offset, param.token.lexeme)
+            emitter.emit_binary(Op.SUB, Size.WORD, Reg.SP, self.space)
+        for i, param in enumerate(self.parameters[:4]):
+            emitter.emit_store(param.width, Reg(i), Reg.SP, param.offset, param.token.lexeme)
 
     def ret(self, emitter, pop):
         """Generate return code specific to regular functions."""
         if self.calls:
-            emitter.pop(pop + [Reg.PC])
+            emitter.emit_pop(pop + [Reg.PC])
         else:
-            emitter.pop(pop)
-            emitter.ret()
+            emitter.emit_pop(pop)
+            emitter.emit_ret()
 
     def adjust_offsets(self, emitter, push):
         """Adjust offsets of variable found on the call stack."""
-        if len(self.params) > 4:
+        if len(self.parameters) > 4:
             offset = self.space + Size.WORD*(self.calls + len(push))
-            stack_params = {param.token.lexeme for param in self.params[4:]}
+            stack_params = {param.token.lexeme for param in self.parameters[4:]}
             for inst in emitter.instructions:
-                if inst.var in stack_params:
+                if inst.variable in stack_params:
                     inst.offset += offset
 
 
@@ -316,29 +319,29 @@ class VariadicDefinition(Definition):  # TODO test
 
     def prologue(self, emitter, push):
         """Generate prologue code specific to variadic functions."""
-        emitter.push(list(map(Reg, range(4))))
+        emitter.emit_push(list(map(Reg, range(4))))
         if self.calls:
-            emitter.push(push + [Reg.LR])
+            emitter.emit_push(push + [Reg.LR])
         else:
-            emitter.push(push)
+            emitter.emit_push(push)
         if self.space:
-            emitter.binary(Op.SUB, Size.WORD, Reg.SP, self.space)
+            emitter.emit_binary(Op.SUB, Size.WORD, Reg.SP, self.space)
 
     def ret(self, emitter, push):
         """Generate return code specific to variadic functions."""
         if self.calls:
-            emitter.pop(push + [Reg.LR])
+            emitter.emit_pop(push + [Reg.LR])
         else:
-            emitter.pop(push)
-        emitter.binary(Op.ADD, Size.WORD, Reg.SP, 4*Size.WORD)
-        emitter.ret()
+            emitter.emit_pop(push)
+        emitter.emit_binary(Op.ADD, Size.WORD, Reg.SP, 4*Size.WORD)
+        emitter.emit_ret()
 
     def adjust_offsets(self, emitter, push):
         """Adjust offsets of variables found on the call stack."""
         offset = self.space + Size.WORD*(self.calls + len(push))
-        stack_params = {param.token.lexeme for param in self.params}
+        stack_params = {param.token.lexeme for param in self.parameters}
         for inst in emitter.instructions:
-            if inst.var in stack_params:
+            if inst.variable in stack_params:
                 inst.offset += offset
 
 
@@ -349,6 +352,6 @@ class Translation(UserList, CNode):
         """Generate code for the whole C program."""
         emitter = Emitter()
         for trans in self:
-            trans.glob_generate(emitter)
+            trans.global_generate(emitter)
         emitter.optimize()
         return str(emitter)

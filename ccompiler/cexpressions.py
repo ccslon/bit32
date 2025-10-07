@@ -50,20 +50,20 @@ class Global(Variable):
 
     def address(self, emitter, n):
         """Generate address code for global variables."""
-        return self.type.glob_address(emitter, n, self)
+        return self.type.global_address(emitter, n, self)
 
     def reduce(self, emitter, n):
         """Generate code for global variables."""
-        return self.type.glob_reduce(emitter, n, self)
+        return self.type.global_reduce(emitter, n, self)
 
     def store(self, emitter, n):
         """Generate code for storing a global variable."""
-        return self.type.glob_store(emitter, n, self)
+        return self.type.global_store(emitter, n, self)
 
-    def glob_generate(self, emitter):
+    def global_generate(self, emitter):
         """Generate code to allocate space for global variable."""
         if self.type.size > 0:
-            emitter.space(self.token.lexeme, self.type.size)
+            emitter.emit_space(self.token.lexeme, self.type.size)
 
 
 class NumberBase(Constant):
@@ -79,25 +79,25 @@ class NumberBase(Constant):
     def reduce(self, emitter, n):
         """Generate code for numbers."""
         if 0 <= self.value < 256:
-            emitter.binary(Op.MOV, self.width, Reg(n), self.value)
+            emitter.emit_binary(Op.MOV, self.width, Reg(n), self.value)
         else:
-            emitter.imm(Reg(n), self.value)
+            emitter.emit_load_immediate(Reg(n), self.value)
         return Reg(n)
 
-    def reduce_num(self, emitter, n):
-        """Reduce to number constant if applicable. See Expr class."""
+    def reduce_number(self, emitter, n):
+        """Reduce to number constant if applicable. See Expression class."""
         if 0 <= self.value < 256:
             return self.value
-        emitter.imm(Reg(n), self.value)  # TODO test this branch
+        emitter.emit_load_immediate(Reg(n), self.value)  # TODO test this branch
         return Reg(n)
 
-    def reduce_subscr(self, emitter, n, size):
+    def reduce_subscript(self, emitter, n, size):
         """Generate special reduction case for subscript nodes."""
         mul = size*self.value
         if 0 <= mul < 256:
             return mul
         # TODO
-        return super().reduce_subscr(emitter, n, size)
+        return super().reduce_subscript(emitter, n, size)
 
 
 class EnumNumber(NumberBase):
@@ -127,16 +127,16 @@ class Negative(Number):
     def reduce(self, emitter, n):
         """Generate code for negative numbers."""
         if 0 <= self.value < 256:
-            emitter.binary(Op.MVN, self.width, Reg(n), self.value)
+            emitter.emit_binary(Op.MVN, self.width, Reg(n), self.value)
         else:
-            emitter.imm(Reg(n), negative(-self.value, 32))  # TODO test
+            emitter.emit_load_immediate(Reg(n), negative(-self.value, 32))  # TODO test
         return Reg(n)
 
-    def reduce_num(self, emitter, n):
-        """Reduce to number constant if applicable. See Expr class."""
+    def reduce_number(self, emitter, n):
+        """Reduce to number constant if applicable. See Expression class."""
         if 0 <= self.value <= 128:
             return -self.value
-        emitter.imm(Reg(n), negative(-self.value, 32))  # TODO test this branch
+        emitter.emit_load_immediate(Reg(n), negative(-self.value, 32))  # TODO test this branch
         return Reg(n)
 
 
@@ -161,7 +161,7 @@ class Decimal(Constant):
 
     def reduce(self, emitter, n):
         """Generate code for decimals."""
-        emitter.imm(Reg(n), self.value, self.token.lexeme)
+        emitter.emit_load_immediate(Reg(n), self.value, self.token.lexeme)
         return Reg(n)
 
 
@@ -186,11 +186,11 @@ class Character(Constant):
 
     def reduce(self, emitter, n):
         """Generate code for character."""
-        emitter.binary(Op.MOV, self.width, Reg(n), self.data(emitter))
+        emitter.emit_binary(Op.MOV, self.width, Reg(n), self.data(emitter))
         return Reg(n)
 
-    def reduce_num(self, emitter, n):
-        """Reduce to number constant if applicable. See Expr class."""
+    def reduce_number(self, emitter, n):
+        """Reduce to number constant if applicable. See Expression class."""
         return self.data(emitter)
 
 
@@ -203,26 +203,26 @@ class String(Constant):
 
     def data(self, emitter):
         """Get data representation of string."""
-        return emitter.string_ptr(self.token.lexeme)
+        return emitter.emit_string_ptr(self.token.lexeme)
 
     def reduce(self, emitter, n):
         """Generate code for string."""
-        emitter.load_glob(Reg(n), self.data(emitter))
+        emitter.emit_load_global(Reg(n), self.data(emitter))
         return Reg(n)
 
 
 class UnaryOp(Unary):
     """Class for unary operators."""
 
-    def __init__(self, op, expr):
-        super().__init__(expr.type, op, expr)
-        if not expr.type.cast(Int()):
-            op.error(f'Cannot {op.lexeme} {expr.type}')
+    def __init__(self, op, value):
+        super().__init__(value.type, op, value)
+        if not value.type.cast(Int()):
+            op.error(f'Cannot {op.lexeme} {value.type}')
         self.op = self.type.get_unary_op(op)
 
     def reduce(self, emitter, n):
         """Generate code for a unary operator."""
-        emitter.unary(self.op, self.width, self.expr.reduce(emitter, n))
+        emitter.emit_unary(self.op, self.width, self.value.reduce(emitter, n))
         return Reg(n)
 
 
@@ -231,9 +231,9 @@ class Pre(UnaryOp, Statement):
 
     def reduce(self, emitter, n):
         """Generate code for operator."""
-        self.expr.reduce(emitter, n)
+        self.value.reduce(emitter, n)
         self.type.reduce_pre(emitter, n, self.op)
-        self.expr.store(emitter, n)
+        self.value.store(emitter, n)
         return Reg(n)
 
     def generate(self, emitter, n):
@@ -246,9 +246,9 @@ class Post(UnaryOp, Statement):
 
     def reduce(self, emitter, n):
         """Generate code for operator."""
-        self.expr.reduce(emitter, n)
+        self.value.reduce(emitter, n)
         self.type.reduce_post(emitter, n, self.op)
-        self.expr.store(emitter, n+1)
+        self.value.store(emitter, n+1)
         return Reg(n)
 
     def generate(self, emitter, n):
@@ -259,88 +259,88 @@ class Post(UnaryOp, Statement):
 class AddressOf(Unary):
     """Class for address-of operator."""
 
-    def __init__(self, token, expr):
-        super().__init__(Pointer(expr.type), token, expr)
+    def __init__(self, token, value):
+        super().__init__(Pointer(value.type), token, value)
 
     def reduce(self, emitter, n):
         """Generate code for address-of operator."""
-        return self.expr.address(emitter, n)
+        return self.value.address(emitter, n)
 
 
 class Dereference(Unary):
     """Class for dereference operator."""
 
-    def __init__(self, token, expr):
-        super().__init__(expr.type.to, token, expr)
-        if not isinstance(expr.type, (Array, Pointer)):
-            token.error(f'Cannot {token.lexeme} {expr.type}')
+    def __init__(self, token, value):
+        super().__init__(value.type.to, token, value)
+        if not isinstance(value.type, (Array, Pointer)):
+            token.error(f'Cannot {token.lexeme} {value.type}')
 
     def address(self, emitter, n):
         """Generate address code for dereference."""
-        return self.expr.reduce(emitter, n)
+        return self.value.reduce(emitter, n)
 
     def reduce(self, emitter, n):
         """Generate code for dereference."""
         self.address(emitter, n)
-        emitter.load(self.width, Reg(n), Reg(n))
+        emitter.emit_load(self.width, Reg(n), Reg(n))
         return Reg(n)
 
     def store(self, emitter, n):
         """Generate code for storing a dereference."""
         self.address(emitter, n+1)
-        emitter.store(self.width, Reg(n), Reg(n+1))
+        emitter.emit_store(self.width, Reg(n), Reg(n+1))
         return Reg(n)
 
     def call(self, emitter, n):
         """Generate code for function pointers."""
-        emitter.call(self.address(emitter, n))
+        emitter.emit_call(self.address(emitter, n))
 
 
 class Cast(Unary):
     """Class for casting."""
 
-    def __init__(self, token, cast_type, expr):
-        super().__init__(cast_type, token, expr)
-        if not cast_type.cast(expr.type):
-            token.error(f'Cannot cast {expr.type} to {cast_type}')
+    def __init__(self, token, cast_type, value):
+        super().__init__(cast_type, token, value)
+        if not cast_type.cast(value.type):
+            token.error(f'Cannot cast {value.type} to {cast_type}')
 
     def data(self, emitter):  # TODO test
         """Get data representation of cast."""
-        return self.expr.data(emitter)
+        return self.value.data(emitter)
 
     def reduce(self, emitter, n):
         """Generate code for casting."""
-        self.expr.reduce(emitter, n)
-        self.type.convert(emitter, n, self.expr.type)
+        self.value.reduce(emitter, n)
+        self.type.convert(emitter, n, self.value.type)
         return Reg(n)
 
 
 class Not(Unary):
     """Class for logical not operator."""
 
-    def __init__(self, token, expr):
-        super().__init__(expr.type, token, expr)
+    def __init__(self, token, value):
+        super().__init__(value.type, token, value)
 
     def compare(self, emitter, n, label):
         """Generate code for comparing nodes with logical not."""
-        emitter.binary(self.type.CMP, self.width, self.expr.reduce(emitter, n), 0)
-        emitter.jump(Cond.NE, label)
+        emitter.emit_binary(self.type.CMP, self.width, self.value.reduce(emitter, n), 0)
+        emitter.emit_jump(Cond.NE, label)
 
-    def compare_inv(self, emitter, n, label):
+    def inverse_compare(self, emitter, n, label):
         """Generate code for inverse comparing nodes with logical not."""
-        emitter.binary(self.type.CMP, self.width, self.expr.reduce(emitter, n), 0)
-        emitter.jump(Cond.EQ, label)
+        emitter.emit_binary(self.type.CMP, self.width, self.value.reduce(emitter, n), 0)
+        emitter.emit_jump(Cond.EQ, label)
 
     def reduce(self, emitter, n):
         """Generate code for logical not."""
-        emitter.binary(self.type.CMP, self.width, self.expr.reduce(emitter, n), 0)
-        emitter.mov(Cond.EQ, Reg(n), 1)
-        emitter.mov(Cond.NE, Reg(n), 0)
+        emitter.emit_binary(self.type.CMP, self.width, self.value.reduce(emitter, n), 0)
+        emitter.emit_cmov(Cond.EQ, Reg(n), 1)
+        emitter.emit_cmov(Cond.NE, Reg(n), 0)
         return Reg(n)
 
 
 def max_type(left, right):
-    """Widening 2 given C types."""
+    """Widen 2 given C types."""
     if isinstance(left, (Float, Pointer)):
         return left
     if isinstance(right, (Float, Pointer)):
@@ -374,18 +374,18 @@ class Compare(Binary):
     def compare(self, emitter, n, label):
         """Generate code for comparing with equality/relational operators."""
         self.type.reduce_compare(emitter, n, self.left, self.right)
-        emitter.jump(self.inv, label)
+        emitter.emit_jump(self.inv, label)
 
-    def compare_inv(self, emitter, n, label):  # TODO test
+    def inverse_compare(self, emitter, n, label):  # TODO test
         """Generate code for inverse comparing with equality/relational operators."""
         self.type.reduce_compare(emitter, n, self.left, self.right)
-        emitter.jump(self.op, label)
+        emitter.emit_jump(self.op, label)
 
     def reduce(self, emitter, n):
         """Generate code for compare operator."""
         self.type.reduce_compare(emitter, n, self.left, self.right)
-        emitter.mov(self.op, Reg(n), 1)
-        emitter.mov(self.inv, Reg(n), 0)
+        emitter.emit_cmov(self.op, Reg(n), 1)
+        emitter.emit_cmov(self.inv, Reg(n), 0)
         return Reg(n)
 
 
@@ -399,20 +399,20 @@ class Logic(BinaryOp):
             self.right.compare(emitter, n, label)
         elif self.op == Op.OR:
             sublabel = emitter.next_label()
-            self.left.compare_inv(emitter, n, sublabel)
+            self.left.inverse_compare(emitter, n, sublabel)
             self.right.compare(emitter, n, label)
             emitter.append_label(sublabel)
 
-    def compare_inv(self, emitter, n, label):
+    def inverse_compare(self, emitter, n, label):
         """Generate code for inverse comparing with logical operators."""
         if self.op == Op.AND:
             sublabel = emitter.next_label()
             self.left.compare(emitter, n, sublabel)
-            self.right.compare_inv(emitter, n, label)
+            self.right.inverse_compare(emitter, n, label)
             emitter.append_label(sublabel)
         elif self.op == Op.OR:
-            self.left.compare_inv(emitter, n, label)
-            self.right.compare_inv(emitter, n, label)
+            self.left.inverse_compare(emitter, n, label)
+            self.right.inverse_compare(emitter, n, label)
 
     def reduce(self, emitter, n):
         """Generate code for logical operator."""
@@ -421,59 +421,61 @@ class Logic(BinaryOp):
             sublabel = emitter.next_label()
             self.left.compare(emitter, n, label)
             self.right.compare(emitter, n, label)
-            emitter.binary(Op.MOV, Size.WORD, Reg(n), 1)
-            emitter.jump(Cond.AL, sublabel)
+            emitter.emit_binary(Op.MOV, Size.WORD, Reg(n), 1)
+            emitter.emit_jump(Cond.AL, sublabel)
             emitter.append_label(label)
-            emitter.binary(Op.MOV, Size.WORD, Reg(n), 0)
+            emitter.emit_binary(Op.MOV, Size.WORD, Reg(n), 0)
             emitter.append_label(sublabel)
         elif self.op == Op.OR:
             label = emitter.next_label()
             sublabel = emitter.next_label()
             subsublabel = emitter.next_label()
-            self.left.compare_inv(emitter, n, label)
+            self.left.inverse_compare(emitter, n, label)
             self.right.compare(emitter, n, sublabel)
             emitter.append_label(label)
-            emitter.binary(Op.MOV, Size.WORD, Reg(n), 1)
-            emitter.jump(Cond.AL, subsublabel)
+            emitter.emit_binary(Op.MOV, Size.WORD, Reg(n), 1)
+            emitter.emit_jump(Cond.AL, subsublabel)
             emitter.append_label(sublabel)
-            emitter.binary(Op.MOV, Size.WORD, Reg(n), 0)
+            emitter.emit_binary(Op.MOV, Size.WORD, Reg(n), 0)
             emitter.append_label(subsublabel)
         return Reg(n)
 
 
 class Conditional(Expression):
-    """Class for condition ternary operator."""
+    """Class for conditional ternary operator."""
 
-    def __init__(self, token, cond, true, false):
+    def __init__(self, token, test, true, false):
         super().__init__(true.type, token)
-        self.cond, self.true, self.false = cond, true, false
+        self.test = test
+        self.true = true
+        self.false = false
 
     def hard_calls(self):
-        """Determmine if condition node "hard calls"."""
-        return self.cond.hard_calls() or self.true.hard_calls() or self.false.hard_calls()
+        """Determmine if conditional node "hard calls"."""
+        return self.test.hard_calls() or self.true.hard_calls() or self.false.hard_calls()
 
     def soft_calls(self):
-        """Determmine if condition node "soft calls"."""
-        return self.cond.soft_calls() or self.true.soft_calls() or self.false.soft_calls()
+        """Determmine if conditional node "soft calls"."""
+        return self.test.soft_calls() or self.true.soft_calls() or self.false.soft_calls()
 
     def reduce(self, emitter, n):
-        """Generate code for condition operator."""
+        """Generate code for conditional operator."""
         label = emitter.next_label()
         sublabel = emitter.next_label()
-        self.cond.compare(emitter, n, sublabel)
+        self.test.compare(emitter, n, sublabel)
         self.true.reduce(emitter, n)
-        emitter.jump(Cond.AL, label)
+        emitter.emit_jump(Cond.AL, label)
         emitter.append_label(sublabel)
         self.false.reduce_branch(emitter, n, label)
         emitter.append_label(label)
         return Reg(n)
 
     def reduce_branch(self, emitter, n, root):  # TODO test
-        """Generate code for special condition case."""
+        """Generate code for special conditional case."""
         sublabel = emitter.next_label()
-        self.cond.compare(emitter, n, sublabel)
+        self.test.compare(emitter, n, sublabel)
         self.true.reduce(emitter, n)
-        emitter.jump(Cond.AL, root)
+        emitter.emit_jump(Cond.AL, root)
         emitter.append_label(sublabel)
         self.false.reduce_branch(emitter, n, root)
 
@@ -483,18 +485,18 @@ class Dot(Access):
 
     def address(self, emitter, n):
         """Generate address code for dot operator."""
-        emitter.attr(self.struct.address(emitter, n), self.attr)
+        emitter.emit_attribute(self.struct.address(emitter, n), self.attribute)
         return Reg(n)
 
     def reduce(self, emitter, n):
         """Generate code for dot operator."""
         self.struct.address(emitter, n)
-        return self.attr.reduce(emitter, n)
+        return self.attribute.reduce(emitter, n)
 
     def store(self, emitter, n):
         """Generate code for storing to a dot operator."""
         self.struct.address(emitter, n+1)
-        return self.attr.store(emitter, n)
+        return self.attribute.store(emitter, n)
 
 
 class Arrow(Access):
@@ -502,18 +504,18 @@ class Arrow(Access):
 
     def address(self, emitter, n):
         """Generate address code for arrow operator."""
-        emitter.attr(self.struct.reduce(emitter, n), self.attr)
+        emitter.emit_attribute(self.struct.reduce(emitter, n), self.attribute)
         return Reg(n)
 
     def reduce(self, emitter, n):
         """Generate code for arrow operator."""
         self.struct.reduce(emitter, n)
-        return self.attr.reduce(emitter, n)
+        return self.attribute.reduce(emitter, n)
 
     def store(self, emitter, n):
         """Generate code for storing to an arrow operator."""
         self.struct.reduce(emitter, n+1)
-        return self.attr.store(emitter, n)
+        return self.attribute.store(emitter, n)
 
 
 class SubScript(Binary):
@@ -524,15 +526,21 @@ class SubScript(Binary):
 
     def address(self, emitter, n):
         """Generate address code for array access."""
-        emitter.binary(Op.ADD, Size.WORD, self.left.type.reduce_array(emitter, n, self.left),self.right.reduce_subscr(emitter, n+1, self.left.type.of.size))
+        emitter.emit_binary(Op.ADD, Size.WORD,
+                            self.left.type.reduce_array(emitter, n, self.left),
+                            self.right.reduce_subscript(emitter, n+1, self.left.type.of.size))
         return Reg(n)
 
     def reduce(self, emitter, n):
         """Generate code for array access."""
-        emitter.load(self.width, Reg(n), self.left.type.reduce_array(emitter, n, self.left), self.right.reduce_subscr(emitter, n+1, self.left.type.of.size))
+        emitter.emit_load(self.width, Reg(n),
+                          self.left.type.reduce_array(emitter, n, self.left),
+                          self.right.reduce_subscript(emitter, n+1, self.left.type.of.size))
         return Reg(n)
 
     def store(self, emitter, n):
         """Generate code for storing to an array."""
-        emitter.store(self.width, Reg(n), self.left.type.reduce_array(emitter, n+1, self.left), self.right.reduce_subscr(emitter, n+2, self.left.type.of.size))
+        emitter.emit_store(self.width, Reg(n),
+                           self.left.type.reduce_array(emitter, n+1, self.left),
+                           self.right.reduce_subscript(emitter, n+2, self.left.type.of.size))
         return Reg(n)
