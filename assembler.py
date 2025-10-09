@@ -222,13 +222,33 @@ class Assembler:
                         emitter.emit_space(*self.matched())
                     else:
                         self.error()
-                else:
+                elif self.peek('op'):
+                    if self.match('op', 'reg'):
+                        emitter.emit_unary(*self.matched())
 
+                    elif self.match('op', 'reg', ',', 'reg'):
+                        emitter.emit_binary(*self.matched(), False)
+                    elif self.match('op', 'reg', ',', 'const'):
+                        emitter.emit_binary(*self.matched(), True)
+                    elif self.match('op', 'reg', ',', 'char'):
+                        emitter.emit_binary(*self.matched(), True)
+                    elif self.match('op', 'reg', ',', 'id'):
+                        emitter.emit_binary_with_name(*self.matched())
+
+                    elif self.match('op', 'reg', ',', 'reg', ',', 'reg'):
+                        emitter.emit_ternary(*self.matched(), False)
+                    elif self.match('op', 'reg', ',', 'reg', ',', 'const'):
+                        emitter.emit_ternary(*self.matched(), True)
+                    elif self.match('op', 'reg', ',', 'reg', ',', 'char'):
+                        emitter.emit_ternary(*self.matched(), True)
+                    elif self.match('op', 'reg', ',', 'reg', ',', 'id'):
+                        emitter.emit_ternary_with_name(*self.matched())
+                    else:
+                        self.error()
+                else:
                     if self.match('nop'):
                         emitter.emit_jump(Cond.NV, 0)
 
-                    # elif self.match('id'):
-                    #     self.new_data(Word, *self.matched())
                     elif self.match('size', 'const') or self.match('size', 'id'):
                         size, value = self.matched()
                         if size == Size.BYTE:
@@ -250,27 +270,6 @@ class Assembler:
 
                     elif self.match('swi', 'id'):
                         emitter.emit_interrupt(*self.matched())
-
-                    elif self.match('op', 'reg'):
-                        emitter.emit_unary(*self.matched())
-
-                    elif self.match('op', 'reg', ',', 'reg'):
-                        emitter.emit_binary(*self.matched(), False)
-                    elif self.match('op', 'reg', ',', 'const'):
-                        emitter.emit_binary(*self.matched(), True)
-                    elif self.match('op', 'reg', ',', 'char'):
-                        emitter.emit_binary(*self.matched(), True)
-                    elif self.match('op', 'reg', ',', 'id'):
-                        emitter.emit_binary_with_name(*self.matched())
-
-                    elif self.match('op', 'reg', ',', 'reg', ',', 'reg'):
-                        emitter.emit_ternary(*self.matched(), False)
-                    elif self.match('op', 'reg', ',', 'reg', ',', 'const'):
-                        emitter.emit_ternary(*self.matched(), True)
-                    elif self.match('op', 'reg', ',', 'reg', ',', 'char'):
-                        emitter.emit_ternary(*self.matched(), True)
-                    elif self.match('op', 'reg', ',', 'reg', ',', 'id'):
-                        emitter.emit_ternary_with_name(*self.matched())
 
                     elif self.match('ld', 'reg', ',', '[', 'reg', ',', 'reg', ']'):
                         emitter.emit_load(*self.matched(), False)

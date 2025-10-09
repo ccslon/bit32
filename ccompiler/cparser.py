@@ -37,7 +37,7 @@ TODO
 [X] Fix const
 [X] Add unsigned
 [X] Add floats
-[ ] Update Docs
+[X] Update Docs
 [X] Typedef
 [X] Const expressions
 [ ] Const eval
@@ -54,7 +54,7 @@ TODO
     [X] Include header files
     [X] Macros
 
-[ ] Bit fields
+[-] Bit fields
 [X] Proper typedef
 [X] Return width
 [X] Proper preproc
@@ -564,9 +564,8 @@ class CParser(Parser):
                 types.append((Function, (params, variadic)))
                 self.expect(')')
             elif self.accept('['):
-                types.append((Array,
-                              (Number(next(self))
-                               if self.peek(Lex.NUMBER) else None,)))
+                types.append((Array, (Number(next(self))
+                                      if self.peek(Lex.NUMBER) else None,)))
                 self.expect(']')
         return name
 
