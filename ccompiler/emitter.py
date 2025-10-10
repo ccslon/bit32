@@ -29,7 +29,7 @@ class Code(Enum):
     PUSH = 10
     POP = 11
     ADDRESS = 12
-    CMOV = 13
+    CMOV = 13  # "conditional move"
 
 
 '''

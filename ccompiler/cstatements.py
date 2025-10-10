@@ -6,7 +6,7 @@ Created on Fri Sep  6 14:25:05 2024
 """
 from collections import UserList
 from bit32 import Op, Cond, Reg, Size, escape
-from .cnodes import Statement, Expression, Binary
+from .cnodes import Statement, Expression, Variable, Binary
 from .ctypes import Array
 
 
@@ -256,7 +256,7 @@ class InitialAssign(Binary, Statement):
     """Class for initial assignments."""
 
     def __init__(self, token, left, right):
-        super().__init__(left.type, token, left, right)
+        super().__init__(left.type, left, right)
         if left.type != right.type:
             token.error(f'{left.type} != {right.type}')
 
@@ -340,9 +340,10 @@ class Call(Expression, Statement):
     """Class for function calls."""
 
     def __init__(self, token, function, arguments):
-        super().__init__(function.type.return_type, token)
+        super().__init__(function.type.return_type)
         if len(arguments) < len(function.type.parameters):
-            token.error(f'Not enough arguments provided in function call "{function.token.lexeme}"')
+            token.error('Not enough arguments provided for function call'
+                        + f' "{function.name()}"' if isinstance(function, Variable) else '')
         for i, param in enumerate(function.type.parameters):
             if param.type != arguments[i].type:
                 token.error(f'Argument #{i+1} of "{function.token.lexeme}" {param.type} != {arguments[i].type}')
@@ -358,7 +359,7 @@ class Call(Expression, Statement):
         """Determine if a funciton call "soft calls"."""
         return self.function.hard_calls() or any(arg.hard_calls() for arg in self.arguments)
 
-    def reduce_args(self, emitter, n):
+    def reduce_arguments(self, emitter, n):
         """Generate code for arguments."""
         for i, arg in enumerate(self.arguments):
             arg.reduce(emitter, n+i)
@@ -372,7 +373,7 @@ class Call(Expression, Statement):
 
     def reduce(self, emitter, n):
         """Generate code for function call (as an expression)."""
-        self.reduce_args(emitter, n)
+        self.reduce_arguments(emitter, n)
         self.function.call(emitter, n if n else min(4, len(self.arguments)))
         if n > 0 and self.width:
             emitter.emit_binary(Op.MOV, Size.WORD, Reg(n), Reg.A)
@@ -380,14 +381,14 @@ class Call(Expression, Statement):
 
     def generate(self, emitter, n):
         """Generate code for function call (as a statement)."""
-        self.reduce_args(emitter, n*self.soft_calls())
+        self.reduce_arguments(emitter, n*self.soft_calls())
         self.function.call(emitter, n)
 
 
 class VariadicCall(Call):
     """Class for variadic function calls."""
 
-    def reduce_args(self, emitter, n):
+    def reduce_arguments(self, emitter, n):
         """Generate code for arguments."""
         for i, param in enumerate(self.parameters):
             self.arguments[i].reduce(emitter, n+i)
@@ -401,13 +402,13 @@ class VariadicCall(Call):
             emitter.emit_push([Reg(n+4+i)])  # TODO test
 
     def adjust_stack(self, emitter):
-        """Adjust remove remaining arguments from stack."""
+        """Remove remaining arguments from stack."""
         if len(self.arguments) > 4:
             emitter.emit_binary(Op.ADD, Size.WORD, Reg.SP, len(self.arguments[4:]) * Size.WORD)  # TODO test
 
     def reduce(self, emitter, n):
         """Generate code for variadic function call (as an expression)."""
-        self.reduce_args(emitter, n)
+        self.reduce_arguments(emitter, n)
         self.function.call(emitter, n if n else min(4, len(self.arguments)))
         self.adjust_stack(emitter)
         if n > 0 and self.width:
@@ -416,6 +417,6 @@ class VariadicCall(Call):
 
     def generate(self, emitter, n):
         """Generate code for variadic function call (as a statement)."""
-        self.reduce_args(emitter, n*self.soft_calls())
+        self.reduce_arguments(emitter, n*self.soft_calls())
         self.function.call(emitter, n)
         self.adjust_stack(emitter)

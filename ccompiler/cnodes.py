@@ -6,6 +6,7 @@ Created on Sat Mar  1 11:43:13 2025
 """
 from collections import UserDict, UserList
 from bit32 import Op, Cond, Size, Reg
+from .clexer import Token
 from .emitter import Emitter
 
 
@@ -55,10 +56,9 @@ class Statement(CNode):
 class Expression(CNode):
     """Base class for C expressions."""
 
-    def __init__(self, ctype, token):
+    def __init__(self, ctype):
         self.type = ctype
         self.width = ctype.width
-        self.token = token
 
     def is_constant(self):
         """
@@ -153,6 +153,10 @@ class Expression(CNode):
 class Variable(Expression):
     """Base class for variable nodes."""
 
+    def __init__(self, ctype, token):
+        super().__init__(ctype)
+        self.token = token
+
     def name(self):
         """Get variable name."""
         return self.token.lexeme
@@ -189,8 +193,8 @@ class Constant(Expression):
 class Unary(Expression):
     """Base class for unary nodes."""
 
-    def __init__(self, ctype, token, value):
-        super().__init__(ctype, token)
+    def __init__(self, ctype, value):
+        super().__init__(ctype)
         self.value = value
 
     def is_constant(self):
@@ -209,9 +213,10 @@ class Unary(Expression):
 class Binary(Expression):
     """Base class for binary nodes."""
 
-    def __init__(self, ctype, token, left, right):
-        super().__init__(ctype, token)
-        self.left, self.right = left, right
+    def __init__(self, ctype, left, right):
+        super().__init__(ctype)
+        self.left = left
+        self.right = right
 
     def is_constant(self):
         """Determine if subtree is const."""
@@ -229,8 +234,8 @@ class Binary(Expression):
 class Access(Expression):
     """Base class for array access nodes."""
 
-    def __init__(self, token, struct, attribute):
-        super().__init__(attribute.type, token)
+    def __init__(self, struct, attribute):
+        super().__init__(attribute.type)
         self.struct = struct
         self.attribute = attribute
 
@@ -294,7 +299,7 @@ class Definition(CNode):
         if self.space:
             emitter.emit_binary(Op.SUB, Size.WORD, Reg.SP, self.space)
         for i, param in enumerate(self.parameters[:4]):
-            emitter.emit_store(param.width, Reg(i), Reg.SP, param.offset, param.token.lexeme)
+            emitter.emit_store(param.width, Reg(i), Reg.SP, param.offset, param.name())
 
     def ret(self, emitter, pop):
         """Generate return code specific to regular functions."""

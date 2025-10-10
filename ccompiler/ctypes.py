@@ -91,7 +91,7 @@ class Value(Type):
 
     def global_address(self, emitter, n, glob):
         """Generate address code for global variable."""
-        emitter.emit_load_global(Reg(n), glob.token.lexeme)
+        emitter.emit_load_global(Reg(n), glob.name())
         return Reg(n)
 
     def global_reduce(self, emitter, n, glob):
@@ -102,7 +102,7 @@ class Value(Type):
 
     def global_store(self, emitter, n, glob):  # TODO test
         """Generate code for storing a global variable."""
-        emitter.emit_load_global(Reg(n+1), glob.token.lexeme)
+        emitter.emit_load_global(Reg(n+1), glob.name())
         emitter.emit_store(self.width, Reg(n), Reg(n+1))
         return Reg(n)
 
@@ -112,7 +112,7 @@ class Value(Type):
 
 
 class Numeric(Value):
-    """Base class numeric types."""
+    """Base class for numeric types."""
 
     BINARY_OP = {
         '+': Op.ADD,
@@ -523,4 +523,4 @@ class Function(Value):
 
     def __str__(self):
         """Get string representation for this function type."""
-        return f'{self.return_type} func('+','.join(map(str, (param.type for param in self.parameters)))+')'
+        return f'{self.return_type} func({",".join(map(str, (param.type for param in self.parameters)))})'

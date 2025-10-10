@@ -4,6 +4,8 @@ Created on Fri Sep  6 14:09:48 2024
 
 @author: ccslon
 """
+from operator import add, sub, mul, floordiv, truediv, mod, lshift, rshift, inv, or_, xor, and_
+
 from bit32 import Size, Op, Reg, Cond, negative, int_to_float, unescape
 from .cnodes import Expression, Variable, Constant, Unary, Binary, Access, Statement
 from .ctypes import Char, Int, Float, Pointer, Array
@@ -69,8 +71,8 @@ class Global(Variable):
 class NumberBase(Constant):
     """Base class for number literals."""
 
-    def __init__(self, token):
-        super().__init__(Int(), token)
+    def __init__(self):
+        super().__init__(Int())
 
     def data(self, _):
         """Get data representation of node."""
@@ -103,22 +105,25 @@ class NumberBase(Constant):
 class EnumNumber(NumberBase):
     """Class for enum numbers."""
 
-    def __init__(self, token, value):
-        super().__init__(token)
+    def __init__(self, value):
+        super().__init__()
         self.value = value
 
 
 class Number(NumberBase):
     """Class for basic number nodes found anywhere in C code."""
 
-    def __init__(self, token):
-        super().__init__(token)
-        if token.lexeme.startswith('0x'):
-            self.value = int(token.lexeme, base=16)
-        elif token.lexeme.startswith('0b'):
-            self.value = int(token.lexeme, base=2)
+    def __init__(self, value):
+        super().__init__()
+        if isinstance(value, str):
+            if value.startswith('0x'):
+                self.value = int(value, base=16)
+            elif value.startswith('0b'):
+                self.value = int(value, base=2)
+            else:
+                self.value = int(value)
         else:
-            self.value = int(token.lexeme)
+            self.value = value
 
 
 class Negative(Number):
@@ -143,17 +148,18 @@ class Negative(Number):
 class SizeOf(NumberBase):
     """Class for sizeof operator."""
 
-    def __init__(self, ctype, token):
-        super().__init__(token)
+    def __init__(self, ctype):
+        super().__init__()
         self.value = int(ctype.size)
 
 
 class Decimal(Constant):
     """Class for basic decimal numbers found anywhere in C code."""
 
-    def __init__(self, token):
-        super().__init__(Float(), token)
-        self.value = int_to_float(token.lexeme)
+    def __init__(self, value):
+        super().__init__(Float())
+        self.original = str(value)
+        self.value = int_to_float(value)
 
     def data(self, _):
         """Get data representation of decimal."""
@@ -161,23 +167,23 @@ class Decimal(Constant):
 
     def reduce(self, emitter, n):
         """Generate code for decimals."""
-        emitter.emit_load_immediate(Reg(n), self.value, self.token.lexeme)
+        emitter.emit_load_immediate(Reg(n), self.value, self.original)
         return Reg(n)
 
 
 class NegativeDecimal(Decimal):
     """Class for negative decimals."""
 
-    def __init__(self, token):
-        super().__init__(token)
-        self.value = int_to_float(f'-{token.lexeme}')
+    def __init__(self, value):
+        super().__init__(f'-{value}')
 
 
 class Character(Constant):
     """Class for character literals."""
 
     def __init__(self, token):
-        super().__init__(Char(), token)
+        super().__init__(Char())
+        self.token = token
         self.value = ord(unescape(token.lexeme.strip('\'')))
 
     def data(self, _):
@@ -198,7 +204,8 @@ class String(Constant):
     """Class for string literals."""
 
     def __init__(self, token):
-        super().__init__(Pointer(Char()), token)
+        super().__init__(Pointer(Char()))
+        self.token = token
         self.value = unescape(token.lexeme)
 
     def data(self, emitter):
@@ -215,7 +222,7 @@ class UnaryOp(Unary):
     """Class for unary operators."""
 
     def __init__(self, op, value):
-        super().__init__(value.type, op, value)
+        super().__init__(value.type, value)
         if not value.type.cast(Int()):
             op.error(f'Cannot {op.lexeme} {value.type}')
         self.op = self.type.get_unary_op(op)
@@ -259,8 +266,8 @@ class Post(UnaryOp, Statement):
 class AddressOf(Unary):
     """Class for address-of operator."""
 
-    def __init__(self, token, value):
-        super().__init__(Pointer(value.type), token, value)
+    def __init__(self, value):
+        super().__init__(Pointer(value.type), value)
 
     def reduce(self, emitter, n):
         """Generate code for address-of operator."""
@@ -271,7 +278,7 @@ class Dereference(Unary):
     """Class for dereference operator."""
 
     def __init__(self, token, value):
-        super().__init__(value.type.to, token, value)
+        super().__init__(value.type.to, value)
         if not isinstance(value.type, (Array, Pointer)):
             token.error(f'Cannot {token.lexeme} {value.type}')
 
@@ -300,7 +307,7 @@ class Cast(Unary):
     """Class for casting."""
 
     def __init__(self, token, cast_type, value):
-        super().__init__(cast_type, token, value)
+        super().__init__(cast_type, value)
         if not cast_type.cast(value.type):
             token.error(f'Cannot cast {value.type} to {cast_type}')
 
@@ -318,8 +325,8 @@ class Cast(Unary):
 class Not(Unary):
     """Class for logical not operator."""
 
-    def __init__(self, token, value):
-        super().__init__(value.type, token, value)
+    def __init__(self, value):
+        super().__init__(value.type, value)
 
     def compare(self, emitter, n, label):
         """Generate code for comparing nodes with logical not."""
@@ -352,7 +359,7 @@ class BinaryOp(Binary):
     """Class for binary operators."""
 
     def __init__(self, op, left, right):
-        super().__init__(max_type(left.type, right.type), op, left, right)
+        super().__init__(max_type(left.type, right.type), left, right)
         if isinstance(left, String) or isinstance(right, String) or not left.type.cast(right.type):
             op.error(f'Cannot {left.type} {op.lexeme} {right.type}')
         self.op = self.type.get_binary_op(op)
@@ -364,10 +371,10 @@ class BinaryOp(Binary):
 
 
 class Compare(Binary):
-    """Class for binary copare operators."""
+    """Class for binary compare operators."""
 
     def __init__(self, op, left, right):
-        super().__init__(max_type(left.type, right.type), op, left, right)
+        super().__init__(max_type(left.type, right.type), left, right)
         self.op = self.type.get_cmp_op(op)
         self.inv = self.type.get_inv_cmp_op(op)
 
@@ -444,8 +451,8 @@ class Logic(BinaryOp):
 class Conditional(Expression):
     """Class for conditional ternary operator."""
 
-    def __init__(self, token, test, true, false):
-        super().__init__(true.type, token)
+    def __init__(self, test, true, false):
+        super().__init__(true.type)
         self.test = test
         self.true = true
         self.false = false
@@ -521,8 +528,8 @@ class Arrow(Access):
 class SubScript(Binary):
     """Class for array access."""
 
-    def __init__(self, token, left, right):
-        super().__init__(left.type.of, token, left, right)
+    def __init__(self, left, right):
+        super().__init__(left.type.of, left, right)
 
     def address(self, emitter, n):
         """Generate address code for array access."""

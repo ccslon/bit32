@@ -157,14 +157,14 @@ class CParser(Parser):
 
     def primary(self):
         '''
-        PRIMARY -> name|number|character|string|'(' EXPRESSION ')'
+        PRIMARY -> name|decimal|number|character|string|'(' EXPRESSION ')'
         '''
         if self.peek(Lex.NAME):
             return self.resolve(next(self).lexeme)
         if self.peek(Lex.DECIMAL):
-            return Decimal(next(self))
+            return Decimal(next(self).lexeme)
         if self.peek(Lex.NUMBER):
-            return Number(next(self))
+            return Number(next(self).lexeme)
         if self.peek(Lex.CHARACTER):
             return Character(next(self))
         if self.peek(Lex.STRING):
@@ -183,24 +183,24 @@ class CParser(Parser):
         while self.peek({'(', '[', '++', '--', '.', '->'}):
             if self.peek('('):
                 if not isinstance(postfix.type, Function):
-                    self.error(f'"{postfix.token.lexeme}" is not a function')
+                    self.error(f'{postfix.type} is not a function type')
                 call_type = VariadicCall if postfix.type.variadic else Call
                 self.function.calls = True
                 postfix = call_type(next(self), postfix, self.arguments())
                 self.expect(')')
-            elif self.peek('['):
-                postfix = SubScript(next(self), postfix, self.expression())
+            elif self.accept('['):
+                postfix = SubScript(postfix, self.expression())
                 self.expect(']')
             elif self.peek({'++', '--'}):
                 postfix = Post(next(self), postfix)
             elif self.accept('.'):
                 if not isinstance(postfix.type, (Struct, Union)):
-                    self.error(f'"{postfix.token.lexeme}" is type {postfix.type}')
+                    self.error(f'Member reference when {postfix.type} is not a struct or union')
                 name = self.expect(Lex.NAME)
                 if name.lexeme not in postfix.type:
                     self.error(f'"{name.lexeme}" is not an attribute of {postfix.type}')
                 attr = postfix.type[name.lexeme]
-                postfix = Dot(name, postfix, attr)
+                postfix = Dot(postfix, attr)
             elif self.accept('->'):
                 if not isinstance(postfix.type, Pointer):
                     self.error(f'{postfix.type} is not pointer type')
@@ -208,7 +208,7 @@ class CParser(Parser):
                 if name.lexeme not in postfix.type.to:
                     self.error(f'"{name.lexeme}" is not an attribute of {postfix.type.to}')
                 attr = postfix.type.to[name.lexeme]
-                postfix = Arrow(name, postfix, attr)
+                postfix = Arrow(postfix, attr)
         return postfix
 
     def arguments(self):
@@ -235,25 +235,24 @@ class CParser(Parser):
             return Dereference(next(self), self.cast())
         if self.peek2('-', Lex.DECIMAL):
             next(self)
-            return NegativeDecimal(next(self))
+            return NegativeDecimal(next(self).lexeme)
         if self.peek2('-', Lex.NUMBER):
             next(self)
-            return Negative(next(self))
+            return Negative(next(self).lexeme)
         if self.peek({'-', '~'}):
             return UnaryOp(next(self), self.cast())
         if self.peek({'++', '--'}):
             return Pre(next(self), self.unary())
-        if self.peek('!'):
-            return Not(next(self), self.cast())
-        if self.peek('&'):
-            return AddressOf(next(self), self.cast())
-        if self.peek('sizeof'):
-            token = next(self)
+        if self.accept('!'):
+            return Not(self.cast())
+        if self.accept('&'):
+            return AddressOf(self.cast())
+        if self.accept('sizeof'):
             if self.accept('('):
-                unary = SizeOf(self.type_name(), token)
+                unary = SizeOf(self.type_name())
                 self.expect(')')
             else:
-                unary = SizeOf(self.unary().type, token)
+                unary = SizeOf(self.unary().type)
             return unary
         return self.postfix()
 
@@ -366,7 +365,8 @@ class CParser(Parser):
         conditional = self.logical_or()
         if self.accept('?'):
             expression = self.expression()
-            conditional = Conditional(self.expect(':'), conditional, expression, self.conditional())
+            self.expect(':')
+            conditional = Conditional(conditional, expression, self.conditional())
         return conditional
 
     def assign(self):
@@ -377,8 +377,7 @@ class CParser(Parser):
         assign = self.conditional()
         if self.peek({'=', '+=', '-=', '*=', '/=', '%=',
                       '<<=', '>>=', '^=', '|=', '&=', '/=', '%='}):
-            if not isinstance(assign, (Local, Global, Dot,
-                                       Arrow, SubScript, Dereference)):
+            if not isinstance(assign, (Local, Global, Dot, Arrow, SubScript, Dereference)):
                 self.error(f'Cannot assign to {type(assign)}')
             if self.peek('='):
                 assign = Assign(next(self), assign, self.assign())
@@ -409,10 +408,10 @@ class CParser(Parser):
         '''
         name = self.expect(Lex.NAME)
         if self.accept('='):
-            value = Number(self.expect(Lex.NUMBER)).value  # todo
+            value = Number(self.expect(Lex.NUMBER).lexeme).value  # todo
         if not name.lexeme not in self.scope.enum_numbers:
             self.error(f'Redeclaration of enumerator "{name.lexeme}"')
-        self.scope.enum_numbers[name.lexeme] = EnumNumber(name, value)
+        self.scope.enum_numbers[name.lexeme] = EnumNumber(value)
         return value
 
     def attribute(self, specifier, ctype):
@@ -564,7 +563,7 @@ class CParser(Parser):
                 types.append((Function, (params, variadic)))
                 self.expect(')')
             elif self.accept('['):
-                types.append((Array, (Number(next(self))
+                types.append((Array, (Number(next(self).lexeme)
                                       if self.peek(Lex.NUMBER) else None,)))
                 self.expect(']')
         return name
@@ -586,8 +585,7 @@ class CParser(Parser):
             if self.accept('{'):
                 if not isinstance(declarator.type, (Array, Struct)):
                     self.error('Cannot list-assign to scalar')
-                init_declarator = InitialListAssign(token, declarator,
-                                               self.initializer_list(parser))
+                init_declarator = InitialListAssign(token, declarator, self.initializer_list(parser))
                 self.expect('}')
             elif isinstance(declarator.type, Array) and self.peek(Lex.STRING):
                 init_declarator = InitialStringArray(token, declarator, String(next(self)))
