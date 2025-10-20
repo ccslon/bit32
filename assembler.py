@@ -396,6 +396,7 @@ class Assembler:
                     yield Size.HALF
 
     def match(self, *pattern):
+        """Match given pattern."""
         pattern += ('end',)
         return len(self.tokens) == len(pattern) and all(self.peek(symbol, offset=i) for i, symbol in enumerate(pattern))
 
@@ -403,7 +404,7 @@ class Assembler:
         """Move parse index forward and return consumed token value."""
         type, value, _ = self.tokens[self.index]
         self.index += 1
-        if type in ['op','jump','const','string','char','reg','cond','label','id']:
+        if type in ['op', 'jump', 'const', 'string', 'char', 'reg', 'cond', 'label', 'id']:
             return self.translate(type, value)
         return value
 

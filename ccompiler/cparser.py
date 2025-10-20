@@ -9,7 +9,7 @@ from copy import copy
 from .parser import Parser
 from .clexer import Lex, CTYPES
 from .cnodes import Frame, Translation, Definition, VariadicDefinition
-from .cexpressions import Number, Negative, EnumNumber, Decimal, NegativeDecimal, Character, String
+from .cexpressions import Number, EnumNumber, Decimal, Character, String
 from .cexpressions import Post, UnaryOp, Not, Pre, BinaryOp, Compare, Logic
 from .cexpressions import Local, Attribute, Global, Dot, SubScript, Arrow, AddressOf, Dereference, SizeOf, Cast, Conditional
 from .ctypes import Type, Void, Float, Int, Short, Char, Pointer, Struct, Union, Array, Function
@@ -40,7 +40,7 @@ TODO
 [X] Update Docs
 [X] Typedef
 [X] Const expressions
-[ ] Const eval
+[X] Const eval
 [ ] Register variables (use max_args)
 [X] Function pointers
 [ ] Function defs in function defs
@@ -233,12 +233,6 @@ class CParser(Parser):
         '''
         if self.peek('*'):
             return Dereference(next(self), self.cast())
-        if self.peek2('-', Lex.DECIMAL):
-            next(self)
-            return NegativeDecimal(next(self).lexeme)
-        if self.peek2('-', Lex.NUMBER):
-            next(self)
-            return Negative(next(self).lexeme)
         if self.peek({'-', '~'}):
             return UnaryOp(next(self), self.cast())
         if self.peek({'++', '--'}):
@@ -399,18 +393,17 @@ class CParser(Parser):
         constant = self.conditional()
         if not constant.is_constant():
             self.error('Must be a constant expression')
-        # TODO return constant.evaluate()
-        return constant
+        return constant.fold()
 
     def enum(self, value):
         '''
         ENUM -> name ['=' CONSTANT]
         '''
         name = self.expect(Lex.NAME)
-        if self.accept('='):
-            value = Number(self.expect(Lex.NUMBER).lexeme).value  # todo
-        if not name.lexeme not in self.scope.enum_numbers:
+        if name.lexeme in self.scope.enum_numbers:
             self.error(f'Redeclaration of enumerator "{name.lexeme}"')
+        if self.accept('='):
+            value = self.constant().value
         self.scope.enum_numbers[name.lexeme] = EnumNumber(value)
         return value
 
@@ -751,7 +744,7 @@ class CParser(Parser):
                 while self.accept(','):
                     inits.append(self.expression())
                 self.expect(';')
-            cond = self.expression()
+            test = None if self.peek(';') else self.expression()
             self.expect(';')
             steps = []
             if not self.accept(')'):
@@ -759,7 +752,7 @@ class CParser(Parser):
                 while self.accept(','):
                     steps.append(self.expression())
                 self.expect(')')
-            statement = For(inits, cond, steps, self.statement())
+            statement = For(inits, test, steps, self.statement())
         elif self.accept('do'):
             statement = self.statement()
             self.expect('while')

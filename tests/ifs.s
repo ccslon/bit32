@@ -24,7 +24,7 @@ foo2:
   LD     A, [SP, 0] ; n
   CMP    A, 100
   JLE    .L1
-  MVN    A, 1
+  MOV    A, -1
   CALL   bar
 .L1:
   ADD    SP, 4
@@ -43,7 +43,7 @@ foo2_5:
   LD     A, [SP, 0] ; n
   CMP    A, 100
   JLE    .L5
-  MVN    A, 1
+  MOV    A, -1
   CALL   bar
 .L5:
 .L3:
@@ -79,7 +79,7 @@ foo4:
   LD     A, [SP, 0] ; n
   CMP    A, 100
   JLE    .L10
-  MVN    A, 1
+  MOV    A, -1
   CALL   bar
   JMP    .L8
 .L10:

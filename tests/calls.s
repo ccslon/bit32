@@ -33,7 +33,7 @@ foo:
   ADD    B, SP, 8 ; z
   CALL   baz
   ADD    C, A
-  MVN    A, 3
+  MOV    A, -3
   MOV    B, 4
   CALL   bar
   ADD    C, A

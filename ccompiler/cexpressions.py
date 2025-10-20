@@ -4,11 +4,11 @@ Created on Fri Sep  6 14:09:48 2024
 
 @author: ccslon
 """
-from operator import add, sub, mul, floordiv, truediv, mod, lshift, rshift, inv, or_, xor, and_
+from operator import add, sub, mul, floordiv, truediv, mod, lshift, rshift, neg, inv, or_, xor, and_, eq, ne, gt, lt, ge, le
 
-from bit32 import Size, Op, Reg, Cond, negative, int_to_float, unescape
+from bit32 import Size, Op, Reg, Cond, twos_compliment, floating_point, unescape
 from .cnodes import Expression, Variable, Constant, Unary, Binary, Access, Statement
-from .ctypes import Char, Int, Float, Pointer, Array
+from .ctypes import Type, Char, Int, Float, Pointer, Array
 
 
 class Local(Variable):
@@ -80,17 +80,17 @@ class NumberBase(Constant):
 
     def reduce(self, emitter, n):
         """Generate code for numbers."""
-        if 0 <= self.value < 256:
+        if -128 <= self.value < 256:
             emitter.emit_binary(Op.MOV, self.width, Reg(n), self.value)
         else:
-            emitter.emit_load_immediate(Reg(n), self.value)
+            emitter.emit_load_immediate(Reg(n), twos_compliment(self.value, 32))
         return Reg(n)
 
     def reduce_number(self, emitter, n):
         """Reduce to number constant if applicable. See Expression class."""
-        if 0 <= self.value < 256:
+        if -128 <= self.value < 256:
             return self.value
-        emitter.emit_load_immediate(Reg(n), self.value)  # TODO test this branch
+        emitter.emit_load_immediate(Reg(n), twos_compliment(self.value, 32))  # TODO test this branch
         return Reg(n)
 
     def reduce_subscript(self, emitter, n, size):
@@ -98,7 +98,6 @@ class NumberBase(Constant):
         mul = size*self.value
         if 0 <= mul < 256:
             return mul
-        # TODO
         return super().reduce_subscript(emitter, n, size)
 
 
@@ -123,26 +122,7 @@ class Number(NumberBase):
             else:
                 self.value = int(value)
         else:
-            self.value = value
-
-
-class Negative(Number):
-    """Class for negative number nodes."""
-
-    def reduce(self, emitter, n):
-        """Generate code for negative numbers."""
-        if 0 <= self.value < 256:
-            emitter.emit_binary(Op.MVN, self.width, Reg(n), self.value)
-        else:
-            emitter.emit_load_immediate(Reg(n), negative(-self.value, 32))  # TODO test
-        return Reg(n)
-
-    def reduce_number(self, emitter, n):
-        """Reduce to number constant if applicable. See Expression class."""
-        if 0 <= self.value <= 128:
-            return -self.value
-        emitter.emit_load_immediate(Reg(n), negative(-self.value, 32))  # TODO test this branch
-        return Reg(n)
+            self.value = int(value)
 
 
 class SizeOf(NumberBase):
@@ -158,24 +138,16 @@ class Decimal(Constant):
 
     def __init__(self, value):
         super().__init__(Float())
-        self.original = str(value)
-        self.value = int_to_float(value)
+        self.value = float(value)
 
     def data(self, _):
         """Get data representation of decimal."""
-        return self.value
+        return floating_point(self.value)
 
     def reduce(self, emitter, n):
         """Generate code for decimals."""
-        emitter.emit_load_immediate(Reg(n), self.value, self.original)
+        emitter.emit_load_immediate(Reg(n), floating_point(self.value), str(self.value))
         return Reg(n)
-
-
-class NegativeDecimal(Decimal):
-    """Class for negative decimals."""
-
-    def __init__(self, value):
-        super().__init__(f'-{value}')
 
 
 class Character(Constant):
@@ -227,8 +199,20 @@ class UnaryOp(Unary):
             op.error(f'Cannot {op.lexeme} {value.type}')
         self.op = self.type.get_unary_op(op)
 
+    def evaluate(self):
+        """Evaluate unary operator."""
+        return {Op.NEG: neg,
+                Op.NEGF: neg,
+                Op.NOT: inv}[self.op](self.value.evaluate())
+
+    def fold(self):
+        """Fold this unary operator into a single constant node."""
+        return self.type.get_node(self.evaluate())
+
     def reduce(self, emitter, n):
         """Generate code for a unary operator."""
+        if self.is_constant():
+            return self.fold().reduce(emitter, n)
         emitter.emit_unary(self.op, self.width, self.value.reduce(emitter, n))
         return Reg(n)
 
@@ -236,8 +220,17 @@ class UnaryOp(Unary):
 class Pre(UnaryOp, Statement):
     """Class for pre increment/decrement operators."""
 
+    def evaluate(self):
+        """Evaluate pre operator."""
+        return {Op.ADD: add,
+                Op.ADDF: add,
+                Op.SUB: sub,
+                Op.SUBF: sub}[self.op](self.value.evaluate(), 1)
+
     def reduce(self, emitter, n):
         """Generate code for operator."""
+        if self.is_constant():
+            return self.fold().reduce(emitter, n)
         self.value.reduce(emitter, n)
         self.type.reduce_pre(emitter, n, self.op)
         self.value.store(emitter, n)
@@ -251,8 +244,14 @@ class Pre(UnaryOp, Statement):
 class Post(UnaryOp, Statement):
     """Class for post increment/decrement operators."""
 
+    def evaluate(self):
+        """Evaluate post operator."""
+        return self.value.evaluate()
+
     def reduce(self, emitter, n):
         """Generate code for operator."""
+        if self.is_constant():
+            return self.fold().reduce(emitter, n)
         self.value.reduce(emitter, n)
         self.type.reduce_post(emitter, n, self.op)
         self.value.store(emitter, n+1)
@@ -315,8 +314,18 @@ class Cast(Unary):
         """Get data representation of cast."""
         return self.value.data(emitter)
 
+    def evaluate(self):
+        """Evaluate cast operator."""
+        return self.value.evaluate()
+
+    def fold(self):
+        """Fold this cast operator into a single constant node."""
+        return self.type.get_node(self.evaluate())
+
     def reduce(self, emitter, n):
         """Generate code for casting."""
+        if self.is_constant():
+            return self.fold().reduce(emitter, n)
         self.value.reduce(emitter, n)
         self.type.convert(emitter, n, self.value.type)
         return Reg(n)
@@ -338,34 +347,56 @@ class Not(Unary):
         emitter.emit_binary(self.type.CMP, self.width, self.value.reduce(emitter, n), 0)
         emitter.emit_jump(Cond.EQ, label)
 
+    def evaluate(self):
+        """Evaluate not operator."""
+        return not self.value.evaluate()
+
+    def fold(self):
+        """Fold this not operator into a single constant node."""
+        return self.type.get_node(self.evaluate())
+
     def reduce(self, emitter, n):
         """Generate code for logical not."""
+        if self.is_constant():
+            return self.fold().reduce(emitter, n)
         emitter.emit_binary(self.type.CMP, self.width, self.value.reduce(emitter, n), 0)
         emitter.emit_cmov(Cond.EQ, Reg(n), 1)
         emitter.emit_cmov(Cond.NE, Reg(n), 0)
         return Reg(n)
 
 
-def max_type(left, right):
-    """Widen 2 given C types."""
-    if isinstance(left, (Float, Pointer)):
-        return left
-    if isinstance(right, (Float, Pointer)):
-        return right
-    return type(left if left.width >= right.width else right)(left.signed and right.signed)
-
-
 class BinaryOp(Binary):
     """Class for binary operators."""
 
     def __init__(self, op, left, right):
-        super().__init__(max_type(left.type, right.type), left, right)
+        super().__init__(Type.max_type(left.type, right.type), left, right)
         if isinstance(left, String) or isinstance(right, String) or not left.type.cast(right.type):
             op.error(f'Cannot {left.type} {op.lexeme} {right.type}')
         self.op = self.type.get_binary_op(op)
 
+    def evaluate(self):
+        """Evaluate binary operator."""
+        return {Op.ADD: add,
+                Op.SUB: sub,
+                Op.MUL: mul,
+                Op.MULF: mul,
+                Op.DIV: floordiv,
+                Op.DIVF: truediv,
+                Op.MOD: mod,
+                Op.SHR: rshift,
+                Op.SHL: lshift,
+                Op.OR: or_,
+                Op.XOR: xor,
+                Op.AND: and_}[self.op](self.left.evaluate(), self.right.evaluate())
+
+    def fold(self):
+        """Fold this binary operator into a single constant node."""
+        return self.type.get_node(self.evaluate())
+
     def reduce(self, emitter, n):
         """Generate code for binary operator."""
+        if self.is_constant():
+            return self.fold().reduce(emitter, n)
         self.type.reduce_binary(emitter, n, self.op, self.left, self.right)
         return Reg(n)
 
@@ -374,7 +405,7 @@ class Compare(Binary):
     """Class for binary compare operators."""
 
     def __init__(self, op, left, right):
-        super().__init__(max_type(left.type, right.type), left, right)
+        super().__init__(Type.max_type(left.type, right.type), left, right)
         self.op = self.type.get_cmp_op(op)
         self.inv = self.type.get_inv_cmp_op(op)
 
@@ -388,8 +419,27 @@ class Compare(Binary):
         self.type.reduce_compare(emitter, n, self.left, self.right)
         emitter.emit_jump(self.op, label)
 
+    def evaluate(self):
+        """Evaluate compare operator."""
+        return {Cond.EQ: eq,
+                Cond.NE: ne,
+                Cond.GT: gt,
+                Cond.HI: gt,
+                Cond.LT: lt,
+                Cond.LO: lt,
+                Cond.GE: ge,
+                Cond.HS: ge,
+                Cond.LE: le,
+                Cond.LS: le}[self.op](self.left.evaluate(), self.right.evaluate())
+
+    def fold(self):
+        """Fold this binary operator into a single constant node."""
+        return self.type.get_node(self.evaluate())
+
     def reduce(self, emitter, n):
         """Generate code for compare operator."""
+        if self.is_constant():
+            return self.fold().reduce(emitter, n)
         self.type.reduce_compare(emitter, n, self.left, self.right)
         emitter.emit_cmov(self.op, Reg(n), 1)
         emitter.emit_cmov(self.inv, Reg(n), 0)
@@ -421,8 +471,16 @@ class Logic(BinaryOp):
             self.left.inverse_compare(emitter, n, label)
             self.right.inverse_compare(emitter, n, label)
 
+    def evaluate(self):
+        """Evaluate logic operator."""
+        return {Op.AND: lambda l, r: l and r,
+                Op.OR: lambda l, r: l or r}[self.op](self.left.evaluate(),
+                                                     self.right.evaluate())
+
     def reduce(self, emitter, n):
         """Generate code for logical operator."""
+        if self.is_constant():
+            return self.fold().reduce(emitter, n)
         if self.op == Op.AND:
             label = emitter.next_label()
             sublabel = emitter.next_label()
@@ -458,15 +516,34 @@ class Conditional(Expression):
         self.false = false
 
     def hard_calls(self):
-        """Determmine if conditional node "hard calls"."""
+        """Determine if conditional node "hard calls"."""
         return self.test.hard_calls() or self.true.hard_calls() or self.false.hard_calls()
 
     def soft_calls(self):
-        """Determmine if conditional node "soft calls"."""
+        """Determine if conditional node "soft calls"."""
         return self.test.soft_calls() or self.true.soft_calls() or self.false.soft_calls()
+
+    def is_constant(self):
+        """Determine if conditional is constant."""
+        return self.test.is_constant() and self.true.is_constant() and self.false.is_constant()
+
+    def evaluate(self):
+        """Evaluate conditional operator."""
+        return self.true.evaluate() if self.test.evaluate() else self.false.evaluate()
+
+    def fold(self):
+        """Fold this conditional operator into a single constant node."""
+        return self.true.fold() if self.test.evaluate() else self.false.fold()
 
     def reduce(self, emitter, n):
         """Generate code for conditional operator."""
+        if self.is_constant():
+            return self.fold().reduce(emitter, n)
+        if self.test.is_constant():
+            if self.test.evaluate():
+                return self.true.reduce(emitter, n)
+            else:
+                return self.false.reduce(emitter, n)
         label = emitter.next_label()
         sublabel = emitter.next_label()
         self.test.compare(emitter, n, sublabel)
@@ -485,6 +562,7 @@ class Conditional(Expression):
         emitter.emit_jump(Cond.AL, root)
         emitter.append_label(sublabel)
         self.false.reduce_branch(emitter, n, root)
+        return ...  # Should this return a reg?
 
 
 class Dot(Access):

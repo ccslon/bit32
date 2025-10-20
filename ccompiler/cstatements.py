@@ -23,7 +23,11 @@ class If(Statement):
         emitter.if_jump_end.append(False)
         label = emitter.next_label()
         sublabel = emitter.next_label() if self.false else label
-        self.test.compare(emitter, n*self.test.soft_calls(), sublabel)
+        if self.test.is_constant():
+            if not self.test.evaluate():
+                emitter.emit_jump(Cond.AL, sublabel)
+        else:
+            self.test.compare(emitter, n*self.test.soft_calls(), sublabel)
         self.true.generate(emitter, n)
         if self.false:
             if not self.true.last_is_return():
@@ -40,7 +44,11 @@ class If(Statement):
     def branch(self, emitter, n, root):
         """Generate code for else statement."""
         sublabel = emitter.next_label() if self.false else root
-        self.test.compare(emitter, n*self.test.soft_calls(), sublabel)
+        if self.test.is_constant():
+            if not self.test.evaluate():
+                emitter.emit_jump(Cond.AL, sublabel)
+        else:
+            self.test.compare(emitter, n*self.test.soft_calls(), sublabel)
         self.true.generate(emitter, n)
         if self.false:
             if not self.true.last_is_return():
@@ -129,7 +137,11 @@ class While(Statement):
         """Generate code for while loop."""
         emitter.begin_loop()
         emitter.append_label(emitter.loop_head())
-        self.test.compare(emitter, n*self.test.soft_calls(), emitter.loop_tail())
+        if self.test.is_constant() :
+            if not self.test.evaluate():
+                emitter.emit_jump(Cond.AL, emitter.loop_tail())
+        else:
+            self.test.compare(emitter, n*self.test.soft_calls(), emitter.loop_tail())
         self.statement.generate(emitter, n)
         emitter.emit_jump(Cond.AL, emitter.loop_head())
         emitter.append_label(emitter.loop_tail())
@@ -148,7 +160,11 @@ class Do(Statement):
         emitter.begin_loop()
         emitter.append_label(emitter.loop_head())
         self.statement.generate(emitter, n)
-        self.test.inverse_compare(emitter, n*self.test.soft_calls(), emitter.loop_head())
+        if self.test.is_constant():
+            if self.test.evaluate():
+                emitter.emit_jump(Cond.AL, emitter.loop_head())
+        else:
+            self.test.inverse_compare(emitter, n*self.test.soft_calls(), emitter.loop_head())
         emitter.append_label(emitter.loop_tail())
         emitter.end_loop()
 
@@ -168,7 +184,12 @@ class For(While):
         loop = emitter.next_label()
         emitter.begin_loop()
         emitter.append_label(loop)
-        self.test.compare(emitter, n*self.test.soft_calls(), emitter.loop_tail())
+        if self.test is not None:
+            if self.test.is_constant():
+                if not self.test.evaluate():
+                    emitter.emit_jump(Cond.AL, emitter.loop_tail())
+            else:
+                self.test.compare(emitter, n*self.test.soft_calls(), emitter.loop_tail())
         self.statement.generate(emitter, n)
         emitter.append_label(emitter.loop_head())
         for step in self.steps:
@@ -234,8 +255,11 @@ class Return(Statement):
     def generate(self, emitter, n):
         """Generate code return statement."""
         if self.value:
-            self.value.reduce(emitter, n)
-            self.type.convert(emitter, n, self.value.type)
+            if self.value.is_constant():
+                self.value.fold().reduce(emitter, n)
+            else:
+                self.value.reduce(emitter, n)
+                self.type.convert(emitter, n, self.value.type)
         emitter.emit_jump(Cond.AL, emitter.return_label)
 
 
@@ -250,6 +274,8 @@ class Compound(UserList, Statement):
         """Generate code for compound statements."""
         for statement in self:
             statement.generate(emitter, n)
+            if isinstance(statement, (Return, Break, Continue)):  # Dead code elimination
+                break
 
 
 class InitialAssign(Binary, Statement):

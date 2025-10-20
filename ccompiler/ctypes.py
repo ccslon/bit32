@@ -5,12 +5,21 @@ Created on Fri Sep  6 14:05:50 2024
 @author: ccslon
 """
 from collections import UserDict
-from bit32 import Op, Size, Reg, Cond, int_to_float
+from bit32 import Op, Size, Reg, Cond, floating_point
 from .cnodes import Frame
-
+from . import cexpressions
 
 class Type:
     """Base class for C type."""
+
+    @classmethod
+    def max_type(cls, left, right):
+        """Widen 2 given C types."""
+        if isinstance(left, (Float, Pointer)):
+            return left
+        if isinstance(right, (Float, Pointer)):
+            return right
+        return type(left if left.width >= right.width else right)(left.signed and right.signed)
 
     def cast(self, other):
         """Determine if given type is able to cast to instance type."""
@@ -212,6 +221,10 @@ class Numeric(Value):
             return self.INV_SCMP_OP[op.lexeme]
         return self.INV_UCMP_OP.get(op.lexeme, self.INV_SCMP_OP[op.lexeme])
 
+    def get_node(self, value):
+        """Get the constant node associated with this type."""
+        return cexpressions.Number(value)
+
     def __eq__(self, other):
         """Determine if the given is equal to this type."""
         return isinstance(other, Numeric)
@@ -304,12 +317,12 @@ class Float(Numeric):
 
     def reduce_pre(self, emitter, n, op):
         """Generate code for pre operator."""
-        emitter.emit_load_immediate(Reg(n+1), int_to_float(1))
+        emitter.emit_load_immediate(Reg(n+1), floating_point(1))
         emitter.emit_binary(op, self.width, Reg(n), Reg(n+1))
 
     def reduce_post(self, emitter, n, op):
         """Generate code for post operator."""
-        emitter.emit_load_immediate(Reg(n+2), int_to_float(1))
+        emitter.emit_load_immediate(Reg(n+2), floating_point(1))
         emitter.emit_ternary(op, self.width, Reg(n+1), Reg(n), Reg(n+2))
 
     def reduce_binary(self, emitter, n, op, left, right):
@@ -319,6 +332,10 @@ class Float(Numeric):
     def reduce_compare(self, emitter, n, left, right):
         """Generate code for compare operator."""
         emitter.emit_binary(Op.CMPF, self.width, left.reduce_float(emitter, n), right.reduce_float(emitter, n+1))
+
+    def get_node(self, value):
+        """Get the constant node associated with floats."""
+        return cexpressions.Decimal(value)
 
     def __eq__(self, other):
         """Determine if given type is equal to this type."""

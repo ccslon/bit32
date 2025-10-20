@@ -6,7 +6,6 @@ Created on Sat Mar  1 11:43:13 2025
 """
 from collections import UserDict, UserList
 from bit32 import Op, Cond, Size, Reg
-from .clexer import Token
 from .emitter import Emitter
 
 
@@ -130,6 +129,8 @@ class Expression(CNode):
             MOV A, 3
             ADD A, 76
         """
+        if self.is_constant():
+            return self.fold().reduce_number(emitter, n)
         return self.reduce(emitter, n)
 
     def reduce_float(self, emitter, n):
@@ -189,6 +190,14 @@ class Constant(Expression):
         """Constants do not soft call."""
         return False
 
+    def evaluate(self):
+        """Evaluate this node in the case of a constant expression."""
+        return self.value  # default is the constant node's value
+
+    def fold(self):
+        """Fold this sub expression into a single constant node."""
+        return self  # default is no folding (just return self)
+
 
 class Unary(Expression):
     """Base class for unary nodes."""
@@ -198,7 +207,7 @@ class Unary(Expression):
         self.value = value
 
     def is_constant(self):
-        """Determine if subtree is const."""
+        """Determine if subtree is constant."""
         return self.value.is_constant()
 
     def hard_calls(self):

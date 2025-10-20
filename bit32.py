@@ -9,13 +9,15 @@ from enum import IntEnum
 from struct import pack
 
 
-def negative(number, base):
-    """Make a 2's compliment negative number."""
-    return (-number ^ (2**base - 1)) + 1
+def twos_compliment(number, bits):
+    """Make a 2's compliment binary number."""
+    if number < 0:
+        return (-number ^ (2**bits - 1)) + 1
+    return number & (2**bits - 1)
 
 
-def int_to_float(i):
-    """Integer to floating point number (big endian)."""
+def floating_point(i):
+    """Convert to floating point number (big endian)."""
     return int.from_bytes(pack('>f', float(i)), 'big')
 
 
@@ -229,17 +231,10 @@ class Data:
             self.dec.append((value, 1))
 
 
-class Byte(Data):
-    """Class for single bytes."""
+class ByteBase(Data):
+    """Base class for single bytes."""
 
     size = Size.BYTE
-
-    def __init__(self, byte):
-        super().__init__()
-        if byte < 0:
-            byte = negative(byte, 8)
-        self[7:0] = byte
-        self.str = f'0x{byte:02x}'
 
     def little_end(self):
         """Produce little endian representaion for this byte."""
@@ -250,11 +245,21 @@ class Byte(Data):
         return f'{self.bin:02x}'
 
 
-class Char(Byte):
+class Byte(ByteBase):
+    """Class for single bytes."""
+
+    def __init__(self, byte):
+        super().__init__()
+        byte = twos_compliment(byte, 8)
+        self[7:0] = byte
+        self.str = f'0x{byte:02x}'
+
+
+class Char(ByteBase):
     """Byte derived class specifically for ascii characters."""
 
     def __init__(self, char):
-        super().__init__(ord(char))
+        super().__init__()
         assert 0 <= ord(char) < 128
         self[7:0] = ord(char)
         self.str = f"'{escape(char)}'"
@@ -267,8 +272,7 @@ class Half(Data):
 
     def __init__(self, half):
         super().__init__()
-        if half < 0:
-            half = negative(half, 16)
+        half = twos_compliment(half, 16)
         self[15:0] = half
         self.str = f'0x{half:04x}'
 
@@ -286,8 +290,7 @@ class Word(Data):
 
     def __init__(self, word):
         super().__init__()
-        if word < 0:
-            word = negative(word, 32)
+        word = twos_compliment(word, 32)
         self[31:0] = word
         self.str = f'0x{word:08x}'
 
@@ -306,6 +309,7 @@ class InstructionOp(IntEnum):
 class Instruction(Data):
     """Base class for bit32 instructions."""
 
+
 class Jump(Instruction):
     """Class for Jump instructions."""
 
@@ -317,9 +321,9 @@ class Jump(Instruction):
         op = f'CALL{cond}' if link else f'J{cond.jump()}'
         if offset24 < 0:
             self.str = f'{op} -0x{-offset24:06X}'
-            offset24 = negative(offset24, 24)
         else:
             self.str = f'{op} 0x{offset24:06X}'
+        offset24 = twos_compliment(offset24, 24)
         self[23:0] = offset24
 
 
@@ -369,12 +373,8 @@ class Binary(Instruction):
                 src = f"'{escape(src)}'"
             else:
                 assert -128 <= src < 256
-                if src < 0:
-                    self[16] = False
-                    self[15:8] = negative(src, 8)
-                else:
-                    self[16] = True
-                    self[15:8] = src
+                self[16] = src >= 0
+                self[15:8] = twos_compliment(src, 8)
         else:
             self[16:12] = None
             self[11:8] = src
@@ -423,11 +423,8 @@ class Load(Instruction):
         if imm:
             assert -128 <= offset < 256
             self[21:17] = None
-            if offset < 0:
-                self[16] = False
-                offset = negative(offset, 8)
-            else:
-                self[16] = True
+            self[16] = offset >= 0
+            offset = twos_compliment(offset, 8)
             self[15:8] = offset
         else:
             self[21:12] = None
@@ -452,12 +449,8 @@ class PushPop(Instruction):
         self[26:24] = InstructionOp.STACK
         self[23:22] = size >> 1
         self[21:17] = None
-        if pushing:
-            self[16] = False
-            self[15:8] = negative(-size, 8)
-        else:
-            self[16] = True
-            self[15:8] = size
+        self[16] = not pushing
+        self[15:8] = twos_compliment((-1)**pushing * size, 8)
         self[7:4] = None
         self[3:0] = rd
         self.str = f'{op}{cond}{size} {rd}'
