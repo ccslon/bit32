@@ -125,7 +125,7 @@ class Emitter:
 
     def emit_binary(self, op, condition, flag, size, destination, source, immediate):
         """Emit binary instruction."""
-        assert op not in {Op.NOT, Op.NEG}
+        assert op not in {Op.NOT, Op.NEG, Op.NEGF}
         self.new_instruction(Binary, condition, flag, size, immediate, op, source, destination)
 
     def emit_ternary(self, op, condition, flag, size, destination, source, source2, immediate):
