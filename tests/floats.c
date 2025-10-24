@@ -15,6 +15,12 @@ float half2() {
 float half3() {
     return (float)1 / 2;
 }
+void test(int i, float f) {
+    int half1 = i / 2;
+    int half2 = i / 2.0;
+    float half3 = f / 2;
+    float half4 = f / 2.0;
+}
 struct Foo {
     float f;
     int i;

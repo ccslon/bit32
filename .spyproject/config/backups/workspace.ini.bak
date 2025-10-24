@@ -4,7 +4,7 @@ save_data_on_exit = True
 save_history = True
 save_non_project_files = False
 project_type = 'empty-project-type'
-recent_files = ['bit32.py', 'assembler.py', 'ccompiler\\clexer.py', 'ccompiler\\parser.py', 'ccompiler\\cparser.py', 'ccompiler\\emitter.py', 'ccompiler\\ctypes.py', 'ccompiler\\cnodes.py', 'ccompiler\\cexpressions.py', 'ccompiler\\cstatements.py', 'ccompiler\\__init__.py', 'cc.py', 'testcc.py', 'test_cc_coverage.py']
+recent_files = ['bit32.py', 'assembler.py', 'ccompiler\\clexer.py', 'ccompiler\\cparser.py', 'ccompiler\\ctypes.py', 'ccompiler\\cnodes.py', 'ccompiler\\cexpressions.py', 'ccompiler\\cstatements.py', 'ccompiler\\emitter.py', 'cc.py', 'testcc.py', 'ccompiler\\__init__.py', 'test_cc_coverage.py', 'ccompiler\\parser.py']
 
 [main]
 version = 0.2.0

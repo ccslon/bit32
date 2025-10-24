@@ -282,9 +282,9 @@ class InitialAssign(Binary, Statement):
     """Class for initial assignments."""
 
     def __init__(self, token, left, right):
-        super().__init__(left.type, left, right)
         if left.type != right.type:
             token.error(f'{left.type} != {right.type}')
+        super().__init__(left.type, left, right)
 
     def soft_calls(self):
         """Determine if initial assignment soft calls."""
@@ -310,9 +310,9 @@ class Assign(InitialAssign):
     """Class for assignments."""
 
     def __init__(self, token, left, right):
-        super().__init__(token, left, right)
         if left.type.const:
             token.error('Cannot assign to a const')
+        super().__init__(token, left, right)
 
 
 class InitialListAssign(Statement):
@@ -366,13 +366,13 @@ class Call(Expression, Statement):
     """Class for function calls."""
 
     def __init__(self, token, function, arguments):
-        super().__init__(function.type.return_type)
         if len(arguments) < len(function.type.parameters):
             token.error('Not enough arguments provided for function call'
                         + f' "{function.name()}"' if isinstance(function, Variable) else '')
         for i, param in enumerate(function.type.parameters):
             if param.type != arguments[i].type:
                 token.error(f'Argument #{i+1} of "{function.token.lexeme}" {param.type} != {arguments[i].type}')
+        super().__init__(function.type.return_type)
         self.function = function
         self.arguments = arguments
         self.parameters = function.type.parameters
@@ -393,7 +393,7 @@ class Call(Expression, Statement):
         if n > 0:
             for i, arg in enumerate(self.arguments[:4]):
                 emitter.emit_binary(Op.MOV, arg.width, Reg(i), Reg(n+i))
-        for i, arg in reversed(list(enumerate(self.arguments[4:]))): #TODO test thsi branch
+        for i, arg in reversed(list(enumerate(self.arguments[4:]))):  # TODO test thsi branch
             # emitter.push(arg.width, Reg(n+4+i))
             emitter.emit_push([Reg(n+4+i)])
 

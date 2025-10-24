@@ -23,9 +23,7 @@ loop1:
   ST     [SP, 0], A ; i
 .L0:
   LD     A, [SP, 0] ; i
-  MOV    B, 10
-  SHR    B, 1
-  CMP    A, B
+  CMP    A, 5
   JGE    .L2
   LD     A, [SP, 4] ; s
   LDI    B, =data
@@ -52,9 +50,7 @@ loop2:
   ST     [SP, 0], A ; i
 .L3:
   LD     A, [SP, 0] ; i
-  MOV    B, 10
-  SHR    B, 1
-  CMP    A, B
+  CMP    A, 5
   JGE    .L5
   LD     A, [SP, 4] ; s
   LDI    B, =data

@@ -356,10 +356,10 @@ class Pointer(Int):
 
     def reduce_binary(self, emitter, n, op, left, right):
         """Generate code for binary operator."""
-        if self.to.size > 1:
+        if self.interval > 1:
             left.reduce(emitter, n)
             right.reduce(emitter, n+1)
-            emitter.emit_binary(Op.MUL, Size.WORD, Reg(n+1), int(self.to.size))
+            emitter.emit_binary(Op.MUL, Size.WORD, Reg(n+1), self.interval)
             emitter.emit_binary(op, Size.WORD, Reg(n), Reg(n+1))
         else:
             super().reduce_binary(emitter, n, op, left, right)

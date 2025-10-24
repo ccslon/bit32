@@ -95,11 +95,7 @@ class Expression(CNode):
         raise NotImplementedError(self.__class__.__name__)
 
     def reduce(self, emitter, n):
-        """
-        "Reduce" the expression and generate code.
-
-        "Reduce" is probably not the best verb...
-        """
+        """Generate code to "reduce" the expression into a single register."""
         raise NotImplementedError(self.__class__.__name__)
 
     def compare(self, emitter, n, label):
@@ -218,6 +214,10 @@ class Unary(Expression):
         """Determine if subtree soft calls."""
         return self.value.soft_calls()
 
+    def fold(self):
+        """Fold this unary operator into a single constant node."""
+        return self.type.get_node(self.evaluate())
+
 
 class Binary(Expression):
     """Base class for binary nodes."""
@@ -239,6 +239,9 @@ class Binary(Expression):
         """Determine if subtree soft calls."""
         return self.left.hard_calls() or self.right.hard_calls()  # self.left.soft_calls() ?
 
+    def fold(self):
+        """Fold this binary operator into a single constant node."""
+        return self.type.get_node(self.evaluate())
 
 class Access(Expression):
     """Base class for array access nodes."""

@@ -239,8 +239,8 @@ class CParser(Parser):
             return Pre(next(self), self.unary())
         if self.accept('!'):
             return Not(self.cast())
-        if self.accept('&'):
-            return AddressOf(self.cast())
+        if self.peek('&'):
+            return AddressOf(next(self), self.cast())
         if self.accept('sizeof'):
             if self.accept('('):
                 unary = SizeOf(self.type_name())

@@ -20,26 +20,39 @@ func1:
   ADD    SP, 4
   POP    A, B, PC
 half1:
-  MOV    A, 1
-  SHR    A, 1
-  ITF    A, A
+  MOV    A, 0
 .L1:
   RET
 half2:
-  PUSH   B
-  LDI    A, 1065353216 ; 1.0
-  ITF    B, 2
-  DIVF   A, B
+  LDI    A, 1056964608 ; 0.5
 .L2:
-  POP    B
   RET
 half3:
-  PUSH   B
-  ITF    A, 1
+  LDI    A, 1056964608 ; 0.5
+.L3:
+  RET
+test:
+  SUB    SP, 24
+  ST     [SP, 0], A ; i
+  ST     [SP, 4], B ; f
+  LD     A, [SP, 0] ; i
+  SHR    A, 1
+  ST     [SP, 8], A ; half1
+  LD     A, [SP, 0] ; i
+  ITF    A, A
+  LDI    B, 1073741824 ; 2.0
+  DIVF   A, B
+  FTI    A, A
+  ST     [SP, 12], A ; half2
+  LD     A, [SP, 4] ; f
   ITF    B, 2
   DIVF   A, B
-.L3:
-  POP    B
+  ST     [SP, 16], A ; half3
+  LD     A, [SP, 4] ; f
+  LDI    B, 1073741824 ; 2.0
+  DIVF   A, B
+  ST     [SP, 20], A ; half4
+  ADD    SP, 24
   RET
 func2:
   PUSH   A, B
