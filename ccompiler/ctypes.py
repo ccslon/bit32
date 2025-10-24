@@ -288,8 +288,10 @@ class Float(Numeric):
         '^=': Op.XOR,
         '|': Op.OR,
         '|=': Op.OR,
+        '||': Op.OR,
         '&': Op.AND,
-        '&=': Op.AND
+        '&=': Op.AND,
+        '&&': Op.AND
     }
     UNARY_OP = {
         '++': Op.ADDF,
