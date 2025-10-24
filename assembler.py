@@ -120,17 +120,17 @@ class Emitter:
 
     def emit_unary(self, op, condition, flag, size, destination):
         """Emit unary instruction."""
-        assert op in [Op.NOT, Op.NEG, Op.NEGF]
+        assert op in {Op.NOT, Op.NEG, Op.NEGF}
         self.new_instruction(Unary, condition, flag, size, op, destination)
 
     def emit_binary(self, op, condition, flag, size, destination, source, immediate):
         """Emit binary instruction."""
-        assert op not in [Op.NOT, Op.NEG]
+        assert op not in {Op.NOT, Op.NEG}
         self.new_instruction(Binary, condition, flag, size, immediate, op, source, destination)
 
     def emit_ternary(self, op, condition, flag, size, destination, source, source2, immediate):
         """Emit ternary instruction."""
-        assert op not in [Op.MOV, Op.MVN, Op.CMN, Op.CMP, Op.NOT, Op.NEG, Op.TST, Op.TEQ, Op.CMPF]
+        assert op not in {Op.MOV, Op.MVN, Op.CMN, Op.CMP, Op.NOT, Op.NEG, Op.TST, Op.TEQ, Op.CMPF}
         self.new_instruction(Ternary, condition, flag, size, immediate, op, source2, source, destination)
 
     def emit_load(self, condition, size, destination, base, offset, immediate):
@@ -339,25 +339,23 @@ class Assembler:
         if type == 'const':
             if value.startswith('0x'):
                 return int(value, base=16)
-            elif value.startswith('0b'):
+            if value.startswith('0b'):
                 return int(value, base=2)
-            else:
-                return int(value)
-        elif type in ['string', 'char']:
+            return int(value)
+        if type in {'string', 'char'}:
             return unescape(value[1:-1])
-        elif type == 'reg':
+        if type == 'reg':
             return Reg[value.upper()]
-        elif type == 'label':
+        if type == 'label':
             return value[:-1].strip()
-        elif type == 'id':
-            if value in self.names:
-                return self.names[value]
-            return value
+        if type == 'id' and value in self.names:
+            return self.names[value]
+        return value
 
     def matched(self):
         """Get -important- value matched in match method."""
         for type, value, match in self.tokens:
-            if type in ['const', 'string', 'char', 'reg', 'label', 'id']:
+            if type in {'const', 'string', 'char', 'reg', 'label', 'id'}:
                 yield self.translate(type, value)
             elif type == 'op':
                 yield Op[match['op_name'].upper()]
@@ -404,9 +402,7 @@ class Assembler:
         """Move parse index forward and return consumed token value."""
         type, value, _ = self.tokens[self.index]
         self.index += 1
-        if type in ['op', 'jump', 'const', 'string', 'char', 'reg', 'cond', 'label', 'id']:
-            return self.translate(type, value)
-        return value
+        return self.translate(type, value)
 
     def peek(self, symbol, offset=0):
         """Peek at the next token to confirm correct desired symbol."""
