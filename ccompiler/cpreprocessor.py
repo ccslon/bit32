@@ -41,7 +41,6 @@ class CPreProcessor(Parser):
         self.defined = {}
         self.if_start = None
         self.if_levels = []
-        self.if_seen = False
         self.std_included = set()
         super().__init__()
 
@@ -373,13 +372,13 @@ class CPreProcessor(Parser):
                         'active': True,
                         'seen': True
                         })
-                    del self.tokens[start:self.index]
                 else:
                     self.if_levels.append({
                         'active': False,
                         'seen': False
                         })
-                    self.if_start = start                
+                    self.if_start = start
+                del self.tokens[start:self.index]
             elif self.accept('ifdef'):
                 self.expect(Lex.SPACE)
                 if self.expect(Lex.NAME).lexeme not in self.defined:
@@ -397,20 +396,26 @@ class CPreProcessor(Parser):
                 which if block is this apart of?
                 Has this if block already activiated?
                 '''
-                # if self.if_levels[-1]:
-                    
-                self.if_start = start
-                # if not self.if_levels[-1]:
-                #     if self.expression():
-                #         self.if_levels[-1] = True
-                #     else:
-                #         self.if_start = start
-                #     del self.tokens[start:self.index]
+                if not self.if_levels[-1]['seen'] and self.expression():
+                    self.if_levels[-1]['active'] = True
+                    self.if_levels[-1]['seen'] = True
+                    del self.tokens[start:self.index]
+                else:
+                    self.if_levels[-1]['active'] = False
+                    self.if_start = start
             elif self.accept('else'):
-                self.if_start = start
+                if not self.if_levels[-1]['seen']:
+                    self.if_levels[-1]['seen'] = True
+                    del self.tokens[start:self.index]
+                else:
+                    self.if_levels[-1]['active'] = False
+                    self.if_start = start
             elif self.accept('endif'):
                 self.if_levels.pop()
-                del self.tokens[start:self.index]
+                if self.if_start is not None:
+                    self.delete_tokens(self.if_start, self.index)
+                else:
+                    del self.tokens[start:self.index]
             elif self.accept('undef'):
                 self.expect(Lex.SPACE)
                 del self.defined[self.expect(Lex.NAME).lexeme]
@@ -420,19 +425,29 @@ class CPreProcessor(Parser):
             self.index = start
         else:
             if self.accept('if') or self.accept('ifdef') or self.accept('ifndef'):
-                self.if_levels.append(True)
+                self.if_levels.append({
+                    'active': False,
+                    'seen': False
+                    })
             elif self.accept('elif'):
-                if not self.if_levels[-1]:
+                if not self.if_levels[-1]['seen']:
+                    # delete 
+                    self.delete_tokens(self.if_start, self.index)
+                    self.if_start = None
                     if self.expression():
-                        self.delete_tokens(self.if_start, self.index)
                         self.if_levels[-1] = True
             elif self.accept('else'):
-                if not self.if_levels[-1]:
+                if not self.if_levels[-1]['seen']:
+                    self.if_levels[-1]['active'] = True
+                    self.if_levels[-1]['seen'] = True
                     self.delete_tokens(self.if_start, self.index)
+                    self.index = self.if_start
+                    self.if_start = None
             elif self.accept('endif'):
                 self.if_levels.pop()
                 self.delete_tokens(self.if_start, self.index)
-                
+                self.index = self.if_start
+                self.if_start = None
 
     def program(self):
         '''

@@ -10,13 +10,13 @@
 // #define BAR 34
 // int no = 1234
 // #endif
-#define BAR 0
+#define BAR 1
 #if BAR == 0
 #define BAZ 9
 #elif BAR == 1
 #define BAZ 8
-#elif BAR == 2
-#define BAZ 7
+// #elif BAR == 2
+// #define BAZ 7
 #else
 #define BAZ 6
 #endif
