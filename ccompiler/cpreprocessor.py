@@ -6,6 +6,8 @@ Created on Tue Nov 26 11:14:05 2024
 """
 import os
 import re
+from operator import add, sub, mul, truediv, mod, lshift, rshift, eq, ne, gt, lt, ge, le
+from bit32 import unescape
 from .clexer import Lex, Token, CLexer
 from .parser import Parser
 '''
@@ -16,6 +18,11 @@ TODO:
     [X] undef
     [X] include
     [] ifelse
+        [X] if
+        [X] else
+        [X] nested ifs (needs more testing)
+        [] if EXPRESSION
+        [] elif
 '''
 
 
@@ -33,12 +40,163 @@ class CPreProcessor(Parser):
         self.lexer = CLexer()
         self.defined = {}
         self.if_start = None
+        self.if_levels = []
+        self.if_seen = False
         self.std_included = set()
         super().__init__()
 
     def replace_comments(self, text):
         """Ignore/replace comments in C input."""
         return self.COMMENT.sub(self.comment_replacement, text)
+
+    def delete_tokens(self, start, stop):
+        """Delete tokens within given range but preserve lines breaks."""
+        self.tokens[start:stop] = [token for token in self.tokens[start:stop] if token.type == Lex.NEW_LINE]
+
+    def primary(self):
+        self.accept(Lex.SPACE)
+        if self.peek_defined():
+            self.expand()
+            return self.expression()
+        if self.peek('defined'):
+            if self.accept('('):
+                self.accept(Lex.SPACE)
+                primary = self.expect(Lex.NAME).lexeme in self.defined
+                self.accept(Lex.SPACE)
+                self.expect(')')
+                return primary
+            return self.expect(Lex.NAME).lexeme in self.defined
+        if self.accept(Lex.NAME):
+            return 0
+        if self.peek(Lex.DECIMAL):
+            return float(next(self).lexeme)
+        if self.peek(Lex.NUMBER):  # TODO add 0x and 0b
+            return int(next(self).lexeme)
+        if self.peek(Lex.CHARACTER):
+            return unescape(next(self).lexeme[1:-1])
+        if self.peek(Lex.STRING):
+            return next(self).lexeme
+        if self.accept('('):
+            primary = self.expression()
+            self.expect(')')
+            return primary
+        self.error('Expected primary expression')
+    
+    def unary(self):
+        self.accept(Lex.SPACE)
+        if self.accept('-'):
+            return -self.primary()
+        if self.accept('~'):
+            return ~self.primary()
+        if self.accept('!'):
+            return not self.primary()
+        return self.primary()
+        
+    def multiplicative(self):
+        '''
+        MUL -> ADD [SPACE] {('*', '/', '%') [SPACE] UNARY [SPACE]}
+        '''
+        multiplicative = self.unary()
+        self.accept(Lex.SPACE)
+        while self.peek({'*', '/', '%'}):
+            multiplicative = {
+                '*': mul,
+                '/': truediv,
+                '%': mod
+                }[next(self.lexeme)](multiplicative, self.unary())
+        return multiplicative
+    
+    def additive(self):
+        additive = self.multiplicative()
+        while self.peek({'+', '-'}):
+            additive = {
+                '+': add,
+                '-': sub
+                }[next(self).lexeme](additive, self.multiplicative())
+        return additive
+    
+    def shift(self):
+        '''
+        SHIFT -> ADDITIVE {('<<'|'>>') ADDITIVE}
+        '''
+        shift = self.additive()
+        while self.peek({'<<', '>>'}):
+            shift = {
+                '<<': lshift,
+                '>>': rshift
+                }[next(self).lexeme](shift, self.additive())
+        return shift
+
+    def relational(self):
+        '''
+        RELATIONAL -> SHIFT {('<'|'>'|'<='|'>=') SHIFT}
+        '''
+        relational = self.shift()
+        while self.peek({'<', '>', '<=', '>='}):
+            relational = {
+                '<': lt,
+                '>': gt,
+                '<=': le,
+                '>=': ge
+                }[next(self).lexeme](relational, self.shift())
+        return relational
+
+    def equality(self):
+        '''
+        EQUALITY -> RELATIONAL {('=='|'!=') RELATIONAL}
+        '''
+        equality = self.relational()
+        while self.peek({'==', '!='}):
+            equality = {
+                '==': eq,
+                '!=': ne,
+                }[next(self).lexeme](equality, self.relational())
+        return equality
+
+    def bitwise_and(self):
+        '''
+        BITWISE_AND -> EQUALITY {'&' EQUALITY}
+        '''
+        bitwise_and = self.equality()
+        while self.accept('&'):
+            bitwise_and &= self.equality()
+        return bitwise_and
+
+    def bitwise_xor(self):
+        '''
+        BITWISE_XOR -> BITWISE_AND {'^' BITWISE_AND}
+        '''
+        bitwise_xor = self.bitwise_and()
+        while self.accept('^'):
+            bitwise_xor ^= self.bitwise_and()
+        return bitwise_xor
+
+    def bitwise_or(self):
+        '''
+        BITWISE_OR -> BITWISE_XOR {'|' BITWISE_XOR}
+        '''
+        bitwise_or = self.bitwise_xor()
+        while self.accept('|'):
+            bitwise_or |= self.bitwise_xor()
+        return bitwise_or
+
+    def logical_and(self):
+        '''
+        LOGICAL_AND -> BITWISE_OR {'&&' BITWISE_OR}
+        '''
+        logical_and = self.bitwise_or()
+        while self.accept('&&'):
+            logical_and = logical_and and self.bitwise_or()
+        return logical_and
+    
+    def logical_or(self):
+        logical_or = self.logical_and()
+        while self.accept('||'):
+            logical_or = logical_or or self.logical_and()
+        return logical_or
+    
+    def expression(self):
+        return self.logical_or()
 
     def argument(self, expand):
         '''
@@ -127,10 +285,12 @@ class CPreProcessor(Parser):
 
     def directive(self):
         """Expand directives and macros."""
+        # assert self.if_levels >= 0, self.error(f'Preprocessor if level is {self.if_levels}')
         start = self.index
         next(self)
         self.accept(Lex.SPACE)
-        if self.if_start is None:
+        if all(level['active'] for level in self.if_levels):
+        # if self.if_start is None:
             if self.accept('define'):
                 self.expect(Lex.SPACE)
                 name = self.expect(Lex.NAME)
@@ -178,8 +338,7 @@ class CPreProcessor(Parser):
                     body = self.index
                     while not self.peek({Lex.NEW_LINE, Lex.END}):
                         next(self)
-                self.defined[name.lexeme] = (params,
-                                             self.tokens[body:self.index])
+                self.defined[name.lexeme] = (params, self.tokens[body:self.index])
                 del self.tokens[start:self.index]
             elif self.accept('include'):
                 self.accept(Lex.SPACE)
@@ -195,9 +354,7 @@ class CPreProcessor(Parser):
                 elif self.peek(Lex.STD):
                     file_name = next(self).lexeme
                     if file_name not in self.std_included:
-                        file_path = os.path.sep.join([os.getcwd(),
-                                                      'ccompiler',
-                                                      'std', file_name])
+                        file_path = os.path.sep.join([os.getcwd(), 'ccompiler', 'std', file_name])
                         if self.original.endswith(file_name):
                             self.error(f'Circular dependency originating in {self.original}')
                         with open(file_path) as file:
@@ -209,12 +366,50 @@ class CPreProcessor(Parser):
                         del self.tokens[start:self.index]
                 else:
                     self.error()
+            elif self.accept('if'):
+                self.expect(Lex.SPACE)
+                if self.expression():
+                    self.if_levels.append({
+                        'active': True,
+                        'seen': True
+                        })
+                    del self.tokens[start:self.index]
+                else:
+                    self.if_levels.append({
+                        'active': False,
+                        'seen': False
+                        })
+                    self.if_start = start                
+            elif self.accept('ifdef'):
+                self.expect(Lex.SPACE)
+                if self.expect(Lex.NAME).lexeme not in self.defined:
+                    self.if_start = start
+                    self.if_levels = 0
+                del self.tokens[start:self.index]
             elif self.accept('ifndef'):
                 self.expect(Lex.SPACE)
                 if self.expect(Lex.NAME).lexeme in self.defined:
                     self.if_start = start
+                    self.if_levels = 0
                 del self.tokens[start:self.index]
+            elif self.accept('elif'):
+                '''
+                which if block is this apart of?
+                Has this if block already activiated?
+                '''
+                # if self.if_levels[-1]:
+                    
+                self.if_start = start
+                # if not self.if_levels[-1]:
+                #     if self.expression():
+                #         self.if_levels[-1] = True
+                #     else:
+                #         self.if_start = start
+                #     del self.tokens[start:self.index]
+            elif self.accept('else'):
+                self.if_start = start
             elif self.accept('endif'):
+                self.if_levels.pop()
                 del self.tokens[start:self.index]
             elif self.accept('undef'):
                 self.expect(Lex.SPACE)
@@ -224,10 +419,20 @@ class CPreProcessor(Parser):
                 del self.tokens[start:self.index]
             self.index = start
         else:
-            if self.accept('endif'):
-                del self.tokens[self.if_start:self.index]
-                self.index = self.if_start
-                self.if_start = None
+            if self.accept('if') or self.accept('ifdef') or self.accept('ifndef'):
+                self.if_levels.append(True)
+            elif self.accept('elif'):
+                if not self.if_levels[-1]:
+                    if self.expression():
+                        self.delete_tokens(self.if_start, self.index)
+                        self.if_levels[-1] = True
+            elif self.accept('else'):
+                if not self.if_levels[-1]:
+                    self.delete_tokens(self.if_start, self.index)
+            elif self.accept('endif'):
+                self.if_levels.pop()
+                self.delete_tokens(self.if_start, self.index)
+                
 
     def program(self):
         '''
@@ -249,10 +454,7 @@ class CPreProcessor(Parser):
                 self.accept(Lex.SPACE)
                 if self.peek(Lex.STRING):
                     right = next(self)
-                    self.tokens[start:self.index] = [
-                        Token(Lex.STRING,
-                              left.lexeme+right.lexeme,
-                              left.line)]
+                    self.tokens[start:self.index] = [Token(Lex.STRING, left.lexeme+right.lexeme, left.line)]
                     self.index = start
             else:
                 next(self)
@@ -270,8 +472,7 @@ class CPreProcessor(Parser):
             self.path = os.path.dirname(os.path.abspath(file.name))
             text = file.read()
         text = self.replace_comments(text)
-        self.parse(self.lexer.lex(text)
-                   + [Token(Lex.END, '', self.lexer.line)])
+        self.parse(self.lexer.lex(text) + [Token(Lex.END, '', self.lexer.line)])
 
     root = program
 

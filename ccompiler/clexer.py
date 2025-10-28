@@ -112,7 +112,7 @@ class CLexer(Lexer):
 
     RE_ctype = rf"\b({'|'.join(CTYPES)})\b"
 
-    RE_keyword = r'\b(include|define|undef|typedef|static|extern|sizeof|return|if|ifdef|ifndef|else|endif|switch|case|default|while|do|for|break|continue|goto)\b'
+    RE_keyword = r'\b(include|defined|define|undef|typedef|static|extern|sizeof|return|if|ifdef|ifndef|elif|else|endif|switch|case|default|while|do|for|break|continue|goto)\b'
 
     RE_symbol = r'[#]{2}|[]#;:()[{}]|[+]{2}|--|->|(<<|>>|[+*/%^|&=!<>-])?=|<<|>>|[|]{2}|[&]{2}|[+*/%^|&=!<>?~-]|\.\.\.|\.|,'
 
