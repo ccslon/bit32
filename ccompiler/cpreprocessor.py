@@ -57,7 +57,8 @@ class CPreProcessor(Parser):
         if self.peek_defined():
             self.expand()
             return self.expression()
-        if self.peek('defined'):
+        if self.accept('defined'):
+            self.accept(Lex.SPACE)
             if self.accept('('):
                 self.accept(Lex.SPACE)
                 primary = self.expect(Lex.NAME).lexeme in self.defined
@@ -379,37 +380,33 @@ class CPreProcessor(Parser):
                         })
                     self.if_start = start
                 del self.tokens[start:self.index]
-            elif self.accept('ifdef'):
-                self.expect(Lex.SPACE)
-                if self.expect(Lex.NAME).lexeme not in self.defined:
-                    self.if_start = start
-                    self.if_levels = 0
-                del self.tokens[start:self.index]
-            elif self.accept('ifndef'):
-                self.expect(Lex.SPACE)
-                if self.expect(Lex.NAME).lexeme in self.defined:
-                    self.if_start = start
-                    self.if_levels = 0
-                del self.tokens[start:self.index]
+            # elif self.accept('ifdef'):
+            #     self.expect(Lex.SPACE)
+            #     if self.expect(Lex.NAME).lexeme not in self.defined:
+            #         self.if_start = start
+            #         self.if_levels = 0
+            #     del self.tokens[start:self.index]
+            # elif self.accept('ifndef'):
+            #     self.expect(Lex.SPACE)
+            #     if self.expect(Lex.NAME).lexeme in self.defined:
+            #         self.if_start = start
+            #         self.if_levels = 0
+            #     del self.tokens[start:self.index]
             elif self.accept('elif'):
-                '''
-                which if block is this apart of?
-                Has this if block already activiated?
-                '''
                 if not self.if_levels[-1]['seen'] and self.expression():
                     self.if_levels[-1]['active'] = True
                     self.if_levels[-1]['seen'] = True
-                    del self.tokens[start:self.index]
                 else:
                     self.if_levels[-1]['active'] = False
                     self.if_start = start
+                del self.tokens[start:self.index]
             elif self.accept('else'):
                 if not self.if_levels[-1]['seen']:
                     self.if_levels[-1]['seen'] = True
-                    del self.tokens[start:self.index]
                 else:
                     self.if_levels[-1]['active'] = False
                     self.if_start = start
+                del self.tokens[start:self.index]
             elif self.accept('endif'):
                 self.if_levels.pop()
                 if self.if_start is not None:
@@ -424,18 +421,19 @@ class CPreProcessor(Parser):
                 del self.tokens[start:self.index]
             self.index = start
         else:
+            assert self.if_start is not None, print(self.output())
             if self.accept('if') or self.accept('ifdef') or self.accept('ifndef'):
                 self.if_levels.append({
                     'active': False,
                     'seen': False
                     })
             elif self.accept('elif'):
-                if not self.if_levels[-1]['seen']:
-                    # delete 
+                if not self.if_levels[-1]['seen'] and self.expression():
+                    self.if_levels[-1]['active'] = True
+                    self.if_levels[-1]['seen'] = True
                     self.delete_tokens(self.if_start, self.index)
+                    self.index = self.if_start
                     self.if_start = None
-                    if self.expression():
-                        self.if_levels[-1] = True
             elif self.accept('else'):
                 if not self.if_levels[-1]['seen']:
                     self.if_levels[-1]['active'] = True
@@ -447,7 +445,6 @@ class CPreProcessor(Parser):
                 self.if_levels.pop()
                 self.delete_tokens(self.if_start, self.index)
                 self.index = self.if_start
-                self.if_start = None
 
     def program(self):
         '''
@@ -461,7 +458,7 @@ class CPreProcessor(Parser):
         while not self.peek(Lex.END):
             if self.peek('#'):
                 self.directive()
-            elif self.peek_defined():
+            elif self.peek_defined() and self.if_start is None:
                 self.expand()
             elif self.peek(Lex.STRING):
                 start = self.index
@@ -472,6 +469,7 @@ class CPreProcessor(Parser):
                     self.tokens[start:self.index] = [Token(Lex.STRING, left.lexeme+right.lexeme, left.line)]
                     self.index = start
             else:
+                print(self.tokens[self.index].line, self.index)
                 next(self)
 
     def parse(self, tokens):
@@ -508,6 +506,4 @@ class CPreProcessor(Parser):
     def peek_defined(self):
         """Peek tokens that are already defined to expand."""
         token = self.tokens[self.index]
-        return (token.type is Lex.NAME
-                and token.lexeme in self.defined
-                and self.if_start is None)
+        return token.type is Lex.NAME and token.lexeme in self.defined
