@@ -130,12 +130,18 @@ class TestCompiler(TestCase):
 
     def test_ops(self):
         self.code_eq_asm('ops')
-    
+
     def test_floats(self):
         self.code_eq_asm('floats')
 
     def test_eval(self):
         self.code_eq_asm('eval')
+
+    def test_macro_ifs(self):
+        self.preproc.process('tests/macro_ifs.c')
+        with open('tests/macro_ifs.i') as file:
+            expected = file.read()
+        self.assertEqual(self.preproc.output(), expected)
 
 
 if __name__ == '__main__':

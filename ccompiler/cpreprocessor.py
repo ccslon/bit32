@@ -17,12 +17,13 @@ TODO:
     [X] null directive
     [X] undef
     [X] include
-    [] ifelse
+    [X] ifelse
         [X] if
         [X] else
         [X] nested ifs (needs more testing)
-        [] if EXPRESSION
-        [] elif
+        [X] if EXPRESSION
+        [X] elif
+    [] expanded macro line numbers
 '''
 
 
@@ -53,6 +54,11 @@ class CPreProcessor(Parser):
         self.tokens[start:stop] = [token for token in self.tokens[start:stop] if token.type == Lex.NEW_LINE]
 
     def primary(self):
+        '''
+        PRIMARY -> 'defined' name
+                  |'defined' '(' name ')'
+                  |name|decimal|number|character|string|'(' EXPRESSION ')'
+        '''
         self.accept(Lex.SPACE)
         if self.peek_defined():
             self.expand()
@@ -70,8 +76,13 @@ class CPreProcessor(Parser):
             return 0
         if self.peek(Lex.DECIMAL):
             return float(next(self).lexeme)
-        if self.peek(Lex.NUMBER):  # TODO add 0x and 0b
-            return int(next(self).lexeme)
+        if self.peek(Lex.NUMBER):
+            lexeme = next(self).lexeme
+            if lexeme.startswith('0x'):
+                return int(lexeme, base=16)
+            if lexeme.startswith('0b'):
+                return int(lexeme, base=2)
+            return int(lexeme)
         if self.peek(Lex.CHARACTER):
             return unescape(next(self).lexeme[1:-1])
         if self.peek(Lex.STRING):
@@ -81,8 +92,11 @@ class CPreProcessor(Parser):
             self.expect(')')
             return primary
         self.error('Expected primary expression')
-    
+
     def unary(self):
+        '''
+        UNARY -> ['-'|'~'|'!'] PRIMARY
+        '''
         self.accept(Lex.SPACE)
         if self.accept('-'):
             return -self.primary()
@@ -91,10 +105,10 @@ class CPreProcessor(Parser):
         if self.accept('!'):
             return not self.primary()
         return self.primary()
-        
+
     def multiplicative(self):
         '''
-        MUL -> ADD [SPACE] {('*', '/', '%') [SPACE] UNARY [SPACE]}
+        MULTIPLICATIVE -> UNARY {('*', '/', '%') UNARY}
         '''
         multiplicative = self.unary()
         self.accept(Lex.SPACE)
@@ -103,10 +117,13 @@ class CPreProcessor(Parser):
                 '*': mul,
                 '/': truediv,
                 '%': mod
-                }[next(self.lexeme)](multiplicative, self.unary())
+                }[next(self).lexeme](multiplicative, self.unary())
         return multiplicative
-    
+
     def additive(self):
+        '''
+        ADDITIVE -> MULTIPLICATIVE {('+'|'-') MULTIPLICATIVE}
+        '''
         additive = self.multiplicative()
         while self.peek({'+', '-'}):
             additive = {
@@ -114,7 +131,7 @@ class CPreProcessor(Parser):
                 '-': sub
                 }[next(self).lexeme](additive, self.multiplicative())
         return additive
-    
+
     def shift(self):
         '''
         SHIFT -> ADDITIVE {('<<'|'>>') ADDITIVE}
@@ -186,16 +203,24 @@ class CPreProcessor(Parser):
         '''
         logical_and = self.bitwise_or()
         while self.accept('&&'):
-            logical_and = logical_and and self.bitwise_or()
+            other = self.bitwise_or()
+            logical_and = logical_and and other
         return logical_and
-    
+
     def logical_or(self):
+        '''
+        LOGICAL_OR -> LOGICAL_AND {'||' LOGICAL_AND}
+        '''
         logical_or = self.logical_and()
         while self.accept('||'):
-            logical_or = logical_or or self.logical_and()
+            other = self.logical_and()
+            logical_or = logical_or or other
         return logical_or
-    
+
     def expression(self):
+        '''
+        EXPRESSION -> LOGICAL_OR
+        '''
         return self.logical_or()
 
     def argument(self, expand):
@@ -285,12 +310,10 @@ class CPreProcessor(Parser):
 
     def directive(self):
         """Expand directives and macros."""
-        # assert self.if_levels >= 0, self.error(f'Preprocessor if level is {self.if_levels}')
         start = self.index
         next(self)
         self.accept(Lex.SPACE)
         if all(level['active'] for level in self.if_levels):
-        # if self.if_start is None:
             if self.accept('define'):
                 self.expect(Lex.SPACE)
                 name = self.expect(Lex.NAME)
@@ -309,9 +332,7 @@ class CPreProcessor(Parser):
                             if local.lexeme in params:
                                 params[local.lexeme] = False
                             self.tokens[local_start:self.index] = [
-                                Token(Lex.STRINGIZE,
-                                      local.lexeme,
-                                      local.line)]
+                                Token(Lex.STRINGIZE, local.lexeme, local.line)]
                             self.index = local_start
                         else:
                             self.accept(Lex.SPACE)
@@ -328,9 +349,7 @@ class CPreProcessor(Parser):
                                 if right.lexeme in params:
                                     params[right.lexeme] = False
                                 self.tokens[local_start:self.index] = [
-                                    Token(left.type,
-                                          f'{left.lexeme}##{right.lexeme}',
-                                          left.line)]
+                                    Token(left.type, f'{left.lexeme}##{right.lexeme}', left.line)]
                                 self.index = local_start
                 else:
                     params = None
@@ -380,18 +399,34 @@ class CPreProcessor(Parser):
                         })
                     self.if_start = start
                 del self.tokens[start:self.index]
-            # elif self.accept('ifdef'):
-            #     self.expect(Lex.SPACE)
-            #     if self.expect(Lex.NAME).lexeme not in self.defined:
-            #         self.if_start = start
-            #         self.if_levels = 0
-            #     del self.tokens[start:self.index]
-            # elif self.accept('ifndef'):
-            #     self.expect(Lex.SPACE)
-            #     if self.expect(Lex.NAME).lexeme in self.defined:
-            #         self.if_start = start
-            #         self.if_levels = 0
-            #     del self.tokens[start:self.index]
+            elif self.accept('ifdef'):
+                self.expect(Lex.SPACE)
+                if self.expect(Lex.NAME).lexeme in self.defined:
+                    self.if_levels.append({
+                        'active': True,
+                        'seen': True
+                        })
+                else:
+                    self.if_levels.append({
+                        'active': False,
+                        'seen': False
+                        })
+                    self.if_start = start
+                del self.tokens[start:self.index]
+            elif self.accept('ifndef'):
+                self.expect(Lex.SPACE)
+                if self.expect(Lex.NAME).lexeme not in self.defined:
+                    self.if_levels.append({
+                        'active': True,
+                        'seen': True
+                        })
+                else:
+                    self.if_levels.append({
+                        'active': False,
+                        'seen': False
+                        })
+                    self.if_start = start
+                del self.tokens[start:self.index]
             elif self.accept('elif'):
                 if not self.if_levels[-1]['seen'] and self.expression():
                     self.if_levels[-1]['active'] = True
@@ -409,10 +444,7 @@ class CPreProcessor(Parser):
                 del self.tokens[start:self.index]
             elif self.accept('endif'):
                 self.if_levels.pop()
-                if self.if_start is not None:
-                    self.delete_tokens(self.if_start, self.index)
-                else:
-                    del self.tokens[start:self.index]
+                del self.tokens[start:self.index]
             elif self.accept('undef'):
                 self.expect(Lex.SPACE)
                 del self.defined[self.expect(Lex.NAME).lexeme]
@@ -421,30 +453,35 @@ class CPreProcessor(Parser):
                 del self.tokens[start:self.index]
             self.index = start
         else:
-            assert self.if_start is not None, print(self.output())
             if self.accept('if') or self.accept('ifdef') or self.accept('ifndef'):
                 self.if_levels.append({
                     'active': False,
                     'seen': False
                     })
             elif self.accept('elif'):
-                if not self.if_levels[-1]['seen'] and self.expression():
-                    self.if_levels[-1]['active'] = True
-                    self.if_levels[-1]['seen'] = True
-                    self.delete_tokens(self.if_start, self.index)
-                    self.index = self.if_start
-                    self.if_start = None
+                if all(level['active'] for level in self.if_levels[:-1]):
+                    if not self.if_levels[-1]['seen'] and self.expression():
+                        self.if_levels[-1]['active'] = True
+                        self.if_levels[-1]['seen'] = True
+                        self.delete_tokens(self.if_start, self.index)
+                        self.index = self.if_start
+                        self.if_start = None
             elif self.accept('else'):
-                if not self.if_levels[-1]['seen']:
-                    self.if_levels[-1]['active'] = True
-                    self.if_levels[-1]['seen'] = True
-                    self.delete_tokens(self.if_start, self.index)
-                    self.index = self.if_start
-                    self.if_start = None
+                if all(level['active'] for level in self.if_levels[:-1]):
+                    if not self.if_levels[-1]['seen']:
+                        self.if_levels[-1]['active'] = True
+                        self.if_levels[-1]['seen'] = True
+                        self.delete_tokens(self.if_start, self.index)
+                        self.index = self.if_start
+                        self.if_start = None
             elif self.accept('endif'):
                 self.if_levels.pop()
-                self.delete_tokens(self.if_start, self.index)
-                self.index = self.if_start
+                # if we transition from inactive to active, delete what was inactive
+                if all(level['active'] for level in self.if_levels) and self.if_start is not None:
+                    self.delete_tokens(self.if_start, self.index)
+                    self.index = self.if_start
+                    self.if_start = None
+
 
     def program(self):
         '''
@@ -469,7 +506,6 @@ class CPreProcessor(Parser):
                     self.tokens[start:self.index] = [Token(Lex.STRING, left.lexeme+right.lexeme, left.line)]
                     self.index = start
             else:
-                print(self.tokens[self.index].line, self.index)
                 next(self)
 
     def parse(self, tokens):
