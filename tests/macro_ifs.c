@@ -147,3 +147,17 @@ int i = 3;
 #else
 int i = 4;
 #endif
+
+//Test 13 ---------------------------------------------------
+#if S == U
+int i = 1;
+#if T
+int j = 5678;
+#elif U
+int i = 2;
+#else
+int i = 3;
+#endif
+#else
+int i = 4;
+#endif

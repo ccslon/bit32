@@ -271,7 +271,7 @@ class CPreProcessor(Parser):
         name = next(self)
         params, body = self.defined[name.lexeme]
         if params is None:
-            self.tokens[start:self.index] = body
+            self.tokens[start:self.index] = [Token(ttype, lexeme, name.line) for ttype, lexeme in body]
         else:
             args = {}
             self.accept(Lex.SPACE)
@@ -279,33 +279,31 @@ class CPreProcessor(Parser):
             self.accept(Lex.SPACE)
             if not self.accept(')'):
                 for param, expand in params.items():
+                    self.accept(Lex.SPACE)
                     arg_start = self.index
                     self.argument(expand)
                     args[param] = self.tokens[arg_start:self.index]
                     if self.accept(')'):
                         break
                     self.expect(',')
-            sub = []
-            for token in body:
-                if token.type is Lex.STRINGIZE:
-                    sub.append(Token(Lex.STRING,
-                                     ''.join(arg.lexeme
-                                             for arg in args[token.lexeme]),
-                                     token.line))
-                elif '##' in token.lexeme:
-                    left, right = token.lexeme.split('##')
+            repl = []
+            for ttype, lexeme in body:
+                if ttype is Lex.STRINGIZE:
+                    repl.append(Token(Lex.STRING, ''.join(arg.lexeme for arg in args[lexeme]), name.line))
+                elif '##' in lexeme:
+                    left, right = lexeme.split('##')
                     if left in args:
                         left = ''.join(arg.lexeme for arg in args[left])
                     if right in args:
                         right = ''.join(arg.lexeme for arg in args[right])
-                    sub.append(Token(token.type, left+right, token.line))
-                elif token.lexeme in args:
-                    sub.extend(args[token.lexeme])
+                    repl.append(Token(ttype, left+right, name.line))
+                elif lexeme in args:
+                    repl.extend(args[lexeme])
                 else:
-                    sub.append(token)
+                    repl.append(Token(ttype, lexeme, name.line))
             if not self.peek(Lex.SPACE):
-                sub.append(Token(Lex.SPACE, ' ', token.line))
-            self.tokens[start:self.index] = sub
+                repl.append(Token(Lex.SPACE, ' ', name.line))
+            self.tokens[start:self.index] = repl
         self.index = start
 
     def directive(self):
@@ -357,7 +355,7 @@ class CPreProcessor(Parser):
                     body = self.index
                     while not self.peek({Lex.NEW_LINE, Lex.END}):
                         next(self)
-                self.defined[name.lexeme] = (params, self.tokens[body:self.index])
+                self.defined[name.lexeme] = (params, [(token.type, token.lexeme) for token in self.tokens[body:self.index]])
                 del self.tokens[start:self.index]
             elif self.accept('include'):
                 self.accept(Lex.SPACE)
@@ -385,62 +383,28 @@ class CPreProcessor(Parser):
                         del self.tokens[start:self.index]
                 else:
                     self.error()
-            elif self.accept('if'):
-                self.expect(Lex.SPACE)
-                if self.expression():
-                    self.if_levels.append({
-                        'active': True,
-                        'seen': True
-                        })
-                else:
-                    self.if_levels.append({
-                        'active': False,
-                        'seen': False
-                        })
+            elif self.peek({'if', 'ifdef', 'ifndef'}):
+                if self.accept('if'):
+                    self.expect(Lex.SPACE)
+                    test = self.expression()
+                elif self.accept('ifdef'):
+                    self.expect(Lex.SPACE)
+                    test = self.expect(Lex.NAME).lexeme in self.defined
+                elif self.accept('ifndef'):
+                    self.expect(Lex.SPACE)
+                    test = self.expect(Lex.NAME).lexeme not in self.defined
+                self.if_levels.append({
+                    'active': test,
+                    'seen': test
+                    })
+                if not test:
                     self.if_start = start
                 del self.tokens[start:self.index]
-            elif self.accept('ifdef'):
-                self.expect(Lex.SPACE)
-                if self.expect(Lex.NAME).lexeme in self.defined:
-                    self.if_levels.append({
-                        'active': True,
-                        'seen': True
-                        })
-                else:
-                    self.if_levels.append({
-                        'active': False,
-                        'seen': False
-                        })
-                    self.if_start = start
-                del self.tokens[start:self.index]
-            elif self.accept('ifndef'):
-                self.expect(Lex.SPACE)
-                if self.expect(Lex.NAME).lexeme not in self.defined:
-                    self.if_levels.append({
-                        'active': True,
-                        'seen': True
-                        })
-                else:
-                    self.if_levels.append({
-                        'active': False,
-                        'seen': False
-                        })
-                    self.if_start = start
-                del self.tokens[start:self.index]
-            elif self.accept('elif'):
-                if not self.if_levels[-1]['seen'] and self.expression():
-                    self.if_levels[-1]['active'] = True
-                    self.if_levels[-1]['seen'] = True
-                else:
-                    self.if_levels[-1]['active'] = False
-                    self.if_start = start
-                del self.tokens[start:self.index]
-            elif self.accept('else'):
-                if not self.if_levels[-1]['seen']:
-                    self.if_levels[-1]['seen'] = True
-                else:
-                    self.if_levels[-1]['active'] = False
-                    self.if_start = start
+            elif self.accept('elif') or self.accept('else'):
+                if not self.if_levels:
+                    self.error('No corresponding if statement to go with else')
+                self.if_levels[-1]['active'] = False
+                self.if_start = start
                 del self.tokens[start:self.index]
             elif self.accept('endif'):
                 self.if_levels.pop()
