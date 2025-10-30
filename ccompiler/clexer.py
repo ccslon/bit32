@@ -114,7 +114,7 @@ class CLexer(Lexer):
 
     RE_keyword = r'\b(include|defined?|undef|typedef|static|extern|sizeof|return|if|ifdef|ifndef|elif|else|endif|switch|case|default|while|do|for|break|continue|goto)\b'
 
-    RE_symbol = r'[#]{2}|[]#;:()[{}]|[+]{2}|--|->|(<<|>>|[+*/%^|&=!<>-])?=|<<|>>|[|]{2}|[&]{2}|[+*/%^|&=!<>?~-]|\.\.\.|\.|,'
+    RE_symbol = r'[#]{2}|[]#;:()[{}]|[+]{2}|--|->|(<<|>>|[+*/%^|&=!<>-])?=|<<|>>|[|]{2}|[&]{2}|[+*/%^|&=!<>?~-]|[.]{3}|[.]|,'
 
     RE_name = r'[A-Za-z_]\w*'
 

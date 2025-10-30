@@ -23,7 +23,7 @@ TODO:
         [X] nested ifs (needs more testing)
         [X] if EXPRESSION
         [X] elif
-    [] expanded macro line numbers
+    [X] expanded macro line numbers
 '''
 
 
@@ -38,6 +38,7 @@ class CPreProcessor(Parser):
 
     def __init__(self):
         self.original = ''
+        self.path = ''
         self.lexer = CLexer()
         self.defined = {}
         self.if_start = None
@@ -306,6 +307,15 @@ class CPreProcessor(Parser):
             self.tokens[start:self.index] = repl
         self.index = start
 
+    def include(self, start, file_name, file_path):
+        """Open the file at the given file path and include it."""
+        if self.original.endswith(file_name):
+            self.error(f'Circular dependency originating in {self.original}')
+        with open(os.path.sep.join(file_path + [file_name])) as file:
+            text = file.read()
+        text = self.replace_comments(text)
+        self.tokens[start:self.index] = self.lexer.lex(text)
+
     def directive(self):
         """Expand directives and macros."""
         start = self.index
@@ -355,29 +365,21 @@ class CPreProcessor(Parser):
                     body = self.index
                     while not self.peek({Lex.NEW_LINE, Lex.END}):
                         next(self)
-                self.defined[name.lexeme] = (params, [(token.type, token.lexeme) for token in self.tokens[body:self.index]])
+                self.defined[name.lexeme] = (params, [(token.type, token.lexeme)
+                                                      for token in self.tokens[body:self.index]])
+                del self.tokens[start:self.index]
+            elif self.accept('undef'):
+                self.expect(Lex.SPACE)
+                del self.defined[self.expect(Lex.NAME).lexeme]
                 del self.tokens[start:self.index]
             elif self.accept('include'):
                 self.accept(Lex.SPACE)
                 if self.peek(Lex.STRING):
-                    file_name = next(self).lexeme
-                    file_path = os.path.sep.join([self.path, file_name])
-                    if self.original.endswith(file_name):
-                        self.error(f'Circular dependency originating in {self.original}')
-                    with open(file_path) as file:
-                        text = file.read()
-                    text = self.replace_comments(text)
-                    self.tokens[start:self.index] = self.lexer.lex(text)
+                    self.include(start, next(self).lexeme, [self.path])
                 elif self.peek(Lex.STD):
                     file_name = next(self).lexeme
                     if file_name not in self.std_included:
-                        file_path = os.path.sep.join([os.getcwd(), 'ccompiler', 'std', file_name])
-                        if self.original.endswith(file_name):
-                            self.error(f'Circular dependency originating in {self.original}')
-                        with open(file_path) as file:
-                            text = file.read()
-                        text = self.replace_comments(text)
-                        self.tokens[start:self.index] = self.lexer.lex(text)
+                        self.include(start, file_name, [os.getcwd(), 'ccompiler', 'std'])
                         self.std_included.add(file_name)
                     else:
                         del self.tokens[start:self.index]
@@ -409,10 +411,6 @@ class CPreProcessor(Parser):
             elif self.accept('endif'):
                 self.if_levels.pop()
                 del self.tokens[start:self.index]
-            elif self.accept('undef'):
-                self.expect(Lex.SPACE)
-                del self.defined[self.expect(Lex.NAME).lexeme]
-                del self.tokens[start:self.index]
             else:
                 del self.tokens[start:self.index]
             self.index = start
@@ -441,11 +439,10 @@ class CPreProcessor(Parser):
             elif self.accept('endif'):
                 self.if_levels.pop()
                 # if we transition from inactive to active, delete what was inactive
-                if all(level['active'] for level in self.if_levels) and self.if_start is not None:
+                if all(level['active'] for level in self.if_levels): # and self.if_start is not None:
                     self.delete_tokens(self.if_start, self.index)
                     self.index = self.if_start
                     self.if_start = None
-
 
     def program(self):
         '''
