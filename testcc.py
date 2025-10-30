@@ -137,6 +137,12 @@ class TestCompiler(TestCase):
     def test_eval(self):
         self.code_eq_asm('eval')
 
+    def test_macro(self):
+        self.preproc.process('tests/macros.c')
+        with open('tests/macros.i') as file:
+            expected = file.read()
+        self.assertEqual(self.preproc.output(), expected)
+
     def test_macro_ifs(self):
         self.preproc.process('tests/macro_ifs.c')
         with open('tests/macro_ifs.i') as file:
