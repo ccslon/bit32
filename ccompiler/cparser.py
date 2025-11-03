@@ -156,9 +156,9 @@ class CParser(Parser):
         self.error(f'Name "{name}" not found')
 
     def primary(self):
-        '''
+        """
         PRIMARY -> name|decimal|number|character|string|'(' EXPRESSION ')'
-        '''
+        """
         if self.peek(Lex.NAME):
             return self.resolve(next(self).lexeme)
         if self.peek(Lex.DECIMAL):
@@ -176,9 +176,9 @@ class CParser(Parser):
         self.error('PRIMARY EXPRESSION')
 
     def postfix(self):
-        '''
+        """
         POST -> PRIMARY {'(' ARGUMENTS ')'|'[' EXPRESSION ']'|'++'|'--'|'.' name|'->' name}
-        '''
+        """
         postfix = self.primary()
         while self.peek({'(', '[', '++', '--', '.', '->'}):
             if self.peek('('):
@@ -212,9 +212,9 @@ class CParser(Parser):
         return postfix
 
     def arguments(self):
-        '''
+        """
         ARGUMENTS -> [ASSIGN {',' ASSIGN}]
-        '''
+        """
         arguments = []
         if not self.peek(')'):
             arguments.append(self.assign())
@@ -224,13 +224,13 @@ class CParser(Parser):
         return arguments
 
     def unary(self):
-        '''
+        """
         UNARY -> POSTFIX
                 |('*'|'-'|'~'|'&'|'!') CAST
                 |('++'|'--') UNARY
                 |'sizeof' '(' TYPE_NAME ')'
                 |'sizeof' UNARY
-        '''
+        """
         if self.peek('*'):
             return Dereference(next(self), self.cast())
         if self.peek({'-', '~'}):
@@ -251,10 +251,10 @@ class CParser(Parser):
         return self.postfix()
 
     def cast(self):
-        '''
+        """
         CAST -> UNARY
                |'(' TYPE_NAME ')' CAST
-        '''
+        """
         if self.peek2('(', CTYPES | self.scope.typedefs.keys()):
             token = next(self)
             ctype = self.type_name()
@@ -263,99 +263,99 @@ class CParser(Parser):
         return self.unary()
 
     def multiplicative(self):
-        '''
+        """
         MULTIPLICATIVE -> CAST {('*'|'/'|'%') CAST}
-        '''
+        """
         multiplicative = self.cast()
         while self.peek({'*', '/', '%'}):
             multiplicative = BinaryOp(next(self), multiplicative, self.cast())
         return multiplicative
 
     def additive(self):
-        '''
+        """
         ADDITIVE -> MULTIPLICATIVE {('+'|'-') MULTIPLICATIVE}
-        '''
+        """
         additive = self.multiplicative()
         while self.peek({'+', '-'}):
             additive = BinaryOp(next(self), additive, self.multiplicative())
         return additive
 
     def shift(self):
-        '''
+        """
         SHIFT -> ADDITIVE {('<<'|'>>') ADDITIVE}
-        '''
+        """
         shift = self.additive()
         while self.peek({'<<', '>>'}):
             shift = BinaryOp(next(self), shift, self.additive())
         return shift
 
     def relational(self):
-        '''
+        """
         RELATIONAL -> SHIFT {('<'|'>'|'<='|'>=') SHIFT}
-        '''
+        """
         relational = self.shift()
         while self.peek({'<', '>', '<=', '>='}):
             relational = Compare(next(self), relational, self.shift())
         return relational
 
     def equality(self):
-        '''
+        """
         EQUALITY -> RELATIONAL {('=='|'!=') RELATIONAL}
-        '''
+        """
         equality = self.relational()
         while self.peek({'==', '!='}):
             equality = Compare(next(self), equality, self.relational())
         return equality
 
     def bitwise_and(self):
-        '''
+        """
         BITWISE_AND -> EQUALITY {'&' EQUALITY}
-        '''
+        """
         bitwise_and = self.equality()
         while self.peek('&'):
             bitwise_and = BinaryOp(next(self), bitwise_and, self.equality())
         return bitwise_and
 
     def bitwise_xor(self):
-        '''
+        """
         BITWISE_XOR -> BITWISE_AND {'^' BITWISE_AND}
-        '''
+        """
         bitwise_xor = self.bitwise_and()
         while self.peek('^'):
             bitwise_xor = BinaryOp(next(self), bitwise_xor, self.bitwise_and())
         return bitwise_xor
 
     def bitwise_or(self):
-        '''
+        """
         BITWISE_OR -> BITWISE_XOR {'|' BITWISE_XOR}
-        '''
+        """
         bitwise_or = self.bitwise_xor()
         while self.peek('|'):
             bitwise_or = BinaryOp(next(self), bitwise_or, self.bitwise_xor())
         return bitwise_or
 
     def logical_and(self):
-        '''
+        """
         LOGICAL_AND -> BITWISE_OR {'&&' BITWISE_OR}
-        '''
+        """
         logical_and = self.bitwise_or()
         while self.peek('&&'):
             logical_and = Logic(next(self), logical_and, self.bitwise_or())
         return logical_and
 
     def logical_or(self):
-        '''
+        """
         LOGICAL_OR -> LOGICAL_AND {'||' LOGICAL_AND}
-        '''
+        """
         logical_or = self.logical_and()
         while self.peek('||'):
             logical_or = Logic(next(self), logical_or, self.logical_and())
         return logical_or
 
     def conditional(self):
-        '''
+        """
         CONDITIONAL -> LOGICAL_OR ['?' EXPRESSION ':' CONDITIONAL]
-        '''
+        """
         conditional = self.logical_or()
         if self.accept('?'):
             expression = self.expression()
@@ -364,10 +364,10 @@ class CParser(Parser):
         return conditional
 
     def assign(self):
-        '''
+        """
         ASSIGN -> UNARY ['+'|'-'|'*'|'/'|'%'|'<<'|'>>'|'^'|'|'|'&']'=' ASSIGN
                  |CONDITIONAL
-        '''
+        """
         assign = self.conditional()
         if self.peek({'=', '+=', '-=', '*=', '/=', '%=',
                       '<<=', '>>=', '^=', '|=', '&=', '/=', '%='}):
@@ -381,24 +381,24 @@ class CParser(Parser):
         return assign
 
     def expression(self):
-        '''
+        """
         EXPRESSION -> ASSIGN
-        '''
+        """
         return self.assign()
 
     def constant(self):
-        '''
+        """
         CONSTANT -> CONDITIONAL
-        '''
+        """
         constant = self.conditional()
         if not constant.is_constant():
             self.error('Must be a constant expression')
         return constant.fold()
 
     def enum(self, value):
-        '''
+        """
         ENUM -> name ['=' CONSTANT]
-        '''
+        """
         name = self.expect(Lex.NAME)
         if name.lexeme in self.scope.enum_numbers:
             self.error(f'Redeclaration of enumerator "{name.lexeme}"')
@@ -408,9 +408,9 @@ class CParser(Parser):
         return value
 
     def attribute(self, specifier, ctype):
-        '''
+        """
         ATTRIBUTE -> DECLARATOR [':' number]
-        '''
+        """
         ctype, name = self.declarator(ctype)
         if self.accept(':'):
             self.expect(Lex.NUMBER)
@@ -423,13 +423,13 @@ class CParser(Parser):
             specifier[name.lexeme] = Attribute(ctype, name)
 
     def specifier(self):
-        '''
+        """
         TYPE_SPEC -> type
                     |'void'
                     |name
                     |('struct'|'union') [name] '{' {QUALIFIER ATTRIBUTE {',' ATTR} ';'} '}'
                     |'enum' [name] '{' ENUM {',' ENUM}'}'
-        '''
+        """
         if self.accept('void'):
             specifier = Void()
         elif self.peek(Lex.NAME):
@@ -506,9 +506,9 @@ class CParser(Parser):
         return specifier
 
     def qualifier(self):
-        '''
+        """
         QUALIFIER -> ['const'|'volatile'] SPECIFIER
-        '''
+        """
         if self.accept('const'):
             qualifier = self.specifier()
             qualifier.const = True
@@ -517,9 +517,9 @@ class CParser(Parser):
         return self.specifier()
 
     def type_name(self):
-        '''
+        """
         TYPE_NAME -> QUALIFIER ABSTRACT_DECLARATOR
-        '''
+        """
         type_name = self.qualifier()
         types = []
         name = self._declarator(types)
@@ -530,9 +530,9 @@ class CParser(Parser):
         return type_name
 
     def _declarator(self, types):
-        '''
+        """
         DECLARATOR -> {'*'} DIRECT_DECLARATOR
-        '''
+        """
         ns = 0
         while self.accept('*'):
             ns += 1
@@ -542,9 +542,9 @@ class CParser(Parser):
         return name
 
     def direct_declarator(self, types):
-        '''
+        """
         DIRECT_DECLARATOR -> ('(' _DECLARATOR ')'|[name]){'(' PARAMETERS ')'|'[' [number] ']'}
-        '''
+        """
         if self.accept('('):
             name = self._declarator(types)
             self.expect(')')
@@ -562,10 +562,10 @@ class CParser(Parser):
         return name
 
     def init_declarator(self, declarator, scope, parser):
-        '''
+        """
         INIT_DECLARATOR -> DECLARATOR ['=' INITIALIZER]
         INITIALIZER -> '{' LIST '}'|ASSIGN|CONST
-        '''
+        """
         if declarator.token is None:
             self.error('Expected ;')
         init_declarator = declarator
@@ -588,22 +588,22 @@ class CParser(Parser):
         return init_declarator
 
     def local_init_declarator(self, qualifier):
-        '''
+        """
         INIT_DECLARATOR -> DECLARATOR ['=' INITIALIZER]
-        '''
+        """
         ctype, name = self.declarator(qualifier)
         return self.init_declarator(Local(ctype, name), self.scope.locals, self.assign)
 
     def global_init_declarator(self, ctype, name):
-        '''
+        """
         INIT_DECLARATOR -> DECLARATOR ['=' INITIALIZER]
-        '''
+        """
         return self.init_declarator(Global(ctype, name), self.globals, self.constant)
 
     def declarator(self, ctype):
-        '''
+        """
         DECLARATOR -> {'*'} DIRECT_DECLARATOR
-        '''
+        """
         types = []
         name = self._declarator(types)
         for new_type, args in reversed(types):
@@ -611,9 +611,9 @@ class CParser(Parser):
         return ctype, name
 
     def declaration(self):
-        '''
+        """
         DECLARATION -> SPECIFIER [INIT_DECLARATOR {',' INIT_DECLARATOR}] ';'
-        '''
+        """
         declaration = []
         if self.accept('typedef'):
             qualifier = self.qualifier()
@@ -632,9 +632,9 @@ class CParser(Parser):
         return declaration
 
     def initializer_list(self, parser):
-        '''
+        """
         INITIALIZER_LIST -> EXPRESSION|'{' INITIALIZER_LIST {',' INITIALIZER_LIST} '}'
-        '''
+        """
         initializer_list = []
         if self.accept('{'):
             initializer_list.append(self.initializer_list(parser))
@@ -650,9 +650,9 @@ class CParser(Parser):
         return initializer_list
 
     def parameter(self):
-        '''
+        """
         PARAMETER -> QUALIFIER DECLARATOR
-        '''
+        """
         ctype = self.qualifier()
         types = []
         name = self._declarator(types)
@@ -664,9 +664,9 @@ class CParser(Parser):
         return Local(ctype, name)
 
     def parameters(self):
-        '''
+        """
         PARAMETERS -> [PARAMETER {',' PARAMETER} [',' '...']]
-        '''
+        """
         params = []
         variadic = False
         if not self.peek(')'):
@@ -679,7 +679,7 @@ class CParser(Parser):
         return params, variadic
 
     def statement(self):
-        '''
+        """
         STATEMENT -> ';'
                     |'{' COMPOUND '}'
                     |SELECT
@@ -696,7 +696,7 @@ class CParser(Parser):
                |'break' ';'
                |'continue' ';'
                |'goto' name ';'
-        '''
+        """
         if self.accept(';'):
             statement = Statement()
         elif self.accept('{'):
@@ -789,9 +789,9 @@ class CParser(Parser):
         return statement
 
     def compound(self):
-        '''
+        """
         COMPOUND -> {DECLARATION} {STATEMENT} [COMPOUND]
-        '''
+        """
         compound = Compound()
         while self.peek({'typedef', 'register'} | CTYPES | self.scope.typedefs.keys()):
             compound.extend(self.declaration())
@@ -803,11 +803,11 @@ class CParser(Parser):
         return compound
 
     def external(self):
-        '''
+        """
         EXTERNAL -> DEFINITION|DECLARATION
         DEFINITION -> QUALIFIER DECLARATOR '{' COMPOUND '}'
         DECLARATION -> SPECIFIER [INIT_DECLARATOR {',' INIT_DECLARATOR}] ';'
-        '''
+        """
         external = []
         if self.accept('typedef'):
             qualifier = self.qualifier()
@@ -854,9 +854,9 @@ class CParser(Parser):
         return external
 
     def translation(self):
-        '''
+        """
         TRANSLATION -> {EXTERNAL}
-        '''
+        """
         translation = Translation()
         while not self.peek(Lex.END):
             translation.extend(self.external())

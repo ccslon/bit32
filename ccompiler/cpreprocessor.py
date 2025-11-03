@@ -55,11 +55,11 @@ class CPreProcessor(Parser):
         self.tokens[start:stop] = [token for token in self.tokens[start:stop] if token.type == Lex.NEW_LINE]
 
     def primary(self):
-        '''
+        """
         PRIMARY -> 'defined' name
                   |'defined' '(' name ')'
                   |name|decimal|number|character|string|'(' EXPRESSION ')'
-        '''
+        """
         self.accept(Lex.SPACE)
         if self.peek_defined():
             self.expand()
@@ -95,9 +95,9 @@ class CPreProcessor(Parser):
         self.error('Expected primary expression')
 
     def unary(self):
-        '''
+        """
         UNARY -> ['-'|'~'|'!'] PRIMARY
-        '''
+        """
         self.accept(Lex.SPACE)
         if self.accept('-'):
             return -self.primary()
@@ -108,9 +108,9 @@ class CPreProcessor(Parser):
         return self.primary()
 
     def multiplicative(self):
-        '''
+        """
         MULTIPLICATIVE -> UNARY {('*', '/', '%') UNARY}
-        '''
+        """
         multiplicative = self.unary()
         self.accept(Lex.SPACE)
         while self.peek({'*', '/', '%'}):
@@ -122,9 +122,9 @@ class CPreProcessor(Parser):
         return multiplicative
 
     def additive(self):
-        '''
+        """
         ADDITIVE -> MULTIPLICATIVE {('+'|'-') MULTIPLICATIVE}
-        '''
+        """
         additive = self.multiplicative()
         while self.peek({'+', '-'}):
             additive = {
@@ -134,9 +134,9 @@ class CPreProcessor(Parser):
         return additive
 
     def shift(self):
-        '''
+        """
         SHIFT -> ADDITIVE {('<<'|'>>') ADDITIVE}
-        '''
+        """
         shift = self.additive()
         while self.peek({'<<', '>>'}):
             shift = {
@@ -146,9 +146,9 @@ class CPreProcessor(Parser):
         return shift
 
     def relational(self):
-        '''
+        """
         RELATIONAL -> SHIFT {('<'|'>'|'<='|'>=') SHIFT}
-        '''
+        """
         relational = self.shift()
         while self.peek({'<', '>', '<=', '>='}):
             relational = {
@@ -160,9 +160,9 @@ class CPreProcessor(Parser):
         return relational
 
     def equality(self):
-        '''
+        """
         EQUALITY -> RELATIONAL {('=='|'!=') RELATIONAL}
-        '''
+        """
         equality = self.relational()
         while self.peek({'==', '!='}):
             equality = {
@@ -172,36 +172,36 @@ class CPreProcessor(Parser):
         return equality
 
     def bitwise_and(self):
-        '''
+        """
         BITWISE_AND -> EQUALITY {'&' EQUALITY}
-        '''
+        """
         bitwise_and = self.equality()
         while self.accept('&'):
             bitwise_and &= self.equality()
         return bitwise_and
 
     def bitwise_xor(self):
-        '''
+        """
         BITWISE_XOR -> BITWISE_AND {'^' BITWISE_AND}
-        '''
+        """
         bitwise_xor = self.bitwise_and()
         while self.accept('^'):
             bitwise_xor ^= self.bitwise_and()
         return bitwise_xor
 
     def bitwise_or(self):
-        '''
+        """
         BITWISE_OR -> BITWISE_XOR {'|' BITWISE_XOR}
-        '''
+        """
         bitwise_or = self.bitwise_xor()
         while self.accept('|'):
             bitwise_or |= self.bitwise_xor()
         return bitwise_or
 
     def logical_and(self):
-        '''
+        """
         LOGICAL_AND -> BITWISE_OR {'&&' BITWISE_OR}
-        '''
+        """
         logical_and = self.bitwise_or()
         while self.accept('&&'):
             other = self.bitwise_or()
@@ -209,9 +209,9 @@ class CPreProcessor(Parser):
         return logical_and
 
     def logical_or(self):
-        '''
+        """
         LOGICAL_OR -> LOGICAL_AND {'||' LOGICAL_AND}
-        '''
+        """
         logical_or = self.logical_and()
         while self.accept('||'):
             other = self.logical_and()
@@ -219,15 +219,15 @@ class CPreProcessor(Parser):
         return logical_or
 
     def expression(self):
-        '''
+        """
         EXPRESSION -> LOGICAL_OR
-        '''
+        """
         return self.logical_or()
 
     def argument(self, expand):
-        '''
+        """
         ARGUMENT -> {TOKEN|name '(' [ARGUMENT {',' ARGUMENT}] ')'|'(' ARGUMENT ')'}
-        '''
+        """
         self.accept(Lex.SPACE)
         while not self.peek({')', ','}):
             if self.peek_defined() and expand:
@@ -246,18 +246,18 @@ class CPreProcessor(Parser):
                 next(self)
 
     def parameter(self):
-        '''
+        """
         PARAMETER -> name
-        '''
+        """
         self.accept(Lex.SPACE)
         name = self.expect(Lex.NAME)
         self.accept(Lex.SPACE)
         return name.lexeme
 
     def parameters(self):
-        '''
+        """
         PARAMETERS -> [PARAMETER {',' PARAMETER}]
-        '''
+        """
         parameters = {}
         self.accept(Lex.SPACE)
         if not self.peek(')'):
@@ -445,14 +445,14 @@ class CPreProcessor(Parser):
                     self.if_start = None
 
     def program(self):
-        '''
+        """
         PROGRAM -> {TOKEN
                   |'#' DIRECTIVE
                   |name
                   |name '(' ARGUMENTS ')'
                   |string string
                    }
-        '''
+        """
         while not self.peek(Lex.END):
             if self.peek('#'):
                 self.directive()
