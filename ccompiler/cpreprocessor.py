@@ -78,14 +78,9 @@ class CPreProcessor(Parser):
         if self.peek(Lex.DECIMAL):
             return float(next(self).lexeme)
         if self.peek(Lex.NUMBER):
-            lexeme = next(self).lexeme
-            if lexeme.startswith('0x'):
-                return int(lexeme, base=16)
-            if lexeme.startswith('0b'):
-                return int(lexeme, base=2)
-            return int(lexeme)
+            return next(self).to_number()
         if self.peek(Lex.CHARACTER):
-            return unescape(next(self).lexeme[1:-1])
+            return ord(unescape(next(self).lexeme))
         if self.peek(Lex.STRING):
             return next(self).lexeme
         if self.accept('('):

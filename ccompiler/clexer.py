@@ -40,9 +40,16 @@ CTYPES = {
 class Token(NamedTuple):
     """Class for tokens in input."""
 
-    type: str
+    type: Lex
     lexeme: str
     line: int
+
+    def to_number(self):
+        if self.lexeme.startswith('0x'):
+            return int(self.lexeme, base=16)
+        if self.lexeme.startswith('0b'):
+            return int(self.lexeme, base=2)
+        return int(self.lexeme)
 
     def error(self, msg):
         """Raise error messages for the parser."""
@@ -100,15 +107,17 @@ class CLexer(Lexer):
 
     RE_number = r'0x[0-9A-Fa-f]+|0b[01]+|\d+'
 
-    RE_character = r"'(\\'|\\?[^'])'"
-
-    def RE_std(self, match):
-        r'<\s*\w+\.h\s*>'
-        return match[1:-1].strip()
+    def RE_character(self, match):
+        r"'(\\'|\\?[^'])'"
+        return match[1:-1]
 
     def RE_string(self, match):
         r'"(\\"|[^"])*"'
         return match[1:-1]
+
+    def RE_std(self, match):
+        r'<\s*\w+\.h\s*>'
+        return match[1:-1].strip()
 
     RE_ctype = rf"\b({'|'.join(CTYPES)})\b"
 

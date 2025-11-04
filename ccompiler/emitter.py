@@ -40,11 +40,11 @@ class Code(Enum):
 [x] vardefns
 [x] array reduce = [A, B]
 [x] test
-[] refactor
+[]x refactor
 [x] vstr -> emit
 [x] jump to next
 [] object output
-[] const eval
+[x] const eval
 [x] real case?
 '''
 

@@ -68,11 +68,12 @@ class Global(Variable):
             emitter.emit_space(self.token.lexeme, self.type.size)
 
 
-class NumberBase(Constant):
-    """Base class for number literals."""
+class Number(Constant):
+    """Class for basic number nodes found anywhere in C code."""
 
-    def __init__(self):
+    def __init__(self, value):
         super().__init__(Int())
+        self.value = int(value)
 
     def data(self, _):
         """Get data representation of node."""
@@ -101,36 +102,11 @@ class NumberBase(Constant):
         return super().reduce_subscript(emitter, n, size)
 
 
-class EnumNumber(NumberBase):
-    """Class for enum numbers."""
-
-    def __init__(self, value):
-        super().__init__()
-        self.value = value
-
-
-class Number(NumberBase):
-    """Class for basic number nodes found anywhere in C code."""
-
-    def __init__(self, value):
-        super().__init__()
-        if isinstance(value, str):
-            if value.startswith('0x'):
-                self.value = int(value, base=16)
-            elif value.startswith('0b'):
-                self.value = int(value, base=2)
-            else:
-                self.value = int(value)
-        else:
-            self.value = int(value)
-
-
-class SizeOf(NumberBase):
+class SizeOf(Number):
     """Class for sizeof operator."""
 
     def __init__(self, ctype):
-        super().__init__()
-        self.value = int(ctype.size)
+        super().__init__(ctype.size)
 
 
 class Decimal(Constant):
@@ -156,11 +132,11 @@ class Character(Constant):
     def __init__(self, token):
         super().__init__(Char())
         self.token = token
-        self.value = ord(unescape(token.lexeme.strip('\'')))
+        self.value = ord(unescape(token.lexeme))
 
     def data(self, _):
         """Get data representation of character."""
-        return self.token.lexeme
+        return f"'{self.token.lexeme}'"
 
     def reduce(self, emitter, n):
         """Generate code for character."""

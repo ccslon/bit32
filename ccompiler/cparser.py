@@ -9,7 +9,7 @@ from copy import copy
 from .parser import Parser
 from .clexer import Lex, CTYPES
 from .cnodes import Frame, Translation, Definition, VariadicDefinition
-from .cexpressions import Number, EnumNumber, Decimal, Character, String
+from .cexpressions import Number, Decimal, Character, String
 from .cexpressions import Post, UnaryOp, Not, Pre, BinaryOp, Compare, Logic
 from .cexpressions import Local, Attribute, Global, Dot, SubScript, Arrow, AddressOf, Dereference, SizeOf, Cast, Conditional
 from .ctypes import Type, Void, Float, Int, Short, Char, Pointer, Struct, Union, Array, Function
@@ -164,7 +164,7 @@ class CParser(Parser):
         if self.peek(Lex.DECIMAL):
             return Decimal(next(self).lexeme)
         if self.peek(Lex.NUMBER):
-            return Number(next(self).lexeme)
+            return Number(next(self).to_number())
         if self.peek(Lex.CHARACTER):
             return Character(next(self))
         if self.peek(Lex.STRING):
@@ -404,7 +404,7 @@ class CParser(Parser):
             self.error(f'Redeclaration of enumerator "{name.lexeme}"')
         if self.accept('='):
             value = self.constant().value
-        self.scope.enum_numbers[name.lexeme] = EnumNumber(value)
+        self.scope.enum_numbers[name.lexeme] = Number(value)
         return value
 
     def attribute(self, specifier, ctype):
