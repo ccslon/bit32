@@ -7,9 +7,8 @@ Created on Fri Aug 25 10:49:03 2023
 from enum import IntEnum, IntFlag
 import re
 
-from bit32 import (Size, Flag, Reg, Op, Cond, Byte, Char, Half, Word, Jump,
-                   Interrupt, Unary, Binary, Ternary, Load, PushPop,
-                   LoadImmediate, unescape)
+from bit32 import (unescape, Size, Flag, Reg, Op, Cond, Byte, Char, Half, Word,
+                   Jump, Interrupt, Unary, Binary, Ternary, Load, PushPop, LoadImmediate)
 
 
 class Debug(IntFlag):

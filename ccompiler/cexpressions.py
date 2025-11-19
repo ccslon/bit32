@@ -4,8 +4,9 @@ Created on Fri Sep  6 14:09:48 2024
 
 @author: ccslon
 """
-from operator import add, sub, mul, floordiv, truediv, mod, lshift, rshift, neg, inv, or_, xor, and_, eq, ne, gt, lt, ge, le
-
+from operator import (add, sub, mul, floordiv, truediv, mod,
+                      lshift, rshift, neg, inv, or_, xor, and_,
+                      eq, ne, gt, lt, ge, le)
 from bit32 import Size, Op, Reg, Cond, twos_compliment, floating_point, unescape
 from .cnodes import Expression, Variable, Constant, Unary, Binary, Access, Statement
 from .ctypes import Type, Char, Int, Float, Pointer, Array

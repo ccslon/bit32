@@ -9,13 +9,13 @@ from copy import copy
 from .parser import Parser
 from .clexer import Lex, CTYPES
 from .cnodes import Frame, Translation, Definition, VariadicDefinition
-from .cexpressions import Number, Decimal, Character, String
-from .cexpressions import Post, UnaryOp, Not, Pre, BinaryOp, Compare, Logic
-from .cexpressions import Local, Attribute, Global, Dot, SubScript, Arrow, AddressOf, Dereference, SizeOf, Cast, Conditional
+from .cexpressions import (Local, Attribute, Global, Number, Decimal, Character, String,
+                           AddressOf, Dereference, SizeOf, Cast, Post, UnaryOp, Not, Pre,
+                           BinaryOp, Compare, Logic, Dot, SubScript, Arrow,  Conditional)
 from .ctypes import Type, Void, Float, Int, Short, Char, Pointer, Struct, Union, Array, Function
-from .cstatements import Statement, If, Case, Switch, While, Do, For, Continue, Break, Goto, Label, Return, Compound
-from .cstatements import Call, VariadicCall, InitialAssign, Assign, InitialListAssign, InitialStringArray
-r'''( |\t)+$''' #to delete weird whitespace spyder adds
+from .cstatements import (Statement, If, Case, Switch, While, Do, For, Continue, Break, Goto, Label, Return, Compound,
+                          Call, VariadicCall, InitialAssign, Assign, InitialListAssign, InitialStringArray)
+r'''( |\t)+$'''  # To delete weird whitespace spyder adds
 '''
 TODO
 [X] Type checking
