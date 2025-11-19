@@ -68,6 +68,8 @@ class Global(Variable):
         if self.type.size > 0:
             emitter.emit_space(self.token.lexeme, self.type.size)
 
+class Register(Local):
+    pass
 
 class Number(Constant):
     """Class for basic number nodes found anywhere in C code."""

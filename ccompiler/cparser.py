@@ -9,10 +9,10 @@ from copy import copy
 from .parser import Parser
 from .clexer import Lex, CTYPES
 from .cnodes import Frame, Translation, Definition, VariadicDefinition
-from .cexpressions import (Local, Attribute, Global, Number, Decimal, Character, String,
+from .cexpressions import (Local, Attribute, Global, Register, Number, Decimal, Character, String,
                            AddressOf, Dereference, SizeOf, Cast, Post, UnaryOp, Not, Pre,
                            BinaryOp, Compare, Logic, Dot, SubScript, Arrow,  Conditional)
-from .ctypes import Type, Void, Float, Int, Short, Char, Pointer, Struct, Union, Array, Function
+from .ctypes import Type, Void, Numeric, Float, Int, Short, Char, Pointer, Struct, Union, Array, Function
 from .cstatements import (Statement, If, Case, Switch, While, Do, For, Continue, Break, Goto, Label, Return, Compound,
                           Call, VariadicCall, InitialAssign, Assign, InitialListAssign, InitialStringArray)
 r'''( |\t)+$'''  # To delete weird whitespace spyder adds
@@ -83,6 +83,7 @@ class FunctionInfo:
     return_type: Type
     name: str
     space: int = 0
+    register_space: int = 0
     returns: bool = False
     calls: bool = False
     max_arguments: int = 0
@@ -97,20 +98,21 @@ class Scope:
 
     def __init__(self):
         self.locals = Frame()
+        self.registers = {}
         self.structs = {}
         self.typedefs = {}
         self.unions = {}
-        self.enums = []
+        self.enums = set()
         self.enum_numbers = {}
 
     def copy(self):
-        """Create a copy of the scope ."""
+        """Create a copy of the scope."""
         new = Scope()
         new.locals.update(self.locals)
         new.structs.update(self.structs)
         new.typedefs.update(self.typedefs)
         new.unions.update(self.unions)
-        new.enums.extend(self.enums)
+        new.enums.update(self.enums)
         new.enum_numbers.update(self.enum_numbers)
         return new
 
@@ -147,6 +149,8 @@ class CParser(Parser):
         """Resolve name of variables."""
         if name in self.scope.locals:
             return self.scope.locals[name]
+        if name in self.scope.registers:
+            return self.scope.registers[name]
         if name in self.stack_parameters:
             return self.stack_parameters[name]
         if name in self.globals:
@@ -471,7 +475,7 @@ class CParser(Parser):
             name = self.accept(Lex.NAME)
             if self.accept('{'):
                 if name:
-                    self.scope.enums.append(name.lexeme)
+                    self.scope.enums.add(name.lexeme)
                 value = self.enum(0)
                 while self.accept(','):
                     value += 1
@@ -600,6 +604,15 @@ class CParser(Parser):
         """
         return self.init_declarator(Global(ctype, name), self.globals, self.constant)
 
+    def local_register_init_declarator(self, qualifier):  # TODO
+        """
+        INIT_DECLARATOR -> DECLARATOR ['=' INITIALIZER]
+        """
+        ctype, name = self.declarator(qualifier)
+        if not isinstance(ctype, Numeric):
+            self.error('Register variables can only be scalar types: "{name}" is of type "{ctype}."')
+        return self.init_declarator(Register(ctype, name), self.scope.locals, self.assign)
+
     def declarator(self, ctype):
         """
         DECLARATOR -> {'*'} DIRECT_DECLARATOR
@@ -621,7 +634,11 @@ class CParser(Parser):
             self.scope.typedefs[name.lexeme] = ctype
             self.expect(';')
         elif self.accept('register'):
-            raise NotImplementedError()
+            qualifier = self.qualifier()
+            declaration.append(self.local_register_init_declarator(qualifier))
+            while self.accept(','):
+                declaration.append(self.local_register_init_declarator(qualifier))
+            self.expect(';')
         else:
             qualifier = self.qualifier()
             if not self.accept(';'):
@@ -872,6 +889,7 @@ class CParser(Parser):
     def end_scope(self):
         """End a scope."""
         self.function.space = max(self.function.space, self.scope.locals.size)
+        self.function.register_space = max(self.function.register_space, len(self.scope.registers))
         self.scope = self.stack.pop()
 
 
