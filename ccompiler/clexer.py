@@ -45,6 +45,7 @@ class Token(NamedTuple):
     line: int
 
     def to_number(self):
+        """Convert token's lexeme to a python integer."""
         if self.lexeme.startswith('0x'):
             return int(self.lexeme, base=16)
         if self.lexeme.startswith('0b'):

@@ -40,7 +40,7 @@ class Code(Enum):
 [x] vardefns
 [x] array reduce = [A, B]
 [x] test
-[]x refactor
+[x] refactor
 [x] vstr -> emit
 [x] jump to next
 [] object output
@@ -187,6 +187,7 @@ class Call(Instruction):
     def display(self):
         """Display call instruction as string."""
         return f'{"CALL": <{JUST}} {self.target}'
+
 
 class Unary(Instruction):
     """Class for unary ALU instruction objects."""
@@ -457,7 +458,7 @@ class Emitter:
                                                         inst1.offset+inst2.source,
                                                         inst1.variable)]
                     continue
-                if inst2.code in [Code.LOAD, Code.STORE] and inst1.target is inst2.base:
+                if inst2.code in {Code.LOAD, Code.STORE} and inst1.target is inst2.base:
                     '''
                     ADD A, B, n
                     LD C, [A, m]
@@ -480,9 +481,9 @@ class Emitter:
                 for j in range(args):
                     inst1 = self.instructions[i+j]
                     inst2 = self.instructions[i+args+j]
-                    if (inst1.code not in [Code.BINARY, Code.TERNARY,
+                    if (inst1.code not in {Code.BINARY, Code.TERNARY,
                                            Code.ADDRESS, Code.LOAD,
-                                           Code.IMMEDIATE, Code.GLOBAL]
+                                           Code.IMMEDIATE, Code.GLOBAL}
                         or inst2.code is not Code.BINARY
                         or inst2.op is not Op.MOV
                         or inst1.target is not inst2.source):
@@ -491,7 +492,7 @@ class Emitter:
                     for j in range(args):
                         inst1 = self.instructions[i+j]
                         inst2 = self.instructions[i+args+j]
-                        if inst1.code is Code.BINARY and inst1.op not in [Op.MOV, Op.MVN]:
+                        if inst1.code is Code.BINARY and inst1.op is not Op.MOV:
                             self.instructions[i+j] = Ternary(inst1.labels+inst2.labels,
                                                              inst1.op, inst1.size,
                                                              inst2.target,
@@ -544,10 +545,10 @@ class Emitter:
         labels, body = self.body
         if body:
             body[0].labels += self.labels
+            self.labels = labels
         else:
-            labels += self.labels
+            self.labels += labels
         self.instructions += body
-        self.labels = labels
 
     def emit_string_array(self, name, string):
         """Emit string array object."""
@@ -565,7 +566,7 @@ class Emitter:
         self.data.append(Space(name, size))
 
     def emit_global(self, name, size, value):
-        """Emit gloabl object."""
+        """Emit global object."""
         self.data.append(Global(name, size, value))
 
     def emit_datas(self, label, datas):
