@@ -86,5 +86,11 @@ interrupt_handler:
 stdin:  .word .stdin
 stdout: .word .stdout
 
+setjmp:
+    RET
+
+longjmp:
+    RET
+
 crash:
     HALT
