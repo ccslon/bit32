@@ -243,6 +243,7 @@ class Binary(Expression):
         """Fold this binary operator into a single constant node."""
         return self.type.get_node(self.evaluate())
 
+
 class Access(Expression):
     """Base class for array access nodes."""
 

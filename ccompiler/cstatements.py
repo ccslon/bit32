@@ -137,7 +137,7 @@ class While(Statement):
         """Generate code for while loop."""
         emitter.begin_loop()
         emitter.append_label(emitter.loop_head())
-        if self.test.is_constant() :
+        if self.test.is_constant():
             if not self.test.evaluate():
                 emitter.emit_jump(Cond.AL, emitter.loop_tail())
         else:

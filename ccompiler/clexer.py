@@ -45,6 +45,7 @@ class Token(NamedTuple):
     line: int
 
     def to_number(self):
+        """Convert token's lexeme to a python integer."""
         if self.lexeme.startswith('0x'):
             return int(self.lexeme, base=16)
         if self.lexeme.startswith('0b'):
@@ -121,7 +122,7 @@ class CLexer(Lexer):
 
     RE_ctype = rf"\b({'|'.join(CTYPES)})\b"
 
-    RE_keyword = r'\b(include|defined?|undef|typedef|static|extern|sizeof|return|if|ifdef|ifndef|elif|else|endif|switch|case|default|while|do|for|break|continue|goto)\b'
+    RE_keyword = r'\b(include|defined?|undef|typedef|static|extern|register|sizeof|return|if|ifdef|ifndef|elif|else|endif|switch|case|default|while|do|for|break|continue|goto)\b'
 
     RE_symbol = r'[#]{2}|[]#;:()[{}]|[+]{2}|--|->|(<<|>>|[+*/%^|&=!<>-])?=|<<|>>|[|]{2}|[&]{2}|[+*/%^|&=!<>?~-]|[.]{3}|[.]|,'
 
