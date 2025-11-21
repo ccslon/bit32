@@ -4,9 +4,12 @@
 #include <ctype.h>
 #include <stdio.h>
 #include <errno.h>
+#include <setjmp.h>
 #define EINV_SYM 200
 #define ENAME 201
 #define EEXPECTED 202
+
+jmp_buf jmp;
 
 // "HashMap"
 typedef struct {
@@ -42,6 +45,14 @@ enum TokenType {
     SYM,
     BAD,
     END
+};
+
+char* TokenTypeMap[5] = {
+    "NUM",
+    "VAR",
+    "SYM",
+    "BAD",
+    "END"
 };
 
 typedef struct Token {
@@ -113,10 +124,13 @@ Token* lex(char* input) {
                         new->sym = input[i++];
                         break;
                     default:
-                        new->type = BAD;
-                        new->sym = input[i++];
-                        printf("Bad token %c\n", new->sym);
+                        printf("Bad token \"%c\"\n", input[i]);
+                        free(new);
+                        new = NULL;
+                        freeTokens(head);
+                        head = NULL;
                         errno = EINV_SYM;
+                        longjmp(jmp, 1);
                 }
             }
             new->line = line;
@@ -242,7 +256,7 @@ int eval(Node* node) {
             if (var == NULL) {
                 printf("Cannot find name %s\n", node->var);
                 errno = ENAME;
-                return 0;
+                longjmp(jmp, 1);
             }
             return var->value;
         }
@@ -291,13 +305,24 @@ bool accept(char sym) {
     return false;
 }
 
-void expect(char sym) {
+void expect(enum TokenType token) {
+    if (peek(token)) {
+        next();
+        return;
+    }
+    printf("Expected %s\n", TokenTypeMap[token]);
+    errno = EEXPECTED;
+    longjmp(jmp, 1);
+}
+
+void expect_sym(char sym) {
     if (peek_sym(sym)) {
         next();
         return;
     }
     printf("Expected %c\n", sym);
     errno = EEXPECTED;
+    longjmp(jmp, 1);
 }
 
 Node* expr();
@@ -310,11 +335,11 @@ Node* factor() {
         factor = allocVar(next());
     } else if (accept('(')) {
         factor = expr();
-        expect(')');
+        expect_sym(')');
     } else {
         printf("Expected NUM, VAR, or (\n");
         errno = EEXPECTED;
-        factor = NULL;
+        longjmp(jmp, 1);
     }
     return factor;
 }
@@ -340,28 +365,23 @@ Node* expr() {
 Node* parse(Token* head) {
     current = head;
     Node* root = expr();
-    if (current->type != END) {
-        printf("Expected END\n");
-        errno = EEXPECTED;
-    }
+    expect(END);
     return root;
 }
 
 void exec(char* input) {
-    Token* head = lex(input);
-    if (!errno) {
+    Token* head = NULL;
+    Node* tree = NULL;
+    if (setjmp(jmp) == 0) {
+        head = lex(input);
         printTokens(head);
-        Node* tree = parse(head);
-        if (!errno) {
-            printNode(tree);
-	        putchar('\n');
-            int value = eval(tree);
-            if (!errno) {
-                printf("%d\n", value);
-            }            
-        }        
-        freeNode(tree);
+        tree = parse(head);
+        printNode(tree);
+        putchar('\n');
+        int value = eval(tree);
+        printf("%d\n", value);
     }
+    freeNode(tree);
     freeTokens(head);
 }
 
@@ -372,7 +392,7 @@ int main() {
     //exec("9 / (3 * 3)");
     //exec("3+3");
     //exec("a");/
-    exec("a+b*5");
+    exec("a+b*c");
     //loop();
     return 0;
 }
@@ -383,21 +403,9 @@ void loop() {
 	while(1) {
 		fgets(buf, BUF_SIZE, stdin);
 		if (strcmp(buf, "quit\n") == 0) {
-			break;
+			return;
 		}
-		Token* head = lex(buf);
-		if (!errno) {
-			Node* tree = parse(head);
-			if (!errno) {
-				int value = eval(tree);
-				if (!errno) {
-					printf("%d\n", value);
-				}
-			}
-			freeNode(tree);
-		}
-		freeTokens(head);
-		errno = 0;
-	}
+        exec(buf);
+    }
 }
 
