@@ -76,9 +76,9 @@ class CPreProcessor(Parser):
         if self.accept(Lex.NAME):
             return 0
         if self.peek(Lex.DECIMAL):
-            return float(next(self).lexeme)
+            return next(self).lexeme
         if self.peek(Lex.NUMBER):
-            return next(self).to_number()
+            return next(self).lexeme
         if self.peek(Lex.CHARACTER):
             return ord(unescape(next(self).lexeme))
         if self.peek(Lex.STRING):
@@ -285,13 +285,13 @@ class CPreProcessor(Parser):
             repl = []
             for ttype, lexeme in body:
                 if ttype is Lex.STRINGIZE:
-                    repl.append(Token(Lex.STRING, ''.join(arg.lexeme for arg in args[lexeme]), name.line))
-                elif '##' in lexeme:
+                    repl.append(Token(Lex.STRING, ''.join(str(arg.lexeme) for arg in args[lexeme]), name.line))
+                elif '##' in str(lexeme):
                     left, right = lexeme.split('##')
                     if left in args:
-                        left = ''.join(arg.lexeme for arg in args[left])
+                        left = ''.join(str(arg.lexeme) for arg in args[left])
                     if right in args:
-                        right = ''.join(arg.lexeme for arg in args[right])
+                        right = ''.join(str(arg.lexeme) for arg in args[right])
                     repl.append(Token(ttype, left+right, name.line))
                 elif lexeme in args:
                     repl.extend(args[lexeme])
@@ -489,7 +489,7 @@ class CPreProcessor(Parser):
     def output(self):
         """Produce the processed input as text."""
         return ''.join(f'"{token.lexeme}"' if token.type is Lex.STRING
-                       else token.lexeme for token in self.tokens)
+                       else str(token.lexeme) for token in self.tokens)
 
     def comment_replacement(self, match):
         """Replace comments with space/newlines to preserve line numbers."""
