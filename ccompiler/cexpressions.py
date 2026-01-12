@@ -416,7 +416,7 @@ class Logic(BinaryOp):
         """Generate code for logical operator."""
         if self.is_constant():
             return self.fold().reduce(emitter, n)
-        if self.op == Op.AND:
+        if self.op is Op.AND:
             label = emitter.next_label()
             sublabel = emitter.next_label()
             self.left.compare(emitter, n, label)
@@ -426,7 +426,7 @@ class Logic(BinaryOp):
             emitter.append_label(label)
             emitter.emit_binary(Op.MOV, Size.WORD, Reg(n), 0)
             emitter.append_label(sublabel)
-        elif self.op == Op.OR:
+        elif self.op is Op.OR:
             label = emitter.next_label()
             sublabel = emitter.next_label()
             subsublabel = emitter.next_label()
@@ -442,10 +442,10 @@ class Logic(BinaryOp):
 
     def compare(self, emitter, n, label):
         """Generate code for comparing with logical operators."""
-        if self.op == Op.AND:
+        if self.op is Op.AND:
             self.left.compare(emitter, n, label)
             self.right.compare(emitter, n, label)
-        elif self.op == Op.OR:
+        elif self.op is Op.OR:
             sublabel = emitter.next_label()
             self.left.inverse_compare(emitter, n, sublabel)
             self.right.compare(emitter, n, label)
@@ -453,12 +453,12 @@ class Logic(BinaryOp):
 
     def inverse_compare(self, emitter, n, label):
         """Generate code for inverse comparing with logical operators."""
-        if self.op == Op.AND:
+        if self.op is Op.AND:
             sublabel = emitter.next_label()
             self.left.compare(emitter, n, sublabel)
             self.right.inverse_compare(emitter, n, label)
             emitter.append_label(sublabel)
-        elif self.op == Op.OR:
+        elif self.op is Op.OR:
             self.left.inverse_compare(emitter, n, label)
             self.right.inverse_compare(emitter, n, label)
 
