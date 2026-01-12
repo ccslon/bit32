@@ -226,7 +226,7 @@ class Numeric(Value):
         return cexpressions.Number(value)
 
     def __eq__(self, other):
-        """Determine if the given is equal to this type."""
+        """Determine if the given type is equal to this type."""
         return isinstance(other, Numeric)
 
 

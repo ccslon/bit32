@@ -29,7 +29,7 @@ void foo(int x, int y) {
     char* ptr = (void*)0;
 }
 
-char* buf = ((char*)(0x8000)) ;
+char* buf = ((char*)(32768)) ;
 
 (printf("45 has been said")) 
 

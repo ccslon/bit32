@@ -17,7 +17,7 @@ void fizzbuzz(int m) {
         if (n % 5 == 0) {
             strcat(buffer, "buzz");
         }
-        if (strlen(buffer)) {
+        if (buffer[0] != '\0') {
             printf("%s\n", buffer);
         } else {
             printf("%d\n", n);

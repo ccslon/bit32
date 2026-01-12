@@ -363,7 +363,7 @@ class Emitter:
 
     def begin_loop(self):
         """
-        Begin loop or swtich block.
+        Begin loop or switch block.
 
         Head and tail labels are created for the current loop/switch block
         that are used for continue and break instructions.

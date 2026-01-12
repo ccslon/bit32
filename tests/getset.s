@@ -80,7 +80,7 @@ getstack:
   ADD    SP, 44
   POP    B
   RET
-getstack:
+setstack:
   PUSH   C
   SUB    SP, 48
   ST     [SP, 0], A ; i

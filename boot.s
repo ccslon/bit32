@@ -25,7 +25,7 @@ interrupt_handler:
     PUSH LR, A, B, C, D, SR
     SUB SP, 1
     MOV.B A, 0
-    ST.B [SP, 0], A    
+    ST.B [SP, 0], A
     LDI B, =.stdin_buf
     LDI C, =.stdin_write
 .i0:
