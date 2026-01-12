@@ -3,7 +3,7 @@ int n = N;
 #
 #include "inc1.c"
 #define MIN(a, b) ((a) <= (b) ? (a) : (b))
-//int bar(int n);
+int bar(int n);
 #define NULL (void*)0
     //lol
 #define FOO() BAR
@@ -28,3 +28,8 @@ void foo(int x, int y) {
     char* ptr = NULL;
 }
 #define CAST(type, x) ((type)(x))
+char* buf = CAST(char*, 0x8000);
+#define say(n) (printf(#n " has been said"))
+say(45)
+#define binary(a, op, b) (a op #b)
+int o = binary(h, +, j+t);

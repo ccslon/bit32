@@ -42,15 +42,7 @@ class Token(NamedTuple):
 
     type: Lex
     lexeme: str
-    line: int
-
-    def to_number(self):
-        """Convert token's lexeme to a python integer."""
-        if self.lexeme.startswith('0x'):
-            return int(self.lexeme, base=16)
-        if self.lexeme.startswith('0b'):
-            return int(self.lexeme, base=2)
-        return int(self.lexeme)
+    line: int        
 
     def error(self, msg):
         """Raise error messages for the parser."""
@@ -104,9 +96,17 @@ class Lexer(metaclass=MetaLexer):
 class CLexer(Lexer):
     """Lexer specifically for the C programming language."""
 
-    RE_decimal = r'\d+\.\d+'
+    def RE_decimal(self, match):
+        r'\d+\.\d+'
+        return float(match)
 
-    RE_number = r'0x[0-9A-Fa-f]+|0b[01]+|\d+'
+    def RE_number(self, match):
+        r'0x[0-9A-Fa-f]+|0b[01]+|\d+'
+        if match.startswith('0x'):
+            return int(match, base=16)
+        if match.startswith('0b'):
+            return int(match, base=2)
+        return int(match)
 
     def RE_character(self, match):
         r"'(\\'|\\?[^'])'"

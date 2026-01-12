@@ -98,32 +98,25 @@ class Scope:
 
     def __init__(self):
         self.locals = Frame()
-        self.registers = {}
-        self.structs = {}
+        self.enums = {}
+        self.types = {}
         self.typedefs = {}
-        self.unions = {}
-        self.enums = set()
-        self.enum_numbers = {}
 
     def copy(self):
         """Create a copy of the scope."""
         new = Scope()
         new.locals.update(self.locals)
-        new.structs.update(self.structs)
-        new.typedefs.update(self.typedefs)
-        new.unions.update(self.unions)
         new.enums.update(self.enums)
-        new.enum_numbers.update(self.enum_numbers)
+        new.types.update(self.types)
+        new.typedefs.update(self.typedefs)
         return new
 
     def clear(self):
         """Clear the scope."""
         self.locals.clear()
-        self.structs.clear()
-        self.typedefs.clear()
-        self.unions.clear()
         self.enums.clear()
-        self.enum_numbers.clear()
+        self.types.clear()
+        self.typedefs.clear()
 
 
 class CParser(Parser):
@@ -149,14 +142,12 @@ class CParser(Parser):
         """Resolve name of variables."""
         if name in self.scope.locals:
             return self.scope.locals[name]
-        if name in self.scope.registers:
-            return self.scope.registers[name]
         if name in self.stack_parameters:
             return self.stack_parameters[name]
         if name in self.globals:
             return self.globals[name]
-        if name in self.scope.enum_numbers:
-            return self.scope.enum_numbers[name]
+        if name in self.scope.enums:
+            return self.scope.enums[name]
         self.error(f'Name "{name}" not found')
 
     def primary(self):
@@ -168,7 +159,7 @@ class CParser(Parser):
         if self.peek(Lex.DECIMAL):
             return Decimal(next(self).lexeme)
         if self.peek(Lex.NUMBER):
-            return Number(next(self).to_number())
+            return Number(next(self).lexeme)
         if self.peek(Lex.CHARACTER):
             return Character(next(self))
         if self.peek(Lex.STRING):
@@ -404,12 +395,11 @@ class CParser(Parser):
         ENUM -> name ['=' CONSTANT]
         """
         name = self.expect(Lex.NAME)
-        if name.lexeme in self.scope.enum_numbers:
+        if name.lexeme in self.scope.enums:
             self.error(f'Redeclaration of enumerator "{name.lexeme}"')
-        if self.accept('='):
-            value = self.constant().value
-        self.scope.enum_numbers[name.lexeme] = Number(value)
-        return value
+        enum = self.constant() if self.accept('=') else Number(value)
+        self.scope.enums[name.lexeme] = enum
+        return enum.value
 
     def attribute(self, specifier, ctype):
         """
@@ -444,9 +434,9 @@ class CParser(Parser):
         elif self.accept('struct'):
             name = self.accept(Lex.NAME)
             if name:
-                if name.lexeme not in self.scope.structs:
-                    self.scope.structs[name.lexeme] = Struct(name)
-                specifier = self.scope.structs[name.lexeme]
+                if name.lexeme not in self.scope.types:
+                    self.scope.types[name.lexeme] = Struct(name)
+                specifier = copy(self.scope.types[name.lexeme])
             else:
                 specifier = Struct(name)
             if self.accept('{'):
@@ -456,12 +446,14 @@ class CParser(Parser):
                     while self.accept(','):
                         self.attribute(specifier, qualifier)
                     self.expect(';')
+                if name:
+                    self.scope.types[name.lexeme] = specifier
         elif self.accept('union'):
             name = self.accept(Lex.NAME)
             if name:
-                if name.lexeme not in self.scope.unions:
-                    self.scope.unions[name.lexeme] = Union(name)
-                specifier = self.scope.unions[name.lexeme]
+                if name.lexeme not in self.scope.types:
+                    self.scope.types[name.lexeme] = Union(name)
+                specifier = self.scope.types[name.lexeme]
             else:
                 specifier = Union(name)
             if self.accept('{'):
@@ -475,7 +467,7 @@ class CParser(Parser):
             name = self.accept(Lex.NAME)
             if self.accept('{'):
                 if name:
-                    self.scope.enums.add(name.lexeme)
+                    self.scope.types[name.lexeme] = None
                 value = self.enum(0)
                 while self.accept(','):
                     value += 1
@@ -484,7 +476,7 @@ class CParser(Parser):
             else:
                 if not name:
                     self.error("Did not specify enum name")
-                if name.lexeme not in self.scope.enums:
+                if name.lexeme not in self.scope.types:
                     self.error(f'Enum name "{name.lexeme}" not found')
             specifier = Char()
         elif self.accept('float'):
@@ -812,8 +804,7 @@ class CParser(Parser):
         compound = Compound()
         while self.peek({'typedef', 'register'} | CTYPES | self.scope.typedefs.keys()):
             compound.extend(self.declaration())
-        while (self.peek(self.STATEMENTS)
-               and not self.peek(set(self.scope.typedefs.keys()))):
+        while (self.peek(self.STATEMENTS) and not self.peek(set(self.scope.typedefs.keys()))):
             compound.append(self.statement())
         if compound:
             compound.extend(self.compound())
@@ -889,7 +880,7 @@ class CParser(Parser):
     def end_scope(self):
         """End a scope."""
         self.function.space = max(self.function.space, self.scope.locals.size)
-        self.function.register_space = max(self.function.register_space, len(self.scope.registers))
+        # self.function.register_space = max(self.function.register_space, len(self.scope.registers))
         self.scope = self.stack.pop()
 
 

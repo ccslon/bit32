@@ -21,7 +21,7 @@ int getstack(int i) {
     int a[10];
     return a[i];
 }
-int getstack(int i, int t) {
+int setstack(int i, int t) {
     int a[10];
     a[i] = t;
 }
