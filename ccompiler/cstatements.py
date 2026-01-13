@@ -278,7 +278,7 @@ class Compound(UserList, Statement):
                 break
 
 
-class InitialAssign(Binary, Statement):
+class InitAssignment(Binary, Statement):
     """Class for initial assignments."""
 
     def __init__(self, token, left, right):
@@ -306,7 +306,7 @@ class InitialAssign(Binary, Statement):
         emitter.emit_global(self.left.token.lexeme, self.width, self.right.data(emitter))
 
 
-class Assign(InitialAssign):
+class Assignment(InitAssignment):
     """Class for assignments."""
 
     def __init__(self, token, left, right):
@@ -315,7 +315,7 @@ class Assign(InitialAssign):
         super().__init__(token, left, right)
 
 
-class InitialListAssign(Statement):
+class InitListAssignment(Statement):
     """Class for initial list assignments."""
 
     def __init__(self, token, left, right):
@@ -339,7 +339,7 @@ class InitialListAssign(Statement):
         emitter.emit_datas(self.left.token.lexeme, self.left.type.global_data(emitter, self.right, []))
 
 
-class InitialStringArray(Statement):
+class InitStringArray(Statement):
     """Class for local string array assignments."""
 
     def __init__(self, token, array, string):

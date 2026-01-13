@@ -351,10 +351,11 @@ class Float(Numeric):
 class Pointer(Int):
     """Class for pointer type."""
 
-    def __init__(self, ctype):
+    def __init__(self, ctype, const=False):
         super().__init__(False)
         self.to = self.of = ctype
         self.interval = int(self.to.size)
+        self.const = const
 
     def reduce_binary(self, emitter, n, op, left, right):
         """Generate code for binary operator."""

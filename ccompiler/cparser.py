@@ -9,12 +9,12 @@ from copy import copy
 from .parser import Parser
 from .clexer import Lex, CTYPES
 from .cnodes import Frame, Translation, Definition, VariadicDefinition
-from .cexpressions import (Local, Attribute, Global, Register, Number, Decimal, Character, String,
+from .cexpressions import (Local, Attribute, Global, Number, Decimal, Character, String,
                            AddressOf, Dereference, SizeOf, Cast, Post, UnaryOp, Not, Pre,
                            BinaryOp, Compare, Logic, Dot, SubScript, Arrow,  Conditional)
-from .ctypes import Type, Void, Numeric, Float, Int, Short, Char, Pointer, Struct, Union, Array, Function
+from .ctypes import Type, Void, Float, Int, Short, Char, Pointer, Struct, Union, Array, Function
 from .cstatements import (Statement, If, Case, Switch, While, Do, For, Continue, Break, Goto, Label, Return, Compound,
-                          Call, VariadicCall, InitialAssign, Assign, InitialListAssign, InitialStringArray)
+                          Call, VariadicCall, InitAssignment, Assignment, InitListAssignment, InitStringArray)
 r'''( |\t)+$'''  # To delete weird whitespace spyder adds
 '''
 TODO
@@ -124,6 +124,7 @@ class CParser(Parser):
 
     STATEMENTS = {'{', Lex.NAME, 'if', '*', 'return', 'for', 'while', '(',
                   'switch', 'do', '++', '--', 'break', 'continue', ';', 'goto'}
+    STORAGE = {'typedef', 'extern', 'auto'}
 
     def __init__(self):
         self.globals = {}
@@ -208,13 +209,13 @@ class CParser(Parser):
 
     def arguments(self):
         """
-        ARGUMENTS -> [ASSIGN {',' ASSIGN}]
+        ARGUMENTS -> [ASSIGNMENT {',' ASSIGNMENT}]
         """
         arguments = []
         if not self.peek(')'):
-            arguments.append(self.assign())
+            arguments.append(self.assignment())
             while self.accept(','):
-                arguments.append(self.assign())
+                arguments.append(self.assignment())
         self.function.max_arguments = min(max(self.function.max_arguments, len(arguments)), 4)
         return arguments
 
@@ -358,28 +359,28 @@ class CParser(Parser):
             conditional = Conditional(conditional, expression, self.conditional())
         return conditional
 
-    def assign(self):
+    def assignment(self):
         """
-        ASSIGN -> UNARY ['+'|'-'|'*'|'/'|'%'|'<<'|'>>'|'^'|'|'|'&']'=' ASSIGN
+        ASSIGNMENT -> UNARY ['+'|'-'|'*'|'/'|'%'|'<<'|'>>'|'^'|'|'|'&']'=' ASSIGNMENT
                  |CONDITIONAL
         """
-        assign = self.conditional()
+        assignment = self.conditional()
         if self.peek({'=', '+=', '-=', '*=', '/=', '%=',
                       '<<=', '>>=', '^=', '|=', '&=', '/=', '%='}):
-            if not isinstance(assign, (Local, Global, Dot, Arrow, SubScript, Dereference)):
-                self.error(f'Cannot assign to {type(assign)}')
+            if not isinstance(assignment, (Local, Global, Dot, Arrow, SubScript, Dereference)):
+                self.error(f'Cannot assign to {type(assignment)}')
             if self.peek('='):
-                assign = Assign(next(self), assign, self.assign())
+                assignment = Assignment(next(self), assignment, self.assignment())
             else:
                 token = next(self)
-                assign = Assign(token, assign, BinaryOp(token, assign, self.assign()))
-        return assign
+                assignment = Assignment(token, assignment, BinaryOp(token, assignment, self.assignment()))
+        return assignment
 
     def expression(self):
         """
-        EXPRESSION -> ASSIGN
+        EXPRESSION -> ASSIGNMENT
         """
-        return self.assign()
+        return self.assignment()
 
     def constant(self):
         """
@@ -397,9 +398,10 @@ class CParser(Parser):
         name = self.expect(Lex.NAME)
         if name.lexeme in self.scope.enums:
             self.error(f'Redeclaration of enumerator "{name.lexeme}"')
-        enum = self.constant() if self.accept('=') else Number(value)
-        self.scope.enums[name.lexeme] = enum
-        return enum.value
+        if self.accept('='):
+            value = self.constant().value
+        self.scope.enums[name.lexeme] = Number(value)
+        return value
 
     def attribute(self, specifier, ctype):
         """
@@ -416,13 +418,35 @@ class CParser(Parser):
         else:
             specifier[name.lexeme] = Attribute(ctype, name)
 
+    def struct_or_union(self, new_type):
+        """
+        STRUCT_OR_UNION -> ('struct'|'union') [name] '{' {QUALIFIER ATTRIBUTE {',' ATTR} ';'} '}'
+        """
+        name = self.accept(Lex.NAME)
+        if name:
+            if name.lexeme not in self.scope.types:
+                self.scope.types[name.lexeme] = new_type(name)
+            struct_or_union = copy(self.scope.types[name.lexeme])
+        else:
+            struct_or_union = new_type(name)
+        if self.accept('{'):
+            while not self.accept('}'):
+                qualifier = self.qualifier()
+                self.attribute(struct_or_union, qualifier)
+                while self.accept(','):
+                    self.attribute(struct_or_union, qualifier)
+                self.expect(';')
+            if name:
+                self.scope.types[name.lexeme] = struct_or_union
+        return struct_or_union
+
     def specifier(self):
         """
-        TYPE_SPEC -> type
-                    |'void'
+        TYPE_SPEC -> 'void'
                     |name
-                    |('struct'|'union') [name] '{' {QUALIFIER ATTRIBUTE {',' ATTR} ';'} '}'
-                    |'enum' [name] '{' ENUM {',' ENUM}'}'
+                    |STRUCT_OR_UNIO
+                    |'enum' [name] '{' ENUM {',' ENUM}'}
+                    |type
         """
         if self.accept('void'):
             specifier = Void()
@@ -432,37 +456,9 @@ class CParser(Parser):
                 self.error(f'typedef "{token.lexeme}" not found')
             specifier = copy(self.scope.typedefs[token.lexeme])
         elif self.accept('struct'):
-            name = self.accept(Lex.NAME)
-            if name:
-                if name.lexeme not in self.scope.types:
-                    self.scope.types[name.lexeme] = Struct(name)
-                specifier = copy(self.scope.types[name.lexeme])
-            else:
-                specifier = Struct(name)
-            if self.accept('{'):
-                while not self.accept('}'):
-                    qualifier = self.qualifier()
-                    self.attribute(specifier, qualifier)
-                    while self.accept(','):
-                        self.attribute(specifier, qualifier)
-                    self.expect(';')
-                if name:
-                    self.scope.types[name.lexeme] = specifier
+            specifier = self.struct_or_union(Struct)
         elif self.accept('union'):
-            name = self.accept(Lex.NAME)
-            if name:
-                if name.lexeme not in self.scope.types:
-                    self.scope.types[name.lexeme] = Union(name)
-                specifier = self.scope.types[name.lexeme]
-            else:
-                specifier = Union(name)
-            if self.accept('{'):
-                while not self.accept('}'):
-                    qualifier = self.qualifier()
-                    self.attribute(specifier, qualifier)
-                    while self.accept(','):
-                        self.attribute(specifier, qualifier)
-                    self.expect(';')
+            specifier = self.struct_or_union(Union)
         elif self.accept('enum'):
             name = self.accept(Lex.NAME)
             if self.accept('{'):
@@ -503,46 +499,47 @@ class CParser(Parser):
 
     def qualifier(self):
         """
-        QUALIFIER -> ['const'|'volatile'] SPECIFIER
+        QUALIFIER -> ['const'] ['volatile'] SPECIFIER
         """
-        if self.accept('const'):
-            qualifier = self.specifier()
-            qualifier.const = True
-            return qualifier
+        const = bool(self.accept('const'))
         self.accept('volatile')
-        return self.specifier()
+        qualifier = self.specifier()
+        qualifier.const = const
+        return qualifier
 
     def type_name(self):
         """
         TYPE_NAME -> QUALIFIER ABSTRACT_DECLARATOR
         """
         type_name = self.qualifier()
-        types = []
-        name = self._declarator(types)
+        type_name, name = self.declarator(type_name)
         if name is not None:
             self.error(f'Did not expect name "{name.lexeme}" in TYPE NAME')
-        for new_type, arguments in reversed(types):
-            type_name = new_type(type_name, *arguments)
         return type_name
 
-    def _declarator(self, types):
+    def declarator(self, ctype, types=None, is_top=True):
         """
         DECLARATOR -> {'*'} DIRECT_DECLARATOR
         """
-        ns = 0
+        if types is None:
+            types = []
+        qualifiers = []
         while self.accept('*'):
-            ns += 1
-        name = self.direct_declarator(types)
-        for _ in range(ns):
-            types.append((Pointer, ()))
-        return name
+            qualifiers.append(bool(self.accept('const')))
+            self.accept('volatile')
+        ctype, name = self.direct_declarator(ctype, types)
+        types.extend(((Pointer, (qual,)) for qual in qualifiers))
+        if is_top:
+            for new_type, args in reversed(types):
+                ctype = new_type(ctype, *args)
+        return ctype, name
 
-    def direct_declarator(self, types):
+    def direct_declarator(self, ctype, types):
         """
         DIRECT_DECLARATOR -> ('(' _DECLARATOR ')'|[name]){'(' PARAMETERS ')'|'[' [number] ']'}
         """
         if self.accept('('):
-            name = self._declarator(types)
+            ctype, name = self.declarator(ctype, types, is_top=False)
             self.expect(')')
         else:
             name = self.accept(Lex.NAME)
@@ -552,124 +549,65 @@ class CParser(Parser):
                 types.append((Function, (params, variadic)))
                 self.expect(')')
             elif self.accept('['):
-                types.append((Array, (Number(next(self).lexeme)
-                                      if self.peek(Lex.NUMBER) else None,)))
+                types.append((Array, (Number(next(self).lexeme) if self.peek(Lex.NUMBER) else None,)))
                 self.expect(']')
-        return name
-
-    def init_declarator(self, declarator, scope, parser):
-        """
-        INIT_DECLARATOR -> DECLARATOR ['=' INITIALIZER]
-        INITIALIZER -> '{' LIST '}'|ASSIGN|CONST
-        """
-        if declarator.token is None:
-            self.error('Expected ;')
-        init_declarator = declarator
-        if self.peek('='):  # INITIALIZER
-            if declarator.token is None:
-                self.error('Assigning to nothing')
-            if isinstance(declarator.type, Void):
-                self.error('Cannot assign a void type a value')
-            token = next(self)
-            if self.accept('{'):
-                if not isinstance(declarator.type, (Array, Struct)):
-                    self.error('Cannot list-assign to scalar')
-                init_declarator = InitialListAssign(token, declarator, self.initializer_list(parser))
-                self.expect('}')
-            elif isinstance(declarator.type, Array) and self.peek(Lex.STRING):
-                init_declarator = InitialStringArray(token, declarator, String(next(self)))
-            else:
-                init_declarator = InitialAssign(token, declarator, parser())
-        scope[declarator.token.lexeme] = declarator
-        return init_declarator
-
-    def local_init_declarator(self, qualifier):
-        """
-        INIT_DECLARATOR -> DECLARATOR ['=' INITIALIZER]
-        """
-        ctype, name = self.declarator(qualifier)
-        return self.init_declarator(Local(ctype, name), self.scope.locals, self.assign)
-
-    def global_init_declarator(self, ctype, name):
-        """
-        INIT_DECLARATOR -> DECLARATOR ['=' INITIALIZER]
-        """
-        return self.init_declarator(Global(ctype, name), self.globals, self.constant)
-
-    def local_register_init_declarator(self, qualifier):  # TODO
-        """
-        INIT_DECLARATOR -> DECLARATOR ['=' INITIALIZER]
-        """
-        ctype, name = self.declarator(qualifier)
-        if not isinstance(ctype, Numeric):
-            self.error('Register variables can only be scalar types: "{name}" is of type "{ctype}."')
-        return self.init_declarator(Register(ctype, name), self.scope.locals, self.assign)
-
-    def declarator(self, ctype):
-        """
-        DECLARATOR -> {'*'} DIRECT_DECLARATOR
-        """
-        types = []
-        name = self._declarator(types)
-        for new_type, args in reversed(types):
-            ctype = new_type(ctype, *args)
         return ctype, name
+
+    def initializer_list(self, parser):
+        """
+        INITIALIZER_LIST -> [INITIALIZER {',' INITIALIZER}]
+        """
+        initializer_list = []
+        if not self.peek('}'):
+            while True:
+                initializer_list.append(self.initializer(parser))
+                if self.peek('}'):
+                    break
+                self.expect(',')
+        return initializer_list
+
+    def initializer(self, parser):
+        """
+        INITIALIZER -> '{' INITIALIZER_LIST '}'|ASSIGNMENT|CONSTANT
+        """
+        if self.accept('{'):
+            initializer = self.initializer_list(parser)
+            self.expect('}')
+        else:
+            initializer = parser()
+        return initializer
+
+    def init_declarator(self, storage, qualifier):
+        """
+        INIT_DECLARATOR -> DECLARATOR ['=' INITIALIZER]
+        """
+        ctype, name = self.declarator(qualifier)
+        return self._init_declarator_tail(storage, ctype, name, Local, self.scope.locals, self.assignment)
 
     def declaration(self):
         """
         DECLARATION -> SPECIFIER [INIT_DECLARATOR {',' INIT_DECLARATOR}] ';'
         """
         declaration = []
-        if self.accept('typedef'):
-            qualifier = self.qualifier()
-            ctype, name = self.declarator(qualifier)
-            self.scope.typedefs[name.lexeme] = ctype
-            self.expect(';')
-        elif self.accept('register'):
-            qualifier = self.qualifier()
-            declaration.append(self.local_register_init_declarator(qualifier))
-            while self.accept(','):
-                declaration.append(self.local_register_init_declarator(qualifier))
-            self.expect(';')
-        else:
-            qualifier = self.qualifier()
-            if not self.accept(';'):
-                declaration.append(self.local_init_declarator(qualifier))
-                while self.accept(','):
-                    declaration.append(self.local_init_declarator(qualifier))
-                self.expect(';')
+        storage, qualifier = self.specifiers()
+        if not self.accept(';'):
+            while True:
+                init_decl = self.init_declarator(storage, qualifier)
+                if init_decl:
+                    declaration.append(init_decl)
+                if self.accept(';'):
+                    break
+                self.expect(',')
         return declaration
-
-    def initializer_list(self, parser):
-        """
-        INITIALIZER_LIST -> EXPRESSION|'{' INITIALIZER_LIST {',' INITIALIZER_LIST} '}'
-        """
-        initializer_list = []
-        if self.accept('{'):
-            initializer_list.append(self.initializer_list(parser))
-            self.expect('}')
-        else:
-            initializer_list.append(parser())
-        while self.accept(','):
-            if self.accept('{'):
-                initializer_list.append(self.initializer_list(parser))
-                self.expect('}')
-            else:
-                initializer_list.append(parser())
-        return initializer_list
 
     def parameter(self):
         """
         PARAMETER -> QUALIFIER DECLARATOR
         """
-        ctype = self.qualifier()
-        types = []
-        name = self._declarator(types)
-        for new_type, arguments in reversed(types):
-            if new_type is Array:
-                ctype = Pointer(ctype)
-            else:
-                ctype = new_type(ctype, *arguments)
+        qualifier = self.qualifier()
+        ctype, name = self.declarator(qualifier)
+        if isinstance(ctype, Array):
+            ctype = Pointer(ctype.of, ctype.const)
         return Local(ctype, name)
 
     def parameters(self):
@@ -695,7 +633,7 @@ class CParser(Parser):
                     |LOOP
                     |JUMP
                     |name ':'
-                    |ASSIGN ';'
+                    |ASSIGNMENT ';'
         SELECT -> 'if' '(' EXPRESSION ')' STATEMENT ['else' STATEMENT]
                  |'switch' '(' EXPRESSION ')' '{' {'case' CONSTANT ':' STATEMENT} ['default' ':' STATEMENT] '}'
         LOOP -> 'while' '(' EXPRESSION ')' STATEMENT
@@ -772,11 +710,8 @@ class CParser(Parser):
         elif self.peek('return'):
             self.function.returns = True
             token = next(self)
-            if self.accept(';'):
-                statement = Return(token, self.function.return_type, None)
-            else:
-                statement = Return(token, self.function.return_type, self.expression())
-                self.expect(';')
+            statement = Return(token, self.function.return_type, None if self.peek(';') else self.expression())
+            self.expect(';')
         elif self.accept('break'):
             statement = Break()
             self.expect(';')
@@ -802,13 +737,19 @@ class CParser(Parser):
         COMPOUND -> {DECLARATION} {STATEMENT} [COMPOUND]
         """
         compound = Compound()
-        while self.peek({'typedef', 'register'} | CTYPES | self.scope.typedefs.keys()):
+        while self.peek(self.STORAGE | CTYPES | self.scope.typedefs.keys()):
             compound.extend(self.declaration())
         while (self.peek(self.STATEMENTS) and not self.peek(set(self.scope.typedefs.keys()))):
             compound.append(self.statement())
         if compound:
             compound.extend(self.compound())
         return compound
+
+    def specifiers(self):
+        """
+        SPECIFIERS -> ['typedef'|'extern'|'static'|'auto'|'register'] QUALIFIER
+        """
+        return next(self).lexeme if self.peek(self.STORAGE) else None, self.qualifier()
 
     def external(self):
         """
@@ -817,30 +758,23 @@ class CParser(Parser):
         DECLARATION -> SPECIFIER [INIT_DECLARATOR {',' INIT_DECLARATOR}] ';'
         """
         external = []
-        if self.accept('typedef'):
-            qualifier = self.qualifier()
-            ctype, name = self.declarator(qualifier)
-            self.scope.typedefs[name.lexeme] = ctype
-            self.expect(';')
-        elif self.accept('extern'):
-            qualifier = self.qualifier()
-            ctype, name = self.declarator(qualifier)
-            if name:
-                self.globals[name.lexeme] = Global(ctype, name)
-            self.expect(';')
-        else:
-            self.accept('static')
-            qualifier = self.qualifier()
-            if not self.accept(';'):
+        storage, qualifier = self.specifiers()
+        if not self.accept(';'):
+            declaring = False
+            while True:
                 ctype, name = self.declarator(qualifier)
                 if self.accept('{'):  # DEFINITION
+                    if declaring:
+                        self.error('You cannot define a function while already declaring')
                     if name is None:
                         self.error('Function definition needs a name')
-                    self.globals[name.lexeme] = Global(ctype, name)
+                    if storage in {'typedef', 'extern'}:
+                        self.error(f'Function definition cannot be {storage}')
                     if not isinstance(ctype, Function):
                         self.error(f'"{name.lexeme}" is not of function type')
                     if any(param.token is None for param in ctype.parameters):
                         self.error(f'"{name.lexeme}" cannot have abstract parameters')
+                    self.globals[name.lexeme] = Global(ctype, name)
                     self.function = FunctionInfo(ctype.return_type, name.lexeme)
                     self.stack_parameters = Frame()
                     self.begin_scope()
@@ -851,15 +785,48 @@ class CParser(Parser):
                     defn = VariadicDefinition if ctype.variadic else Definition
                     compound = self.compound()
                     self.end_scope()
-                    external.append(defn(ctype, name, compound, self.function))
                     self.expect('}')
+                    external.append(defn(ctype, name, compound, self.function))
+                    break
                 else:  # DECLARATION
-                    external.append(self.global_init_declarator(ctype, name))
-                    while self.accept(','):
-                        ctype, name = self.declarator(qualifier)
-                        external.append(self.global_init_declarator(ctype, name))
-                    self.expect(';')
+                    declaring = True
+                    tail = self._init_declarator_tail(storage, ctype, name, Global, self.globals, self.constant)
+                    if tail:
+                        external.append(tail)
+                    if self.accept(';'):
+                        break
+                    self.expect(',')
         return external
+
+    def _init_declarator_tail(self, storage, ctype, name, VarType, scope, parser):
+        if name is None:
+            self.error('Expected ;')
+        if storage == 'typedef':
+            self.scope.typedefs[name.lexeme] = ctype
+            return
+        if storage == 'extern':
+            self.globals[name.lexeme] = Global(ctype, name)
+            return
+        variable = Global(ctype, name) if storage == 'static' else VarType(ctype, name)
+        init_decl = variable
+        if self.peek('='):
+            if isinstance(ctype, Void):
+                self.error('Cannot assign a value to a void type')
+            if isinstance(ctype, Function):
+                self.error('Cannot assign a value to a function type')
+            token = next(self)
+            initializer = self.initializer(parser)
+            if isinstance(initializer, String) and isinstance(ctype, Array):
+                init_decl = InitStringArray(token, init_decl, initializer)
+            elif isinstance(initializer, list) and isinstance(ctype, Array | Struct):
+                init_decl = InitListAssignment(token, init_decl, initializer)
+            else:
+                init_decl = InitAssignment(token, init_decl, initializer)
+        if storage == 'static':
+            self.globals[name.lexeme] = variable
+        else:
+            scope[name.lexeme] = variable
+        return init_decl
 
     def translation(self):
         """
