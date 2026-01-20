@@ -1,11 +1,12 @@
 #define N 5
 int n = N;
 #
+__FILE__
 #include "inc1.c"
 #define MIN(a, b) ((a) <= (b) ? (a) : (b))
 int bar(int n);
 #define NULL (void*)0
-    //lol
+    // lol
 #define FOO() BAR
 FOO()BAZ
 #undef FOO
@@ -14,6 +15,7 @@ FOO()
 #define BUFSIZE 1024
 TABLESIZE
 "hello" "world"
+__FILE__
 #define BAZ( ) (i++)
 print("Helo worl")
 a/*lol*/b
@@ -33,3 +35,13 @@ char* buf = CAST(char*, 0x8000);
 say(45)
 #define binary(a, op, b) ((a) op (b))
 int o = binary(h, +, j+t);
+	
+
+#define COMMAND(NAME)  { #NAME, NAME ## _command }
+
+struct command commands[] =
+{
+  COMMAND(quit),
+  COMMAND(help),
+  ...
+};

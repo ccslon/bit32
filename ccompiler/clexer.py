@@ -26,6 +26,7 @@ class Lex(Enum):
     INVALID = auto()
     END = auto()
     STRINGIZE = auto()
+    CONCAT = auto()
 
 
 # all of the type keywords in C that this compiler supports
@@ -84,9 +85,9 @@ class Lexer(metaclass=MetaLexer):
     def __init__(self):
         self.line = 1
 
-    def lex(self, text):
+    def lex(self, text, line=0):
         """Produce list of tokens based on defined regex patterns."""
-        self.line = 1
+        self.line = line
         return [Token(Lex[match.lastgroup.upper()], result, self.line)
                 for match in self.regex.finditer(text)
                 if (result := self.action[match.lastgroup](self, match[0]))
@@ -142,3 +143,5 @@ class CLexer(Lexer):
     def RE_invalid(self, match):
         r'\S'
         raise SyntaxError(f'line {self.line}: Invalid symbol "{match}"')
+
+    RE_end = r'$'
