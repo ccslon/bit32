@@ -1,7 +1,6 @@
 #define N 5
 int n = N;
 #
-__FILE__
 #include "inc1.c"
 #define MIN(a, b) ((a) <= (b) ? (a) : (b))
 int bar(int n);
@@ -12,6 +11,7 @@ FOO()BAZ
 #undef FOO
 FOO()
 #define TABLESIZE BUFSIZE
+__LINE__
 #define BUFSIZE 1024
 TABLESIZE
 "hello" "world"
@@ -35,13 +35,12 @@ char* buf = CAST(char*, 0x8000);
 say(45)
 #define binary(a, op, b) ((a) op (b))
 int o = binary(h, +, j+t);
-	
-
 #define COMMAND(NAME)  { #NAME, NAME ## _command }
-
 struct command commands[] =
 {
   COMMAND(quit),
   COMMAND(help),
   ...
 };
+#define foo (foo + 4)
+foo

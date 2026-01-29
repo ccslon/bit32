@@ -5,7 +5,7 @@ Created on Wed Jun  4 10:31:38 2025
 @author: Colin
 """
 import assembler
-from . import cpreprocessor
+from . import cpreprocessor2
 from . import cparser
 
 
@@ -18,16 +18,16 @@ def compile_file(file_name, iflag=False, sflag=False, fflag=True):
     fflag: Output to file.
     """
     if file_name.endswith('.c') or file_name.endswith('.h'):
-        preproc = cpreprocessor.CPreProcessor()
-        preproc.process(file_name)
+        cpreproc = cpreprocessor2.CPreProcessor()
+        cpreproc.process(file_name)
         if iflag:
-            text = preproc.output()
+            text = str(cpreproc)
             print(text)
             if fflag:
                 with open(f'{file_name[:-2]}.i', 'w+') as file:
                     file.write(text)
         else:
-            ast = cparser.parse(preproc.stream())
+            ast = cparser.parse(cpreproc.output())
             asm = ast.generate()
             if sflag:
                 assembler.display(asm)

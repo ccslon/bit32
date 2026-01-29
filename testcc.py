@@ -6,7 +6,7 @@ Created on Fri Sep  8 14:37:22 2023
 """
 from unittest import TestCase, main, expectedFailure
 
-from ccompiler import cpreprocessor, cparser
+from ccompiler import cpreprocessor2, cparser
 
 
 class TestCompiler(TestCase):
@@ -14,7 +14,7 @@ class TestCompiler(TestCase):
     @classmethod
     def setUpClass(cls):
         cls.tests = []
-        cls.preproc = cpreprocessor.CPreProcessor()
+        cls.preproc = cpreprocessor2.CPreProcessor()
 
     @classmethod
     def tearDownClass(cls):
@@ -22,7 +22,7 @@ class TestCompiler(TestCase):
 
     def code_eq_asm(self, name):
         self.preproc.process(f'tests/{name}.c')
-        ast = cparser.parse(self.preproc.stream())
+        ast = cparser.parse(self.preproc.output())
         out = ast.generate()
         with open(f'tests/{name}.s') as file:
             asm = file.read()
@@ -141,13 +141,13 @@ class TestCompiler(TestCase):
         self.preproc.process('tests/macros.c')
         with open('tests/macros.i') as file:
             expected = file.read()
-        self.assertEqual(self.preproc.output(), expected)
+        self.assertEqual(str(self.preproc), expected)
 
     def test_macro_ifs(self):
         self.preproc.process('tests/macro_ifs.c')
         with open('tests/macro_ifs.i') as file:
             expected = file.read()
-        self.assertEqual(self.preproc.output(), expected)
+        self.assertEqual(str(self.preproc), expected)
 
 
 if __name__ == '__main__':

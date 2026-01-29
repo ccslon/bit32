@@ -43,7 +43,7 @@ class Token(NamedTuple):
 
     type: Lex
     lexeme: str
-    line: int        
+    line: int
 
     def error(self, msg):
         """Raise error messages for the parser."""
@@ -85,7 +85,7 @@ class Lexer(metaclass=MetaLexer):
     def __init__(self):
         self.line = 1
 
-    def lex(self, text, line=0):
+    def lex(self, text, line=1):
         """Produce list of tokens based on defined regex patterns."""
         self.line = line
         return [Token(Lex[match.lastgroup.upper()], result, self.line)
