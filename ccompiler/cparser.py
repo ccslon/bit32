@@ -83,7 +83,6 @@ class FunctionInfo:
     return_type: Type
     name: str
     space: int = 0
-    register_space: int = 0
     returns: bool = False
     calls: bool = False
     max_arguments: int = 0
@@ -124,7 +123,7 @@ class CParser(Parser):
 
     STATEMENTS = {'{', Lex.NAME, 'if', '*', 'return', 'for', 'while', '(',
                   'switch', 'do', '++', '--', 'break', 'continue', ';', 'goto'}
-    STORAGE = {'typedef', 'extern', 'auto'}
+    STORAGE = {'typedef', 'extern', 'static', 'auto', 'register'}
 
     def __init__(self):
         self.globals = {}
@@ -847,7 +846,6 @@ class CParser(Parser):
     def end_scope(self):
         """End a scope."""
         self.function.space = max(self.function.space, self.scope.locals.size)
-        # self.function.register_space = max(self.function.register_space, len(self.scope.registers))
         self.scope = self.stack.pop()
 
 
