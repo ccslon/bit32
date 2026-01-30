@@ -26,7 +26,7 @@ void do_action(enum Action action) {
             handleLEFT();
             break;
         case RIGHT: //1
-            handleLEFT();
+            handleRIGHT();
             break;
         default:
             error("WHOA!\n");
