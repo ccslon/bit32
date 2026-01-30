@@ -205,17 +205,17 @@ class CPreProcessor(Expander):
         self.std_included = set()
         self.files = []
         self.frame = None
-        super().__init__({'and': (Lex.SYMBOL, '&&'),
-                          'and_eq': (Lex.SYMBOL, '&='),
-                          'bitand': (Lex.SYMBOL, '&'),
-                          'or': (Lex.SYMBOL, '||'),
-                          'or_eq': (Lex.SYMBOL, '|='),
-                          'bitor': (Lex.SYMBOL, '|'),
-                          'compl': (Lex.SYMBOL, '~'),
-                          'not': (Lex.SYMBOL, '!'),
-                          'not_eq': (Lex.SYMBOL, '!='),
-                          'xor': (Lex.SYMBOL, '^'),
-                          'xor_eq': (Lex.SYMBOL, '^=')})
+        super().__init__({'and': [(Lex.SYMBOL, '&&')],
+                          'and_eq': [(Lex.SYMBOL, '&=')],
+                          'bitand': [(Lex.SYMBOL, '&')],
+                          'or': [(Lex.SYMBOL, '||')],
+                          'or_eq': [(Lex.SYMBOL, '|=')],
+                          'bitor': [(Lex.SYMBOL, '|')],
+                          'compl': [(Lex.SYMBOL, '~')],
+                          'not': [(Lex.SYMBOL, '!')],
+                          'not_eq': [(Lex.SYMBOL, '!=')],
+                          'xor': [(Lex.SYMBOL, '^')],
+                          'xor_eq': [(Lex.SYMBOL, '^=')]})
 
     def primary(self):
         """
@@ -238,14 +238,12 @@ class CPreProcessor(Expander):
             return self.expect(Lex.NAME).lexeme in self.defined
         if self.accept(Lex.NAME):
             return 0
-        if self.peek(Lex.DECIMAL):
-            return next(self).lexeme
-        if self.peek(Lex.NUMBER):
+        if self.peek({Lex.DECIMAL, Lex.NUMBER}):
             return next(self).lexeme
         if self.peek(Lex.CHARACTER):
             return ord(unescape(next(self).lexeme))
         if self.peek(Lex.STRING):
-            return next(self).lexeme
+            return unescape(next(self).lexeme)
         if self.accept('('):
             primary = self.expression()
             self.expect(')')
