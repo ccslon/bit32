@@ -138,10 +138,7 @@ class Expander(Parser):
         else:
             expanded.append(name)
         macro.disabled += 1
-        self.stack.append((self.index, self.tokens, self.macro))
-        self.index = 0
-        self.tokens = expanded
-        self.macro = macro
+        self.push(expanded, macro)
 
     def stream(self):
         """
@@ -163,6 +160,12 @@ class Expander(Parser):
         """Unwind the stack as needed."""
         while self.index >= len(self.tokens):
             self.pop()
+
+    def push(self, tokens, macro):
+        self.stack.append((self.index, self.tokens, self.macro))
+        self.index = 0
+        self.tokens = tokens
+        self.macro = macro
 
     def pop(self):
         """Handle popping from stack."""
@@ -547,7 +550,7 @@ class CPreProcessor(Expander):
                         space = self.accept(Lex.SPACE)
                         if self.peek(Lex.STRING):
                             right = next(self)
-                            output.append(Token(Lex.STRING, left.lexeme+right.lexeme, left.line))
+                            self.push([Token(Lex.STRING, left.lexeme+right.lexeme, left.line)], None)
                         else:
                             output.append(left)
                             if space is not None:

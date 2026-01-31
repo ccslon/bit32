@@ -14,8 +14,7 @@ FOO()
 __LINE__
 #define BUFSIZE 1024
 TABLESIZE
-"hello" "world"
-__FILE__
+"hello" " " "world"
 #define BAZ( ) (i++)
 print("Helo worl")
 a/*lol*/b

@@ -15,8 +15,7 @@ FOO()
 14
 
 1024
-"helloworld"
-"c:\users\ccslon\onedrive - urban science\documents\github\bit32\tests\macros.c"
+"hello world"
 
 print("Helo worl")
 a b
