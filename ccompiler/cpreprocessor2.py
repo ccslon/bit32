@@ -7,6 +7,7 @@ Created on Thu Jan 15 10:08:22 2026
 import os
 import re
 from dataclasses import dataclass, field
+from datetime import datetime
 from operator import add, sub, mul, truediv, mod, lshift, rshift, eq, ne, gt, lt, ge, le
 from bit32 import unescape
 from .clexer import Lex, Token, CLexer
@@ -34,8 +35,6 @@ TODO:
     [ ] append, no insert
     [ ] predefined macros e.g. __FILE__, __LINE__
 '''
-
-lexer = CLexer()
 
 
 @dataclass
@@ -72,6 +71,7 @@ class Expander(Parser):
         self.macro = None
         self.stack = None
         self.defined = defined
+        self.lexer = CLexer()
 
     def argument(self):
         """
@@ -126,7 +126,7 @@ class Expander(Parser):
                         left = stringize(left)
                     if right in args:
                         right = stringize(right)
-                    expanded.extend(lexer.lex(left+right, name.line)[:-1])  # cut off Lex.END
+                    expanded.extend(self.lexer.lex(left+right, name.line)[:-1])  # cut off Lex.END
                 elif lexeme in args:
                     if lexeme not in expanded_args:
                         expanded_args[lexeme] = Expander(self.defined).parse(args[lexeme])
@@ -571,7 +571,7 @@ class CPreProcessor(Expander):
             self.defined['__LINE__'] = Macro(None, [(Lex.NUMBER, 1)])
             text = file.read()
         text = self.replace_comments(text)
-        output = self.parse(lexer.lex(text))
+        output = self.parse(self.lexer.lex(text))
         self.files.append((file_name, output))
 
     def process(self, file_name):
@@ -580,12 +580,16 @@ class CPreProcessor(Expander):
         self.std_included.clear()
         self.files.clear()
         self.defined.clear()
+        self.defined['__BASE_FILE__'] = Macro(None, [(Lex.STRING, file_name)])
+        now = datetime.now()
+        self.defined['__DATE__'] = Macro(None, [(Lex.STRING, now.strftime("%b %d %Y"))])
+        self.defined['__TIME__'] = Macro(None, [(Lex.STRING, now.strftime("%H:%M:%S"))])
         self.process_file([], file_name)
 
     def output(self):
         """Produce a list of tokens."""
         return [token for _, tokens in self.files for token in tokens
-                if token.type not in {Lex.SPACE, Lex.NEW_LINE, Lex.END}] + [Token(Lex.END, '', lexer.line)]
+                if token.type not in {Lex.SPACE, Lex.NEW_LINE, Lex.END}] + [Token(Lex.END, '', self.lexer.line)]
 
     def comment_replacement(self, match):
         """Replace comments with space/newlines to preserve line numbers."""
