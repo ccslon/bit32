@@ -208,17 +208,7 @@ class CPreProcessor(Expander):
         self.std_included = set()
         self.files = []
         self.frame = None
-        super().__init__({'and': [(Lex.SYMBOL, '&&')],
-                          'and_eq': [(Lex.SYMBOL, '&=')],
-                          'bitand': [(Lex.SYMBOL, '&')],
-                          'or': [(Lex.SYMBOL, '||')],
-                          'or_eq': [(Lex.SYMBOL, '|=')],
-                          'bitor': [(Lex.SYMBOL, '|')],
-                          'compl': [(Lex.SYMBOL, '~')],
-                          'not': [(Lex.SYMBOL, '!')],
-                          'not_eq': [(Lex.SYMBOL, '!=')],
-                          'xor': [(Lex.SYMBOL, '^')],
-                          'xor_eq': [(Lex.SYMBOL, '^=')]})
+        super().__init__({})
 
     def primary(self):
         """
