@@ -286,7 +286,7 @@ class Definition(CNode):
 
         # calculate list of register to push onto the stack
         push = list(map(Reg, range(max(bool(self.type.return_type.width),
-                                       len(self.parameters)), max_reg+1)))
+                                       len(self.parameters[:4])), max_reg+1)))
         pop = push.copy()
 
         self.adjust_offsets(emitter, push)
@@ -305,10 +305,7 @@ class Definition(CNode):
 
     def prologue(self, emitter, push):
         """Generate prologue code specific to regular functions."""
-        if self.calls:
-            emitter.emit_push(push + [Reg.LR])
-        else:
-            emitter.emit_push(push)
+        emitter.emit_push(push + [Reg.LR]*self.calls)
         if self.space:
             emitter.emit_binary(Op.SUB, Size.WORD, Reg.SP, self.space)
         for i, param in enumerate(self.parameters[:4]):
@@ -316,7 +313,11 @@ class Definition(CNode):
 
     def ret(self, emitter, pop):
         """Generate return code specific to regular functions."""
-        if self.calls:
+        if len(self.parameters) > 4:
+            emitter.emit_pop(pop + [Reg.LR]*self.calls)
+            emitter.emit_binary(Op.ADD, Size.WORD, Reg.SP, (len(self.parameters)-4) * Size.WORD)
+            emitter.emit_ret()
+        elif self.calls:
             emitter.emit_pop(pop + [Reg.PC])
         else:
             emitter.emit_pop(pop)
@@ -338,20 +339,14 @@ class VariadicDefinition(Definition):  # TODO test
     def prologue(self, emitter, push):
         """Generate prologue code specific to variadic functions."""
         emitter.emit_push(list(map(Reg, range(4))))
-        if self.calls:
-            emitter.emit_push(push + [Reg.LR])
-        else:
-            emitter.emit_push(push)
+        emitter.emit_push(push + [Reg.LR]*self.calls)
         if self.space:
             emitter.emit_binary(Op.SUB, Size.WORD, Reg.SP, self.space)
 
     def ret(self, emitter, push):
         """Generate return code specific to variadic functions."""
-        if self.calls:
-            emitter.emit_pop(push + [Reg.LR])
-        else:
-            emitter.emit_pop(push)
-        emitter.emit_binary(Op.ADD, Size.WORD, Reg.SP, 4*Size.WORD)
+        emitter.emit_pop(push + [Reg.LR]*self.calls)
+        emitter.emit_binary(Op.ADD, Size.WORD, Reg.SP, (len(self.parameters[4:])+4) * Size.WORD)
         emitter.emit_ret()
 
     def adjust_offsets(self, emitter, push):

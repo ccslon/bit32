@@ -390,12 +390,15 @@ class Call(Expression, Statement):
         for i, arg in enumerate(self.arguments):
             arg.reduce(emitter, n+i)
             self.parameters[i].type.convert(emitter, n+i, arg.type)
+        self.move_arguments(emitter, n)
+        
+    def move_arguments(self, emitter, n):
+        """Move arguments into proper positions before calling."""
         if n > 0:
             for i, arg in enumerate(self.arguments[:4]):
                 emitter.emit_binary(Op.MOV, arg.width, Reg(i), Reg(n+i))
-        for i, arg in reversed(list(enumerate(self.arguments[4:]))):  # TODO test thsi branch
-            # emitter.push(arg.width, Reg(n+4+i))
-            emitter.emit_push([Reg(n+4+i)])
+        for i, arg in reversed(list(enumerate(self.arguments[4:]))):
+            emitter.emit_push([Reg(n+4+i)])  # TODO test
 
     def reduce(self, emitter, n):
         """Generate code for function call (as an expression)."""
@@ -421,11 +424,7 @@ class VariadicCall(Call):
             param.type.convert(emitter, n+i, self.arguments[i].type)
         for i, arg in enumerate(self.arguments[len(self.parameters):]):
             arg.reduce(emitter, len(self.parameters)+n+i)
-        if n > 0:
-            for i, arg in enumerate(self.arguments[:4]):
-                emitter.emit_binary(Op.MOV, arg.width, Reg(i), Reg(n+i))
-        for i, arg in reversed(list(enumerate(self.arguments[4:]))):
-            emitter.emit_push([Reg(n+4+i)])  # TODO test
+        self.move_arguments(emitter, n)
 
     def adjust_stack(self, emitter):
         """Remove remaining arguments from stack."""
