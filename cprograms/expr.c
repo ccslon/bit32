@@ -87,7 +87,7 @@ unsigned consume(Token* new, char* input, enum TokenType type, int (*test)(int))
     char lexeme_len = 0;
     do {
         lexeme_buffer[lexeme_len++] = input[i++];
-    } while ((*test)(input[i]) && lexeme_len < LEXEME_BUFFER_SIZE);
+    } while ((*test)(input[i]) && lexeme_len < LEXEME_BUFFER_SIZE-1);
     lexeme_buffer[lexeme_len] = '\0';
     new->lexeme = strdup(lexeme_buffer);
     new->type = type;    
@@ -127,8 +127,6 @@ Token* lex(char* input) {
                         printf("Bad token \"%c\"\n", input[i]);
                         free(new);
                         new = NULL;
-                        freeTokens(head);
-                        head = NULL;
                         errno = EINV_SYM;
                         longjmp(jmp, 1);
                 }
@@ -382,27 +380,25 @@ void exec(char* input) {
         printf("%d\n", value);
     }
     freeNode(tree);
+    tree = NULL;
     freeTokens(head);
+    head = NULL;
 }
 
 void loop();
 
 int main() {
-    //exec("3");
-    //exec("9 / (3 * 3)");
-    //exec("3+3");
-    //exec("a");/
-    exec("a+b*c");
-    //loop();
+    // exec("a+b*c");
+    loop();
     return 0;
 }
 #define BUF_SIZE 32
 void loop() {
 	char buf[BUF_SIZE];
-	buf[0] = '\0';
 	while(1) {
+        buf[0] = '\0';
 		fgets(buf, BUF_SIZE, stdin);
-		if (strcmp(buf, "quit\n") == 0) {
+		if (strcmp(buf, "quit") == 0) {
 			return;
 		}
         exec(buf);
