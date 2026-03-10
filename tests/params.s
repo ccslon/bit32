@@ -67,6 +67,7 @@ params5:
   ADD    A, B
 .L5:
   ADD    SP, 20
+  ADD    SP, 4
   RET
 params6:
   SUB    SP, 16
@@ -91,4 +92,5 @@ params6:
   ADD    A, B
 .L6:
   ADD    SP, 16
+  ADD    SP, 8
   RET
