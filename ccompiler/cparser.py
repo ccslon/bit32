@@ -179,9 +179,9 @@ class CParser(Parser):
             if self.peek('('):
                 if not isinstance(postfix.type, Function):
                     self.error(f'{postfix.type} is not a function type')
-                call_type = VariadicCall if postfix.type.variadic else Call
+                CallType = VariadicCall if postfix.type.variadic else Call
                 self.function.calls = True
-                postfix = call_type(next(self), postfix, self.arguments())
+                postfix = CallType(next(self), postfix, self.arguments())
                 self.expect(')')
             elif self.accept('['):
                 postfix = SubScript(postfix, self.expression())
@@ -417,17 +417,17 @@ class CParser(Parser):
         else:
             specifier[name.lexeme] = Attribute(ctype, name)
 
-    def struct_or_union(self, new_type):
+    def struct_or_union(self, NewType):
         """
         STRUCT_OR_UNION -> ('struct'|'union') [name] '{' {QUALIFIER ATTRIBUTE {',' ATTR} ';'} '}'
         """
         name = self.accept(Lex.NAME)
         if name:
             if name.lexeme not in self.scope.types:
-                self.scope.types[name.lexeme] = new_type(name)
+                self.scope.types[name.lexeme] = NewType(name)
             struct_or_union = copy(self.scope.types[name.lexeme])
         else:
-            struct_or_union = new_type(name)
+            struct_or_union = NewType(name)
         if self.accept('{'):
             while not self.accept('}'):
                 qualifier = self.qualifier()
@@ -529,8 +529,8 @@ class CParser(Parser):
         ctype, name = self.direct_declarator(ctype, types)
         types.extend(((Pointer, (qual,)) for qual in qualifiers))
         if is_top:
-            for new_type, args in reversed(types):
-                ctype = new_type(ctype, *args)
+            for NewType, args in reversed(types):
+                ctype = NewType(ctype, *args)
         return ctype, name
 
     def direct_declarator(self, ctype, types):
@@ -781,11 +781,11 @@ class CParser(Parser):
                         self.scope.locals[param.token.lexeme] = param
                     for param in ctype.parameters[4:]:
                         self.stack_parameters[param.token.lexeme] = param
-                    defn = VariadicDefinition if ctype.variadic else Definition
+                    DefinitionType = VariadicDefinition if ctype.variadic else Definition
                     compound = self.compound()
                     self.end_scope()
                     self.expect('}')
-                    external.append(defn(ctype, name, compound, self.function))
+                    external.append(DefinitionType(ctype, name, compound, self.function))
                     break
                 else:  # DECLARATION
                     declaring = True

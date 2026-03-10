@@ -116,8 +116,8 @@ class Switch(Statement):
                 emitter.emit_jump(Cond.AL, default)
             else:
                 emitter.emit_jump(Cond.AL, emitter.loop_tail())
-            for i, case in enumerate(self.cases):
-                emitter.append_label(labels[i])
+            for label, case in zip(labels, self.cases):
+                emitter.append_label(label)
                 case.statement.generate(emitter, n)
             if self.default:
                 emitter.append_label(default)
@@ -331,8 +331,8 @@ class InitListAssignment(Statement):
     def generate(self, emitter, n):
         """Generate code for initial list assignment."""
         self.left.address(emitter, n)
-        for i, (loc, ctype) in enumerate(self.left.type):
-            ctype.list_generate(emitter, n, self.right[i], loc)
+        for (offset, ctype), element in zip(self.left.type, self.right):
+            ctype.list_generate(emitter, n, element, offset)
 
     def global_generate(self, emitter):
         """Generate code for initial list assignment as a global."""
@@ -353,7 +353,7 @@ class InitStringArray(Statement):
     def generate(self, emitter, n):
         """Generate code for local string array assignments."""
         self.array.address(emitter, n)
-        for i, c in enumerate(self.string.value+'\0'):
+        for i, c in enumerate(self.string.value+'\0'):  # TODO string can be longer than array length
             emitter.emit_binary(Op.MOV, Size.BYTE, Reg(n+1), f"'{escape(c)}'")
             emitter.emit_store(Size.BYTE, Reg(n+1), Reg(n), i)
 
@@ -369,9 +369,9 @@ class Call(Expression, Statement):
         if len(arguments) < len(function.type.parameters):
             token.error('Not enough arguments provided for function call'
                         + f' "{function.name()}"' if isinstance(function, Variable) else '')
-        for i, param in enumerate(function.type.parameters):
-            if param.type != arguments[i].type:
-                token.error(f'Argument #{i+1} of "{function.token.lexeme}" {param.type} != {arguments[i].type}')
+        for i, (param, arg) in enumerate(zip(function.type.parameters, arguments)):
+            if param.type != arg.type:
+                token.error(f'Argument #{i+1} of "{function.token.lexeme}" {param.type} != {arg.type}')
         super().__init__(function.type.return_type)
         self.function = function
         self.arguments = arguments
@@ -387,9 +387,9 @@ class Call(Expression, Statement):
 
     def reduce_arguments(self, emitter, n):
         """Generate code for arguments."""
-        for i, arg in enumerate(self.arguments):
+        for i, (param, arg) in enumerate(zip(self.parameters, self.arguments)):
             arg.reduce(emitter, n+i)
-            self.parameters[i].type.convert(emitter, n+i, arg.type)
+            param.type.convert(emitter, n+i, arg.type)
         self.move_arguments(emitter, n)
         
     def move_arguments(self, emitter, n):
@@ -419,9 +419,9 @@ class VariadicCall(Call):
 
     def reduce_arguments(self, emitter, n):
         """Generate code for arguments."""
-        for i, param in enumerate(self.parameters):
-            self.arguments[i].reduce(emitter, n+i)
-            param.type.convert(emitter, n+i, self.arguments[i].type)
+        for i, (param, arg) in enumerate(zip(self.parameters, self.arguments)):
+            arg.reduce(emitter, n+i)
+            param.type.convert(emitter, n+i, arg.type)
         for i, arg in enumerate(self.arguments[len(self.parameters):]):
             arg.reduce(emitter, len(self.parameters)+n+i)
         self.move_arguments(emitter, n)

@@ -394,17 +394,17 @@ class Pointer(Int):
 class List(Value):
     """Base class for types that can list initialized."""
 
-    def list_generate(self, emitter, n, right, loc):
+    def list_generate(self, emitter, n, right, offset):
         """Generate code for initialization lists."""
         # can't be address or it will be optimized away incorrectly.
-        emitter.emit_ternary(Op.ADD, Size.WORD, Reg(n+1), Reg(n), loc)
-        for i, (loc, ctype) in enumerate(self):
-            ctype.list_generate(emitter, n+1, right[i], loc)
+        emitter.emit_ternary(Op.ADD, Size.WORD, Reg(n+1), Reg(n), offset)
+        for (offset, ctype), rtype in zip(self, right):
+            ctype.list_generate(emitter, n+1, rtype, offset)
 
     def global_data(self, emitter, expr, data):
         """Generate code for global data."""
-        for i, (_, ctype) in enumerate(self):
-            ctype.global_data(emitter, expr[i], data)
+        for (_, ctype), etype in zip(self, expr):
+            ctype.global_data(emitter, etype, data)
         return data
 
 
@@ -432,7 +432,7 @@ class Struct(Frame, List):
             else:
                 frame[loc] = ctype
         for loc, ctype in frame.items():
-            if ctype.size in [Size.WORD, Size.BYTE, Size.HALF]:
+            if ctype.size in {Size.WORD, Size.BYTE, Size.HALF}:
                 emitter.emit_load(ctype.width, Reg(n+2), Reg(n), loc)
                 emitter.emit_store(ctype.width, Reg(n+2), Reg(n+1), loc)
             else:
@@ -538,8 +538,7 @@ class Function(Value):
                 and self.return_type == other.return_type
                 and len(self.parameters) == len(other.parameters)
                 and self.variadic == other.variadic
-                and all(param.type == other.parameters[i].type
-                        for i, param in enumerate(self.parameters)))
+                and all(p.type == o.type for p, o in zip(self.parameters, other.parameters)))
 
     def __str__(self):
         """Get string representation for this function type."""
