@@ -25,12 +25,20 @@ char getchar() {
     return c;
 }
 char* fgets(char* s, size_t n, FILE* stream) {
+    size_t i = 0;
     char c;
-    char* cs = s;
-    while (--n > 0 && (c = fgetc(stream)))
-        *cs++ = c;
-    *cs = '\0';
-    return s;
+    if (n > 0) {
+        while (i < n-1 && (c = fgetc(stream)) && c != '\n') {
+            if (c == '\b' && i > 0) {
+                i--;
+            } else {
+                s[i] = c;
+                i++;
+            }
+        }
+    }
+    s[i] = '\0';
+    return s;    
 }
 char* gets(char* s, size_t n) {
     return fgets(s, n, stdin);
@@ -171,6 +179,6 @@ void printf(const char* format, ...) {
             putchar(*c);
         }
     }
-    (ap = (void*)0);
+    (ap = (int*)0);
 }
 #undef va_arg
