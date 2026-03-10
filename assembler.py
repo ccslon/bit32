@@ -219,6 +219,8 @@ class Assembler:
                         emitter.emit_string(*self.matched())
                     elif self.match('label', 'space', 'const'):
                         emitter.emit_space(*self.matched())
+                    elif self.match('label', 'space', 'id'):
+                        emitter.emit_space(*self.matched())
                     else:
                         self.error()
                 elif self.peek('op'):
@@ -276,12 +278,16 @@ class Assembler:
                         emitter.emit_load(*self.matched(), 0, True)
                     elif self.match('ld', 'reg', ',', '[', 'reg', ',', 'const', ']'):
                         emitter.emit_load(*self.matched(), True)
+                    elif self.match('ld', 'reg', ',', '[', 'reg', ',', 'id', ']'):
+                        emitter.emit_load(*self.matched(), True)
 
                     elif self.match('st', '[', 'reg', ',', 'reg', ']', ',', 'reg'):
                         emitter.emit_store(*self.matched(), False)
                     elif self.match('st', '[', 'reg', ']', ',', 'reg'):
                         emitter.emit_store0(*self.matched())
                     elif self.match('st', '[', 'reg', ',', 'const', ']', ',', 'reg'):
+                        emitter.emit_store(*self.matched(), True)
+                    elif self.match('st', '[', 'reg', ',', 'id', ']', ',', 'reg'):
                         emitter.emit_store(*self.matched(), True)
 
                     elif self.match('ldi', 'reg', ',', 'const'):
