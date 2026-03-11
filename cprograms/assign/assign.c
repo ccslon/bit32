@@ -4,20 +4,32 @@
 #include <ctype.h>
 #include <stdio.h>
 #include <errno.h>
+#include <setjmp.h>
+
+#include "intmap.h"
+
 #define EINV_SYM 200
 #define ENAME 201
 #define EEXPECTED 202
 #define EASSIGN 203
 
-#include "intmap.h"
+jmp_buf jmp;
 
 // Lexer
 enum TokenType {
     NUM,
     VAR,
     SYM,
-    INVALID,
+    BAD,
     END
+};
+
+char* TokenTypeMap[5] = {
+    "NUM",
+    "VAR",
+    "SYM",
+    "BAD",
+    "END"
 };
 
 typedef struct Token {
@@ -52,7 +64,7 @@ unsigned consume(Token* new, char* input, enum TokenType type, int (*test)(int))
     char lexeme_len = 0;
     do {
         lexeme_buffer[lexeme_len++] = input[i++];
-    } while ((*test)(input[i]) && lexeme_len < LEXEME_BUFFER_SIZE);
+    } while ((*test)(input[i]) && lexeme_len < LEXEME_BUFFER_SIZE-1);
     lexeme_buffer[lexeme_len] = '\0';
     new->lexeme = strdup(lexeme_buffer);
     new->type = type;    
@@ -90,10 +102,11 @@ Token* lex(char* input) {
                         new->sym = input[i++];
                         break;
                     default:
-                        new->type = INVALID;
-                        new->sym = input[i++];
-                        printf("Invalid token %c\n", new->sym);
+                        printf("Bad token \"%c\"\n", input[i]);
+                        free(new);
+                        new = NULL;
                         errno = EINV_SYM;
+                        longjmp(jmp, 1);
                 }
             }
             new->line = line;
@@ -150,12 +163,12 @@ typedef struct Node {
     Token* token;
     union {
         int num;
-        char* var;
+        char* name;
         Binary* binary;
     };
 } Node;
 
-Node* allocNum(Token* token) {
+Node* allocNumber(Token* token) {
     Node* node = malloc(sizeof(Node));
     node->type = NUMBER;
     node->token = token;
@@ -163,11 +176,11 @@ Node* allocNum(Token* token) {
     return node;
 }
 
-Node* allocVar(Token* token) {
+Node* allocVariable(Token* token) {
     Node* node = malloc(sizeof(Node));
     node->type = VARIABLE;
     node->token = token;
-    node->var = token->lexeme;
+    node->name = token->lexeme;
     return node;
 }
 
@@ -181,7 +194,7 @@ Node* allocBinary(Token* token, Node* left, Node* right) {
     Node* node = malloc(sizeof(Node));
     node->type = BINARY;
     node->token = token;
-    node->binary = malloc(sizeof(struct Binary));
+    node->binary = malloc(sizeof(Binary));
     switch (node->token->sym) {
         case '+':
             node->binary->op = add_;
@@ -231,11 +244,11 @@ int eval(Node* node) {
         case NUMBER:
             return node->num;
         case VARIABLE: {
-            Pair* var = IntMap_get(env, node->var);
+            Pair* var = IntMap_get(env, node->name);
             if (var == NULL) {
-                printf("Cannot find name %s\n", node->var);
+                printf("Cannot find name %s\n", node->name);
                 errno = ENAME;
-                return 0;
+                longjmp(jmp, 1);
             }
             return var->value;
         }
@@ -243,7 +256,7 @@ int eval(Node* node) {
             return (*node->binary->op)(eval(node->binary->left), eval(node->binary->right));
         case ASSIGN: {
             int value = eval(node->binary->right);
-            IntMap_set(env, node->binary->left->var, value);
+            IntMap_set(env, node->binary->left->name, value);
             return value;
         }
     }
@@ -255,7 +268,7 @@ void printNode(Node* node) {
             printf("%d ", node->num);
             break;
         case VARIABLE:
-            printf("%s ", node->var);
+            printf("%s ", node->name);
             break;
         case BINARY:
             printNode(node->binary->left);
@@ -273,52 +286,64 @@ Token* next() {
     return next;
 }
 
-bool peek(enum TokenType type) {
+bool peekToken(enum TokenType type) {
     return current->type == type;
 }
 
-bool peek_sym(char sym) {
+bool peek(char sym) {
     return current->sym == sym;
 }
 
 bool accept(char sym) {
-    if (peek_sym(sym)) {
+    if (peek(sym)) {
         next();
         return true;
     }
     return false;
 }
 
+void expectToken(enum TokenType token) {
+    if (peekToken(token)) {
+        next();
+        return;
+    }
+    printf("Expected %s\n", TokenTypeMap[token]);
+    errno = EEXPECTED;
+    longjmp(jmp, 1);
+}
+
 void expect(char sym) {
-    if (peek_sym(sym)) {
+    if (peek(sym)) {
         next();
         return;
     }
     printf("Expected %c\n", sym);
     errno = EEXPECTED;
+    longjmp(jmp, 1);
 }
 
 Node* expr();
 
 Node* factor() {
     Node* factor;
-    if (peek(NUM)) {
-        factor = allocNum(next());
-    } else if (peek(VAR)) {
-        factor = allocVar(next());
+    if (peekToken(NUM)) {
+        factor = allocNumber(next());
+    } else if (peekToken(VAR)) {
+        factor = allocVariable(next());
     } else if (accept('(')) {
         factor = expr();
         expect(')');
     } else {
         printf("Expected NUM, VAR, or (\n");
         errno = EEXPECTED;
-        factor = NULL;
+        longjmp(jmp, 1);
     }
+    return factor;
 }
 
 Node* term() {
     Node* term = factor();
-    while (peek_sym('*') || peek_sym('/')) {
+    while (peek('*') || peek('/')) {
 	    Token* token = next();
         term = allocBinary(token, term, factor());
     }
@@ -327,7 +352,7 @@ Node* term() {
 
 Node* expr() {
     Node* expr = term();
-    while (peek_sym('+') || peek_sym('-')) {
+    while (peek('+') || peek('-')) {
         Token* token = next();
 	    expr = allocBinary(token, expr, term());
     }
@@ -342,6 +367,7 @@ Node* assign() {
             errno = EASSIGN;
             freeNode(assign);
             assign =  NULL;
+            longjmp(jmp, 1);
         }
         Token* token = next();
         assign = allocAssign(token, assign, expr());
@@ -352,66 +378,51 @@ Node* assign() {
 Node* parse(Token* head) {
     current = head;
     Node* root = assign();
-    if (current->type != END) {
-        printf("Expected END\n");
-        errno = EEXPECTED;
-    }
+    expectToken(END);
     return root;
 }
 
 void exec(char* input) {
-    Token* head = lex(input);
-    if (!errno) {
+    Token* head = NULL;
+    Node* tree = NULL;
+    if (setjmp(jmp) == 0) {
+        head = lex(input);
         printTokens(head);
-        Node* tree = parse(head);
-        if (!errno) {
-            printNode(tree);
-	        putchar('\n');
-            int value = eval(tree);
-            if (!errno) {
-                printf("%d\n", value);
-            }            
-        }        
-        freeNode(tree);
+        tree = parse(head);
+        printNode(tree);
+        putchar('\n');
+        int value = eval(tree);
+        printf("%d\n", value);
     }
+    freeNode(tree);
+    tree = NULL;
     freeTokens(head);
+    head = NULL;
 }
 
 void loop();
 
 int main() {
     env = allocIntMap();
-    //exec("3");
-    //exec("9 / (3 * 3)");
-    //exec("3+3");
-    //exec("a");/
-    //exec("a+b");
+    IntMap_set(env, "a", 3);
+    IntMap_set(env, "b", 4);
+    IntMap_set(env, "c", 7);
+    IntMap_set(env, "foo", 10);
     loop();
     freeIntMap(env);
     return 0;
 }
+
 #define BUF_SIZE 32
 void loop() {
 	char buf[BUF_SIZE];
-	buf[0] = '\0';
 	while(1) {
+        buf[0] = '\0';
 		fgets(buf, BUF_SIZE, stdin);
-		if (strcmp(buf, "quit\n") == 0) {
-			break;
+		if (strcmp(buf, "quit") == 0) {
+			return;
 		}
-		Token* head = lex(buf);
-		if (!errno) {
-			Node* tree = parse(head);
-			if (!errno) {
-				int value = eval(tree);
-				if (!errno) {
-					printf("%d\n", value);
-				}
-			}
-			freeNode(tree);
-		}
-		freeTokens(head);
-		errno = 0;
-	}
+        exec(buf);
+    }
 }
 
