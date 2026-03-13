@@ -21,6 +21,10 @@ class Type:
             return right
         return type(left if left.width >= right.width else right)(left.signed and right.signed)
 
+    def size(self):
+        """Get the total size of this type."""
+        return self.width
+
     def cast(self, other):
         """Determine if given type is able to cast to instance type."""
         return self == other
@@ -30,7 +34,7 @@ class Void(Type):
     """Class for void type."""
 
     def __init__(self):
-        self.size = self.width = 0
+        self.width = 0
 
     def __eq__(self, other):
         """Determine if the given type is equal to void."""
@@ -92,11 +96,11 @@ class Value(Type):
         """Generate code for compare operator."""
         emitter.emit_binary(Op.CMP, self.width, left.reduce(emitter, n), right.reduce_number(emitter, n+1))
 
-    def list_generate(self, emitter, n, right, loc):
+    def list_generate(self, emitter, n, right, offset):
         """Generate code for initialization lists."""
         right.reduce(emitter, n+1)
         self.convert(emitter, n+1, right.type)
-        emitter.emit_store(self.width, Reg(n+1), Reg(n), loc)
+        emitter.emit_store(self.width, Reg(n+1), Reg(n), offset)
 
     def global_address(self, emitter, n, glob):
         """Generate address code for global variable."""
@@ -235,7 +239,7 @@ class Char(Numeric):
 
     def __init__(self, signed=True):
         super().__init__(signed)
-        self.size = self.width = Size.BYTE
+        self.width = Size.BYTE
 
     def __str__(self):
         """Get string representation for char type."""
@@ -247,7 +251,7 @@ class Short(Numeric):
 
     def __init__(self, signed=True):
         super().__init__(signed)
-        self.size = self.width = Size.HALF
+        self.width = Size.HALF
 
     def __str__(self):
         """Get string representation for short type."""
@@ -259,7 +263,7 @@ class Int(Numeric):
 
     def __init__(self, signed=True):
         super().__init__(signed)
-        self.size = self.width = Size.WORD
+        self.width = Size.WORD
 
     def __str__(self):
         """Get string representation for int type."""
@@ -303,7 +307,7 @@ class Float(Numeric):
 
     def __init__(self):
         super().__init__(True)
-        self.size = self.width = Size.WORD
+        self.width = Size.WORD
 
     def convert(self, emitter, n, other):  # TODO test
         """Convert to given type if applicable."""
@@ -354,7 +358,7 @@ class Pointer(Int):
     def __init__(self, ctype, const=False):
         super().__init__(False)
         self.to = self.of = ctype
-        self.interval = int(self.to.size)
+        self.interval = int(ctype.size())
         self.const = const
 
     def reduce_binary(self, emitter, n, op, left, right):
@@ -391,7 +395,7 @@ class Pointer(Int):
         return f'ptr({self.to})'
 
 
-class List(Value):
+class List:
     """Base class for types that can list initialized."""
 
     def list_generate(self, emitter, n, right, offset):
@@ -408,67 +412,17 @@ class List(Value):
         return data
 
 
-class Struct(Frame, List):
-    """Class for struct type."""
-
-    def __init__(self, name):
-        super().__init__()
-        self.const = False
-        self.name = name.lexeme if name is not None else name
-        self.width = Size.WORD
-
-    def reduce(self, emitter, n, var, base):
-        """Generate code for loading a struct."""
-        return self.address(emitter, n, var, base)
-
-    def store(self, emitter, n, var, base):
-        """Generate code for storing a struct."""
-        self.address(emitter, n+1, var, base)
-        frame = {}
-        for loc, ctype in self:
-            if loc in frame:
-                if ctype.size > frame[loc].size:
-                    frame[loc] = ctype
-            else:
-                frame[loc] = ctype
-        for loc, ctype in frame.items():
-            if ctype.size in {Size.WORD, Size.BYTE, Size.HALF}:
-                emitter.emit_load(ctype.width, Reg(n+2), Reg(n), loc)
-                emitter.emit_store(ctype.width, Reg(n+2), Reg(n+1), loc)
-            else:
-                for i in range(ctype.size // Size.WORD):
-                    emitter.emit_load(Size.WORD, Reg(n+2), Reg(n), loc + Size.WORD*i)
-                    emitter.emit_store(Size.WORD, Reg(n+2), Reg(n+1), loc + Size.WORD*i)
-                for j in range(ctype.size % Size.WORD):
-                    emitter.emit_load(Size.BYTE, Reg(n+2), Reg(n), loc + Size.WORD*(i+1)+j)
-                    emitter.emit_store(Size.BYTE, Reg(n+2), Reg(n+1), loc + Size.WORD*(i+1)+j)
-
-    def __iter__(self):
-        """Iterate through struct."""
-        for attr in self.data.values():
-            yield attr.offset, attr.type
-
-    def __eq__(self, other):
-        """Determine if the given type is equal to this struct type."""
-        return isinstance(other, Struct) and self.name == other.name
-
-    def __str__(self):
-        """Get string representation for struct."""
-        return f'struct {self.name}'
-
-
-class Array(List):
+class Array(List, Value):
     """Class for array type."""
 
     def __init__(self, of, length):
         super().__init__()
-        if length is None:
-            self.length = length
-        else:
-            self.size = of.size * length.value
-            self.length = length.value
-        self.of = of
+        self.of = of        
+        self.length = length if length is None else length.value
         self.width = Size.WORD
+
+    def size(self):
+        return self.length * self.of.size()
 
     def reduce(self, emitter, n, var, base):
         """Generate code for loading array."""
@@ -485,7 +439,7 @@ class Array(List):
     def __iter__(self):
         """Iterate through array."""
         for i in range(self.length):
-            yield i*self.of.size, self.of
+            yield i*self.of.size(), self.of
 
     def __eq__(self, other):  # TODO test
         """Determine if given type is equal to this array type."""
@@ -496,21 +450,77 @@ class Array(List):
         return f'array({self.of})'
 
 
-class Union(UserDict, Value):
-    """Class for union type."""
+class Record(Value):
 
-    def __init__(self, name):
+
+    def __init__(self, name, frame):
         super().__init__()
-        self.const = False
-        self.size = 0
+        self.name = name.lexeme if name is not None else name
+        self.frame = frame
         self.width = Size.WORD
-        self.name = name
+
+    def size(self):
+        return self.frame.size
+
+class Struct(List, Record):
+    """Class for struct type."""
+
+    FrameType = Frame
+
+    def reduce(self, emitter, n, var, base):
+        """Generate code for loading a struct."""
+        return self.address(emitter, n, var, base)
+
+    def store(self, emitter, n, var, base):
+        """Generate code for storing a struct."""
+        self.address(emitter, n+1, var, base)
+        frame = {}
+        for offset, ctype in self:
+            if offset in frame:
+                if ctype.size() > frame[offset].size():
+                    frame[offset] = ctype
+            else:
+                frame[offset] = ctype
+        for offset, ctype in frame.items():
+            if ctype.size() in {Size.WORD, Size.BYTE, Size.HALF}:
+                emitter.emit_load(ctype.width, Reg(n+2), Reg(n), offset)
+                emitter.emit_store(ctype.width, Reg(n+2), Reg(n+1), offset)
+            else:
+                for i in range(ctype.size() // Size.WORD):
+                    emitter.emit_load(Size.WORD, Reg(n+2), Reg(n), offset + Size.WORD*i)
+                    emitter.emit_store(Size.WORD, Reg(n+2), Reg(n+1), offset + Size.WORD*i)
+                for j in range(ctype.size() % Size.WORD):
+                    emitter.emit_load(Size.BYTE, Reg(n+2), Reg(n), offset + Size.WORD*(i+1)+j)
+                    emitter.emit_store(Size.BYTE, Reg(n+2), Reg(n+1), offset + Size.WORD*(i+1)+j)
+
+    def __iter__(self):
+        """Iterate through struct."""
+        for attr in self.frame.values():
+            yield attr.offset, attr.type
+
+    def __eq__(self, other):
+        """Determine if the given type is equal to this struct type."""
+        return isinstance(other, Struct) and self.name == other.name
+
+    def __str__(self):
+        """Get string representation for struct."""
+        return f'struct {self.name}'
+
+
+class UnionFrame(Frame):
+
 
     def __setitem__(self, name, attr):
         """Override of __setitem__ to match C union behavior."""
         attr.offset = 0
-        self.size = max(self.size, attr.type.size)
-        super().__setitem__(name, attr)
+        self.size = max(self.size, attr.type.size())
+        self.data[name] = attr
+
+
+class Union(Record):
+    """Class for union type."""
+
+    FrameType = UnionFrame
 
 
 class Function(Value):
@@ -521,8 +531,10 @@ class Function(Value):
         self.return_type = return_type
         self.parameters = parameters
         self.variadic = variadic
-        self.size = 0
         self.width = Size.WORD
+
+    def size(self):
+        return 0
 
     def global_reduce(self, emitter, n, glob):
         """Generate code for loading global function."""

@@ -65,8 +65,8 @@ class Global(Variable):
 
     def global_generate(self, emitter):
         """Generate code to allocate space for global variable."""
-        if self.type.size > 0:
-            emitter.emit_space(self.token.lexeme, self.type.size)
+        if self.type.size() > 0:
+            emitter.emit_space(self.token.lexeme, self.type.size())
 
 class Register(Local):
     pass
@@ -109,7 +109,7 @@ class SizeOf(Number):
     """Class for sizeof operator."""
 
     def __init__(self, ctype):
-        super().__init__(ctype.size)
+        super().__init__(ctype.size())
 
 
 class Decimal(Constant):
@@ -570,19 +570,19 @@ class SubScript(Binary):
         """Generate address code for array access."""
         emitter.emit_binary(Op.ADD, Size.WORD,
                             self.left.type.reduce_array(emitter, n, self.left),
-                            self.right.reduce_subscript(emitter, n+1, self.left.type.of.size))
+                            self.right.reduce_subscript(emitter, n+1, self.left.type.of.size()))
         return Reg(n)
 
     def reduce(self, emitter, n):
         """Generate code for array access."""
         emitter.emit_load(self.width, Reg(n),
                           self.left.type.reduce_array(emitter, n, self.left),
-                          self.right.reduce_subscript(emitter, n+1, self.left.type.of.size))
+                          self.right.reduce_subscript(emitter, n+1, self.left.type.of.size()))
         return Reg(n)
 
     def store(self, emitter, n):
         """Generate code for storing to an array."""
         emitter.emit_store(self.width, Reg(n),
                            self.left.type.reduce_array(emitter, n+1, self.left),
-                           self.right.reduce_subscript(emitter, n+2, self.left.type.of.size))
+                           self.right.reduce_subscript(emitter, n+2, self.left.type.of.size()))
         return Reg(n)

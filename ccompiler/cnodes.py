@@ -28,7 +28,7 @@ class Frame(UserDict):
         Give variable offset and insert into frame.
         """
         obj.offset = self.size
-        self.size += obj.type.size
+        self.size += obj.type.size()
         super().__setitem__(name, obj)
 
 

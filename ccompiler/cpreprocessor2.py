@@ -27,13 +27,13 @@ TODO:
         [X] elif
     [X] expanded macro line numbers
 
-    [ ] multi file 1 pass
-    [ ] correct arg expansion
-    [ ] accept space
-    [ ] refactor
+    [X] multi file 1 pass
+    [X] correct arg expansion
+    [-] accept space
+    [X] refactor
     [ ] refactor ifs
-    [ ] append, no insert
-    [ ] predefined macros e.g. __FILE__, __LINE__
+    [X] append, no insert
+    [X] predefined macros e.g. __FILE__, __LINE__
 '''
 
 

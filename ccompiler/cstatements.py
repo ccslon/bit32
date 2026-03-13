@@ -322,7 +322,6 @@ class InitListAssignment(Statement):
         if isinstance(left.type, Array):
             if left.type.length is None:  # TODO test
                 left.type.length = len(right)
-                left.type.size = len(right) * left.type.of.size
             elif left.type.length < len(right):
                 token.error('Not large enough')
         self.left = left
@@ -344,8 +343,8 @@ class InitStringArray(Statement):
 
     def __init__(self, token, array, string):
         if array.type.length is None:
-            array.type.size = array.type.length = len(string.value) + 1
-        elif array.type.size < len(string.value) + 1:
+            array.type.length = len(string.value) + 1
+        elif array.type.length < len(string.value) + 1:
             token.error('Not large enough')
         self.array = array
         self.string = string

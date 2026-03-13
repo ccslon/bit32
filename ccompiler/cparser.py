@@ -192,17 +192,17 @@ class CParser(Parser):
                 if not isinstance(postfix.type, (Struct, Union)):
                     self.error(f'Member reference when {postfix.type} is not a struct or union')
                 name = self.expect(Lex.NAME)
-                if name.lexeme not in postfix.type:
+                if name.lexeme not in postfix.type.frame:
                     self.error(f'"{name.lexeme}" is not an attribute of {postfix.type}')
-                attr = postfix.type[name.lexeme]
+                attr = postfix.type.frame[name.lexeme]
                 postfix = Dot(postfix, attr)
             elif self.accept('->'):
                 if not isinstance(postfix.type, Pointer):
                     self.error(f'{postfix.type} is not pointer type')
                 name = self.expect(Lex.NAME)
-                if name.lexeme not in postfix.type.to:
+                if name.lexeme not in postfix.type.to.frame:
                     self.error(f'"{name.lexeme}" is not an attribute of {postfix.type.to}')
-                attr = postfix.type.to[name.lexeme]
+                attr = postfix.type.to.frame[name.lexeme]
                 postfix = Arrow(postfix, attr)
         return postfix
 
@@ -402,7 +402,7 @@ class CParser(Parser):
         self.scope.enums[name.lexeme] = Number(value)
         return value
 
-    def attribute(self, specifier, ctype):
+    def attribute(self, frame, ctype):
         """
         ATTRIBUTE -> DECLARATOR [':' number]
         """
@@ -410,12 +410,12 @@ class CParser(Parser):
         if self.accept(':'):
             self.expect(Lex.NUMBER)
         if name is None and isinstance(ctype, Union):
-            for name, attr in ctype.items():
-                attr.offset = specifier.size
-                specifier.data[name] = attr
-            specifier.size += ctype.size
+            for name, attr in ctype.frame.items():
+                attr.offset = frame.size
+                frame.data[name] = attr
+            frame.size += ctype.size()
         else:
-            specifier[name.lexeme] = Attribute(ctype, name)
+            frame[name.lexeme] = Attribute(ctype, name)
 
     def struct_or_union(self, NewType):
         """
@@ -424,20 +424,18 @@ class CParser(Parser):
         name = self.accept(Lex.NAME)
         if name:
             if name.lexeme not in self.scope.types:
-                self.scope.types[name.lexeme] = NewType(name)
-            struct_or_union = copy(self.scope.types[name.lexeme])
+                self.scope.types[name.lexeme] = NewType.FrameType()
+            frame = self.scope.types[name.lexeme]
         else:
-            struct_or_union = NewType(name)
+            frame = NewType.FrameType()
         if self.accept('{'):
             while not self.accept('}'):
                 qualifier = self.qualifier()
-                self.attribute(struct_or_union, qualifier)
+                self.attribute(frame, qualifier)
                 while self.accept(','):
-                    self.attribute(struct_or_union, qualifier)
+                    self.attribute(frame, qualifier)
                 self.expect(';')
-            if name:
-                self.scope.types[name.lexeme] = struct_or_union
-        return struct_or_union
+        return NewType(name, frame)
 
     def specifier(self):
         """
@@ -448,17 +446,17 @@ class CParser(Parser):
                     |type
         """
         if self.accept('void'):
-            specifier = Void()
-        elif self.peek(Lex.NAME):
+            return Void()
+        if self.peek(Lex.NAME):
             token = next(self)
             if token.lexeme not in self.scope.typedefs:
                 self.error(f'typedef "{token.lexeme}" not found')
-            specifier = copy(self.scope.typedefs[token.lexeme])
-        elif self.accept('struct'):
-            specifier = self.struct_or_union(Struct)
-        elif self.accept('union'):
-            specifier = self.struct_or_union(Union)
-        elif self.accept('enum'):
+            return copy(self.scope.typedefs[token.lexeme])
+        if self.accept('struct'):
+            return self.struct_or_union(Struct)
+        if self.accept('union'):
+            return self.struct_or_union(Union)
+        if self.accept('enum'):
             name = self.accept(Lex.NAME)
             if self.accept('{'):
                 if name:
@@ -473,28 +471,25 @@ class CParser(Parser):
                     self.error("Did not specify enum name")
                 if name.lexeme not in self.scope.types:
                     self.error(f'Enum name "{name.lexeme}" not found')
-            specifier = Char()
-        elif self.accept('float'):
-            specifier = Float()
+            return Char()
+        if self.accept('float'):
+            return Float()
+        if self.accept('unsigned'):
+            signed = False
         else:
-            if self.accept('unsigned'):
-                signed = False
-            else:
-                self.accept('signed')
-                signed = True
-            if self.accept('char'):
-                specifier = Char(signed)
-            elif self.accept('short'):
-                self.accept('int')
-                specifier = Short(signed)
-            elif self.accept('int'):
-                specifier = Int(signed)
-            elif self.accept('long'):
-                self.accept('int')
-                specifier = Int(signed)
-            else:
-                specifier = Int(signed)
-        return specifier
+            self.accept('signed')
+            signed = True
+        if self.accept('char'):
+            return Char(signed)
+        if self.accept('short'):
+            self.accept('int')
+            return Short(signed)
+        if self.accept('int'):
+            return Int(signed)
+        if self.accept('long'):
+            self.accept('int')
+            return Int(signed)
+        return Int(signed)
 
     def qualifier(self):
         """
