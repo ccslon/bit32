@@ -567,8 +567,8 @@ class CPreProcessor(Expander):
     def process(self, file_name):
         """Process a source file."""
         self.original = file_name
-        self.std_included.clear()
-        self.files.clear()
+        # self.std_included.clear()
+        # self.files.clear()
         self.defined.clear()
         self.defined['__BASE_FILE__'] = Macro(None, [(Lex.STRING, file_name)])
         now = datetime.now()
@@ -578,8 +578,9 @@ class CPreProcessor(Expander):
 
     def output(self):
         """Produce a list of tokens."""
-        return [token for _, tokens in self.files for token in tokens
-                if token.type not in {Lex.SPACE, Lex.NEW_LINE, Lex.END}] + [Token(Lex.END, '', self.lexer.line)]
+        return ([token for _, tokens in self.files for token in tokens
+                if token.type not in {Lex.SPACE, Lex.NEW_LINE, Lex.END}]
+                + [Token(Lex.END, '', self.lexer.line)])
 
     def comment_replacement(self, match):
         """Replace comments with space/newlines to preserve line numbers."""

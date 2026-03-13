@@ -5,7 +5,7 @@ Created on Wed Jun  4 10:31:38 2025
 @author: Colin
 """
 import assembler
-from . import cpreprocessor2
+from .cpreprocessor import CPreProcessor
 from . import cparser
 
 
@@ -18,7 +18,7 @@ def compile_file(file_name, iflag=False, sflag=False, fflag=True):
     fflag: Output to file.
     """
     if file_name.endswith('.c') or file_name.endswith('.h'):
-        cpreproc = cpreprocessor2.CPreProcessor()
+        cpreproc = CPreProcessor()
         cpreproc.process(file_name)
         if iflag:
             text = str(cpreproc)

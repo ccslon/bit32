@@ -6,7 +6,8 @@ Created on Fri Sep  8 14:37:22 2023
 """
 from unittest import TestCase, main, expectedFailure
 
-from ccompiler import cpreprocessor2, cparser
+from ccompiler.cpreprocessor import CPreProcessor
+from ccompiler import cparser
 
 
 class TestCompiler(TestCase):
@@ -14,15 +15,15 @@ class TestCompiler(TestCase):
     @classmethod
     def setUpClass(cls):
         cls.tests = []
-        cls.preproc = cpreprocessor2.CPreProcessor()
 
     @classmethod
     def tearDownClass(cls):
         print(cls.tests)
 
     def code_eq_asm(self, name):
-        self.preproc.process(f'tests/{name}.c')
-        ast = cparser.parse(self.preproc.output())
+        preproc = CPreProcessor()
+        preproc.process(f'tests/{name}.c')
+        ast = cparser.parse(preproc.output())
         out = ast.generate()
         with open(f'tests/{name}.s') as file:
             asm = file.read()
@@ -31,8 +32,9 @@ class TestCompiler(TestCase):
 
     @expectedFailure
     def test_bad_const(self):
-        self.preproc.process('tests/bad_const.c')
-        ast = cparser.parse(self.preproc.stream())
+        preproc = CPreProcessor()
+        preproc.process('tests/bad_const.c')
+        ast = cparser.parse(preproc.stream())
         ast.generate()
 
     def test_init(self):
@@ -138,16 +140,18 @@ class TestCompiler(TestCase):
         self.code_eq_asm('eval')
 
     def test_macro(self):
-        self.preproc.process('tests/macros.c')
+        preproc = CPreProcessor()
+        preproc.process('tests/macros.c')
         with open('tests/macros.i') as file:
             expected = file.read()
-        self.assertEqual(str(self.preproc), expected)
+        self.assertEqual(str(preproc), expected)
 
     def test_macro_ifs(self):
-        self.preproc.process('tests/macro_ifs.c')
+        preproc = CPreProcessor()
+        preproc.process('tests/macro_ifs.c')
         with open('tests/macro_ifs.i') as file:
             expected = file.read()
-        self.assertEqual(str(self.preproc), expected)
+        self.assertEqual(str(preproc), expected)
 
 
 if __name__ == '__main__':
