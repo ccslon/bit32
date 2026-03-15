@@ -179,8 +179,8 @@ class For(While):
 
     def generate(self, emitter, n):
         """Generate code for for loop."""
-        for init in self.initials:
-            init.generate(emitter, n)
+        if self.initials is not None:
+            self.initials.generate(emitter, n)
         loop = emitter.next_label()
         emitter.begin_loop()
         emitter.append_label(loop)
@@ -192,8 +192,8 @@ class For(While):
                 self.test.compare(emitter, n*self.test.soft_calls(), emitter.loop_tail())
         self.statement.generate(emitter, n)
         emitter.append_label(emitter.loop_head())
-        for step in self.steps:
-            step.generate(emitter, n)
+        if self.steps is not None:
+            self.steps.generate(emitter, n)
         emitter.emit_jump(Cond.AL, loop)
         emitter.append_label(emitter.loop_tail())
         emitter.end_loop()
@@ -361,6 +361,29 @@ class InitStringArray(Statement):
         emitter.emit_string_array(self.array.token.lexeme, self.string.token.lexeme)
 
 
+class Comma(Expression, Statement):
+    """Class for comma operator."""
+
+    def __init__(self, left, right):
+        super().__init__(right.type)
+        self.left = left
+        self.right = right
+
+    def is_constant(self):
+        """Determine if the last node is constant."""
+        return self.right.is_constant()
+
+    def reduce(self, emitter, n):
+        """Generate code for commas."""
+        self.left.reduce(emitter, n)
+        return self.right.reduce(emitter, n)
+
+    def generate(self, emitter, n):
+        """Generate code for commas."""
+        self.left.generate(emitter, n)
+        self.right.generate(emitter, n)
+
+
 class Call(Expression, Statement):
     """Class for function calls."""
 
@@ -390,7 +413,7 @@ class Call(Expression, Statement):
             arg.reduce(emitter, n+i)
             param.type.convert(emitter, n+i, arg.type)
         self.move_arguments(emitter, n)
-        
+
     def move_arguments(self, emitter, n):
         """Move arguments into proper positions before calling."""
         if n > 0:

@@ -14,7 +14,7 @@ from .cexpressions import (Local, Attribute, Global, Number, Decimal, Character,
                            BinaryOp, Compare, Logic, Dot, SubScript, Arrow,  Conditional)
 from .ctypes import Type, Void, Float, Int, Short, Char, Pointer, Struct, Union, Array, Function
 from .cstatements import (Statement, If, Case, Switch, While, Do, For, Continue, Break, Goto, Label, Return, Compound,
-                          Call, VariadicCall, InitAssignment, Assignment, InitListAssignment, InitStringArray)
+                          Comma, Call, VariadicCall, InitAssignment, Assignment, InitListAssignment, InitStringArray)
 r'''( |\t)+$'''  # To delete weird whitespace spyder adds
 '''
 TODO
@@ -379,7 +379,10 @@ class CParser(Parser):
         """
         EXPRESSION -> ASSIGNMENT
         """
-        return self.assignment()
+        expression = self.assignment()
+        while self.accept(','):
+            expression = Comma(expression, self.assignment())
+        return expression
 
     def constant(self):
         """
@@ -679,21 +682,13 @@ class CParser(Parser):
             statement = While(expression, self.statement())
         elif self.accept('for'):
             self.expect('(')
-            inits = []
-            if not self.accept(';'):
-                inits.append(self.expression())
-                while self.accept(','):
-                    inits.append(self.expression())
-                self.expect(';')
+            init = None if self.peek(';') else self.expression()
+            self.expect(';')
             test = None if self.peek(';') else self.expression()
             self.expect(';')
-            steps = []
-            if not self.accept(')'):
-                steps.append(self.expression())
-                while self.accept(','):
-                    steps.append(self.expression())
-                self.expect(')')
-            statement = For(inits, test, steps, self.statement())
+            step = None if self.peek(')') else self.expression()
+            self.expect(')')
+            statement = For(init, test, step, self.statement())
         elif self.accept('do'):
             statement = self.statement()
             self.expect('while')
