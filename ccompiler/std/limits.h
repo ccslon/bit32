@@ -1,3 +1,4 @@
+#define LIMITS_H
 #define CHAR_BIT    8
 #define CHAR_MAX    127
 #define CHAR_MIN    -128
