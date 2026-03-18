@@ -361,10 +361,9 @@ class VariadicDefinition(Definition):  # TODO test
 class Translation(UserList, CNode):
     """Class for translations. This node represents the whole C program."""
 
-    def generate(self):
+    def generate(self, emitter):
         """Generate code for the whole C program."""
-        emitter = Emitter()
         for trans in self:
             trans.global_generate(emitter)
         emitter.optimize()
-        return str(emitter)
+        # return str(emitter)

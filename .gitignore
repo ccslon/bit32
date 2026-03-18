@@ -4,6 +4,8 @@ bkp/
 ccompiler/std/*.s
 cprograms/*/*.s
 cprograms/*.s
+cprograms/*/*.i
+cprograms/*.i
 *.bit32
 *.pyc
 asmlog.txt

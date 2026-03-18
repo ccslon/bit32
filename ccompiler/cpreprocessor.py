@@ -457,9 +457,9 @@ class CPreProcessor(Expander):
         if self.peek(Lex.STRING):
             self.include_file(next(self).lexeme, [self.frame.path])
         elif self.peek(Lex.STD):
-            file_name = next(self).lexeme
+            file_name = next(self).lexeme[:-2]
             if file_name not in self.std_included:
-                self.include_file(file_name, [os.getcwd(), 'ccompiler', 'std'])
+                self.include_file(f'{file_name}.h', [os.getcwd(), 'ccompiler', 'std'])
                 self.std_included.add(file_name)
         else:
             self.error('Expected file name')
@@ -485,10 +485,13 @@ class CPreProcessor(Expander):
                 self.include()
             elif self.peek({'if', 'ifdef', 'ifndef'}):
                 if self.accept('if'):
+                    self.accept(Lex.SPACE)
                     test = self.expression()
                 elif self.accept('ifdef'):
+                    self.accept(Lex.SPACE)
                     test = self.expect(Lex.NAME).lexeme in self.defined
                 elif self.accept('ifndef'):
+                    self.accept(Lex.SPACE)
                     test = self.expect(Lex.NAME).lexeme not in self.defined
                 self.frame.active = test
                 self.frame.ifs.append(If(test, test))
@@ -567,8 +570,8 @@ class CPreProcessor(Expander):
     def process(self, file_name):
         """Process a source file."""
         self.original = file_name
-        # self.std_included.clear()
-        # self.files.clear()
+        self.std_included.clear()
+        self.files.clear()
         self.defined.clear()
         self.defined['__BASE_FILE__'] = Macro(None, [(Lex.STRING, file_name)])
         now = datetime.now()
