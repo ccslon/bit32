@@ -66,7 +66,10 @@ class Global(Variable):
     def global_generate(self, emitter):
         """Generate code to allocate space for global variable."""
         if self.type.size() > 0:
-            emitter.emit_space(self.token.lexeme, self.type.size())
+            if self.type.size() in Size:
+                emitter.emit_global(self.token.lexeme, self.type.size(), 0)
+            else:
+                emitter.emit_space(self.token.lexeme, self.type.size())
 
 class Register(Local):
     pass

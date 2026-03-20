@@ -4,7 +4,7 @@ data:
   .half 333
   .half 6262
   .half 563
-ptr: .space 4
+ptr: .word 0
 num: .half 6
 foo:
   PUSH   A, LR

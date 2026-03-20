@@ -18,7 +18,7 @@ cats: .space 27
 name: .word .S2
 num: .word 69
 lol: .word 420
-lmao: .space 4
+lmao: .word 0
 .S3: "Cloud\0"
 print_cat:
   PUSH   B
