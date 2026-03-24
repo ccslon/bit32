@@ -362,10 +362,13 @@ class Pointer(Int):
     def reduce_binary(self, emitter, n, op, left, right):
         """Generate code for binary operator."""
         if self.interval > 1:
-            left.reduce(emitter, n)
-            right.reduce(emitter, n+1)
-            emitter.emit_binary(Op.MUL, Size.WORD, Reg(n+1), self.interval)
-            emitter.emit_binary(op, Size.WORD, Reg(n), Reg(n+1))
+            if right.is_constant():
+                emitter.emit_binary(op, Size.WORD, left.reduce(emitter, n), right.fold().evaluate() * self.interval)
+            else:            
+                left.reduce(emitter, n)
+                right.reduce(emitter, n+1)
+                emitter.emit_binary(Op.MUL, Size.WORD, Reg(n+1), self.interval)
+                emitter.emit_binary(op, Size.WORD, Reg(n), Reg(n+1))
         else:
             super().reduce_binary(emitter, n, op, left, right)
 
@@ -376,6 +379,10 @@ class Pointer(Int):
     def cast(self, other):  # TODO test
         """Determine if the given type can be cast to this type."""
         return isinstance(other, (Numeric, Array))
+
+    def get_node(self, value):
+        """Get the constant node associated with pointers."""
+        return cexpressions.Number(value, self)
 
     def __eq__(self, other):
         """Determine if given type is equal to this pointer type."""

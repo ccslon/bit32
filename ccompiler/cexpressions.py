@@ -9,7 +9,7 @@ from operator import (add, sub, mul, floordiv, truediv, mod,
                       eq, ne, gt, lt, ge, le)
 from bit32 import Size, Op, Reg, Cond, twos_compliment, floating_point, unescape
 from .cnodes import Expression, Variable, Constant, Unary, Binary, Access, Statement
-from .ctypes import Type, Char, Int, Float, Pointer, Array
+from .ctypes import Type, Void, Char, Int, Float, Pointer, Array
 
 
 class Local(Variable):
@@ -77,8 +77,8 @@ class Register(Local):
 class Number(Constant):
     """Class for basic number nodes found anywhere in C code."""
 
-    def __init__(self, value):
-        super().__init__(Int())
+    def __init__(self, value, ctype=Int()):
+        super().__init__(ctype)
         self.value = int(value)
 
     def data(self, _):
@@ -261,6 +261,8 @@ class Dereference(Unary):
     def __init__(self, token, value):
         if not isinstance(value.type, (Array, Pointer)):
             token.error(f'Cannot {token.lexeme} {value.type}')
+        if isinstance(value.type, Void):
+            token.error('Cannot dereference a void pointer')
         super().__init__(value.type.to, value)
 
     def address(self, emitter, n):
