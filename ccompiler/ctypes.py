@@ -26,6 +26,8 @@ class Type:
 
     def cast(self, other):
         """Determine if given type is able to cast to instance type."""
+        # return self == other
+        return self.__eq__(other)
 
 
 class Void(Type):
