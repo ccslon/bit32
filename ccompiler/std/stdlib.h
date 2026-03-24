@@ -14,6 +14,13 @@ int rand();
 void srand(int);
 int atoi(const char*);
 float atof(const char*);
+typedef struct Header {
+    struct Header* next;
+    unsigned size;
+} Header;
+extern Header* freehead;
+void* getheap(int);
+Header* morecore(size_t);
 void* malloc(size_t);
 void free(void*);
 void* realloc(void*, size_t);

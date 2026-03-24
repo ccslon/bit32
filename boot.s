@@ -107,3 +107,15 @@ longjmp:
     ; LD PC, [A, 60] ; Not needed
     LD A, [A, 0]
     RET
+
+.heap: .word stdheap
+; void* morecore(int);
+getheap:
+    PUSH B, C, D
+    LDI B, =.heap
+    LD C, [B]
+    ADD D, A, C
+    ST [B], D
+    MOV A, C
+    POP B, C, D
+    RET

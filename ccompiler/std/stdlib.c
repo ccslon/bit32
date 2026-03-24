@@ -83,14 +83,65 @@ float atof(const char* s) {
     }
     return sign * val / pow;
 }
-extern char stdheap[];
-size_t heapindex = 0;
-void* malloc(size_t bytes) {
-    void* ptr = &stdheap[heapindex];
-    heapindex += bytes;
-    return ptr;
+Header base;
+Header *freehead = NULL;
+#define NALLOC 1024
+Header* morecore(size_t n) {
+    void* core;
+    Header* header;
+    // if (n < NALLOC) n = NALLOC;
+    core = getheap(n);
+    header = (Header*)core;
+    header->size = n;
+    free(header+1);
+    return freehead;
 }
-void free(void* p) {}
+void* malloc(size_t bytes) {
+    Header *p, *prevp;
+    size_t units = sizeof(Header) + bytes; //(bytes+sizeof(Header)-1)/sizeof(Header) + 1;
+    if ((prevp = freehead) == NULL) {
+        base.next = freehead = prevp = &base;
+        base.size = 0;
+    }
+    for (p = prevp->next; ; prevp = p, p = p->next) {
+        if (p->size >= units) {
+            if (p->size == units) {
+                prevp->next = p->next;
+            } else {
+                p->size -= units;
+                //p += (int)p->size;
+                p = (Header*)((int)p + p->size);
+                p->size = units;
+            }
+            freehead = prevp;
+            return (void*)(p+1);
+        }
+        if (p == freehead)
+            if ((p = morecore(units)) == NULL)
+                return NULL;
+    }
+}
+void free(void* original) {
+    if (original != NULL) {
+        Header  *free, *p;
+        free = (Header*)original - 1;
+        for (p = freehead; !(p < free && free < p->next); p = p->next)
+            if (p >= p->next && (free > p || free < p->next))
+                break;
+        
+        if ((int)free + free->size == p->next) {
+            free->size += p->next->size;
+            free->next = p->next->next;
+        } else 
+            free->next = p->next;
+        if ((int)p + p->size == free) {
+            p->size += free->size;
+            p->next = free->next;
+        } else
+            p->next = free;
+        freehead = p;
+    }
+}
 void* realloc(void* p, size_t size) {
     void* memcpy(void*, const void*, size_t);
     void* d = malloc(size);
