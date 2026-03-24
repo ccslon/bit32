@@ -2,6 +2,7 @@ docs/
 __pycache__/
 bkp/
 ccompiler/std/*.s
+ccompiler/std/*.i
 cprograms/*/*.s
 cprograms/*.s
 cprograms/*/*.i
