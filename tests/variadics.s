@@ -3,10 +3,7 @@ printf:
   PUSH   A, B, C, D
   PUSH   B, C, LR
   SUB    SP, 17
-  ADD    A, SP, 29 ; format
-  MOV    B, 1
-  SHL    B, 2
-  ADD    A, B
+  ADD    A, SP, 33 ; format
   ST     [SP, 4], A ; ap
   MOV    A, 0
   ST     [SP, 12], A ; n

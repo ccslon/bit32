@@ -85,8 +85,8 @@ class TestCompiler(TestCase):
     def test_array(self):
         self.generated_equals_expected('arrays')
 
-    def test_glob_struct(self):
-        self.generated_equals_expected('globs')
+    def test_global_struct(self):
+        self.generated_equals_expected('globals')
 
     def test_goto(self):
         self.generated_equals_expected('goto')
@@ -109,10 +109,10 @@ class TestCompiler(TestCase):
     def test_unions(self):
         self.generated_equals_expected('unions')
 
-    def test_func_ptrs(self):
+    def test_function_ptrs(self):
         self.generated_equals_expected('function_ptrs')
 
-    def test_neg_nums(self):
+    def test_neg_numbers(self):
         self.generated_equals_expected('neg_numbers')
 
     def test_unsigned(self):
@@ -130,7 +130,7 @@ class TestCompiler(TestCase):
     def test_sizeof(self):
         self.generated_equals_expected('sizeof')
 
-    def test_vardefns(self):
+    def test_variadics(self):
         self.generated_equals_expected('variadics')
 
     def test_ops(self):
