@@ -8,10 +8,25 @@ Created on Sat Sep  7 01:02:16 2024
 from enum import Enum
 from bit32 import Reg, Size, Op
 
-POWERS_OF_2 = {2**n: n for n in range(1, 8+1)}
+'''
+[x] add CMovs
+[x] finish data portion
+[x] implement peep hole optim
+[x] string output
+[x] vardefns
+[x] array reduce = [A, B]
+[x] test
+[x] refactor
+[x] vstr -> emit
+[x] jump to next
+[] object output
+[x] const eval
+[x] real case?
+'''
+
+POWERS_OF_2 = {2**n: n for n in range(8+1)}
 
 JUST = 6  # justification
-
 
 class Code(Enum):
     """Enum for code instruction types."""
@@ -31,23 +46,9 @@ class Code(Enum):
     ADDRESS = 12
     CMOV = 13  # "conditional move"
 
+MEMORY_CODES = {Code.ADDRESS, Code.LOAD, Code.STORE}
 
-'''
-[x] add CMovs
-[x] finish data portion
-[x] implement peep hole optim
-[x] string output
-[x] vardefns
-[x] array reduce = [A, B]
-[x] test
-[x] refactor
-[x] vstr -> emit
-[x] jump to next
-[] object output
-[x] const eval
-[x] real case?
-'''
-
+ARGUMENT_CODES = {Code.BINARY, Code.TERNARY, Code.ADDRESS, Code.LOAD, Code.IMMEDIATE, Code.GLOBAL}
 
 class Object:
     """Base class for bit32 objects."""
@@ -404,73 +405,71 @@ class Emitter:
             # peephole size = 1
             # strength reduction
             inst1 = self.instructions[i]
-            if inst1.code is Code.BINARY and not isinstance(inst1.source, Reg) and inst1.source in POWERS_OF_2:
-                if inst1.op is Op.MUL:
+            if (inst1.code is Code.BINARY
+                and not isinstance(inst1.source, Reg)
+                and inst1.source in POWERS_OF_2):
+                if inst1.op is Op.MUL:  # x * 2**n = x << n
                     inst1.op = Op.SHL
                     inst1.source = POWERS_OF_2[inst1.source]
-                elif inst1.op is Op.DIV:
+                elif inst1.op is Op.DIV:   # x / 2**n = x >> n
                     inst1.op = Op.SHR
                     inst1.source = POWERS_OF_2[inst1.source]
-                elif inst1.op is Op.MOD:
+                elif inst1.op is Op.MOD:  # x % 2**n = x & 2**n - 1
                     inst1.op = Op.AND
                     inst1.source -= 1
             i += 1
 
+        new = []
         i = 0
         while i < len(self.instructions)-1:
             # peephole size = 2
             # get labels and code
             inst1 = self.instructions[i]
             inst2 = self.instructions[i+1]
-
-            if inst1.code is Code.BINARY and inst1.op is Op.MOV and inst2.code is Code.BINARY and inst1.target is inst2.source:
+            if (inst1.code is Code.BINARY
+                and inst1.op is Op.MOV
+                and inst2.code is Code.BINARY
+                and inst1.target is inst2.source):
                 # redundant MOV after function call
                 '''
                 MOV A, B
                 ADD C, A
                 = ADD C, B
                 '''
-                self.instructions[i:i+2] = [Binary(inst1.labels+inst2.labels,
-                                                   inst2.op, inst2.size,
-                                                   inst2.target, inst1.source)]
-                continue
-            if inst1.code is Code.ADDRESS:
+                inst2.labels += inst1.labels
+                inst2.source = inst1.source
+            elif inst1.code is Code.ADDRESS:
                 # address collapse
-                if inst2.code is Code.ADDRESS and inst1.target is inst2.base:
-                    '''
-                    ADD A, B, n
-                    ADD C, A, m
-                    = ADD C, B, n+m
-                    '''
-                    self.instructions[i:i+2] = [Address(inst1.labels+inst2.labels,
-                                                        inst2.target, inst1.base,
-                                                        inst1.offset+inst2.offset,
-                                                        inst1.variable)]
-                    continue
-                if inst2.code is Code.BINARY and inst2.op is Op.ADD and inst1.target is inst2.target and not isinstance(inst2.source, Reg):
-                    '''
-                    ADD A, B, n
-                    ADD A, m
-                    = ADD A, B, n+m
-                    '''
-                    self.instructions[i:i+2] = [Address(inst1.labels+inst2.labels,
-                                                        inst1.target, inst1.base,
-                                                        inst1.offset+inst2.source,
-                                                        inst1.variable)]
-                    continue
-                if inst2.code in {Code.LOAD, Code.STORE} and inst1.target is inst2.base:
+                if (inst2.code in {Code.ADDRESS, Code.LOAD, Code.STORE}
+                    and inst1.target is inst2.base):
                     '''
                     ADD A, B, n
                     LD C, [A, m]
                     = LD C, [B, n+m]
                     '''
-                    self.instructions[i:i+2] = [Load(inst1.labels+inst2.labels,
-                                                     inst2.code, inst2.size,
-                                                     inst2.target, inst1.base,
-                                                     inst1.offset+inst2.offset,
-                                                     inst1.variable)]
-                    continue
+                    inst2.labels += inst1.labels
+                    inst2.base = inst1.base
+                    inst2.offset += inst1.offset
+                    inst2.variable = inst1.variable
+                elif (inst2.code is Code.BINARY
+                      and inst2.op is Op.ADD
+                      and inst1.target is inst2.target
+                      and not isinstance(inst2.source, Reg)):
+                    '''
+                    ADD A, B, n
+                    ADD A, m
+                    = ADD A, B, n+m
+                    '''
+                    inst1.offset += inst2.source
+                    self.instructions[i+1] = inst1
+                else:
+                    new.append(inst1)
+            else:
+                new.append(inst1)
             i += 1
+        if self.instructions:
+            new.append(self.instructions[-1])
+        self.instructions = new
 
         # "you don't need to be a pilot to know planes don't belong in trees"
 
@@ -481,23 +480,19 @@ class Emitter:
                 for j in range(args):
                     inst1 = self.instructions[i+j]
                     inst2 = self.instructions[i+args+j]
-                    if (inst1.code not in {Code.BINARY, Code.TERNARY,
-                                           Code.ADDRESS, Code.LOAD,
-                                           Code.IMMEDIATE, Code.GLOBAL}
-                        or inst2.code is not Code.BINARY
-                        or inst2.op is not Op.MOV
-                        or inst1.target is not inst2.source):
+                    if not (inst1.code in {Code.BINARY, Code.TERNARY, Code.ADDRESS,
+                                           Code.LOAD, Code.IMMEDIATE, Code.GLOBAL}
+                            and inst2.code is Code.BINARY
+                            and inst2.op is Op.MOV
+                            and inst1.target is inst2.source):
                         break
                 else:
                     for j in range(args):
                         inst1 = self.instructions[i+j]
                         inst2 = self.instructions[i+args+j]
                         if inst1.code is Code.BINARY and inst1.op is not Op.MOV:
-                            self.instructions[i+j] = Ternary(inst1.labels+inst2.labels,
-                                                             inst1.op, inst1.size,
-                                                             inst2.target,
-                                                             inst1.target,
-                                                             inst1.source)
+                            self.instructions[i+j] = Ternary(inst1.labels+inst2.labels, inst1.op, inst1.size,
+                                                             inst2.target, inst1.target, inst1.source)
                         else:
                             inst1.target = inst2.target
                     del self.instructions[i+args:i + 2*args]
@@ -511,6 +506,7 @@ class Emitter:
 
         This happens after all functions are generated.
         """
+        new = []
         i = 0
         while i < len(self.instructions)-1:
             # peephole size = 2
@@ -523,9 +519,12 @@ class Emitter:
             '''
             if inst1.code is Code.JUMP and inst1.target in inst2.labels:
                 inst2.labels += inst1.labels
-                del self.instructions[i]
-                continue
+            else:
+                new.append(inst1)
             i += 1
+        if self.instructions:
+            new.append(self.instructions[-1])
+        self.instructions = new
 
     def begin_body(self, definition):
         """Begin the body of a function."""
