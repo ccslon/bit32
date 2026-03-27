@@ -6,7 +6,6 @@ Created on Sat Mar  1 11:43:13 2025
 """
 from collections import UserDict, UserList
 from bit32 import Op, Cond, Size, Reg
-from .emitter import Emitter
 
 
 class Frame(UserDict):
@@ -153,6 +152,7 @@ class Variable(Expression):
     def __init__(self, ctype, token):
         super().__init__(ctype)
         self.token = token
+        self.marked = False
 
     def name(self):
         """Get variable name."""
@@ -275,6 +275,8 @@ class Definition(CNode):
         """Generate all of the code for the function."""
         max_args = max(self.calls, self.max_arguments)
         emitter.begin_body(self)
+        # mark stack locals
+        self.mark_stack_locals()
         # generate function body
         self.block.generate(emitter, max_args)
         # peephole optimize
@@ -303,13 +305,18 @@ class Definition(CNode):
             emitter.emit_binary(Op.ADD, Size.WORD, Reg.SP, self.space)
         self.ret(emitter, pop)
 
+    def mark_stack_locals(self):
+        """Mark any params that live on the stack to be adjusted later."""
+        for param in self.parameters[4:]:
+            param.marked = True
+
     def prologue(self, emitter, push):
         """Generate prologue code specific to regular functions."""
         emitter.emit_push(push + [Reg.LR]*self.calls)
         if self.space:
             emitter.emit_binary(Op.SUB, Size.WORD, Reg.SP, self.space)
         for i, param in enumerate(self.parameters[:4]):
-            emitter.emit_store(param.width, Reg(i), Reg.SP, param.offset, param.name())
+            emitter.emit_store(param.width, Reg(i), Reg.SP, param.offset, False, param.name())
 
     def ret(self, emitter, pop):
         """Generate return code specific to regular functions."""
@@ -326,15 +333,18 @@ class Definition(CNode):
     def adjust_offsets(self, emitter, push):
         """Adjust offsets of variable found on the call stack."""
         if len(self.parameters) > 4:
-            offset = self.space + Size.WORD*(self.calls + len(push))
-            stack_params = {param.token.lexeme for param in self.parameters[4:]}
+            adjustment = self.space + Size.WORD*(self.calls + len(push))
             for inst in emitter.instructions:
-                if inst.variable in stack_params:
-                    inst.offset += offset
+                inst.adjust_offset(adjustment)
 
 
 class VariadicDefinition(Definition):  # TODO test
     """Class for variadic function definition nodes."""
+
+    def mark_stack_locals(self):
+        """Mark any params that live on the stack to be adjusted later."""
+        for param in self.parameters:
+            param.marked = True
 
     def prologue(self, emitter, push):
         """Generate prologue code specific to variadic functions."""
@@ -351,11 +361,9 @@ class VariadicDefinition(Definition):  # TODO test
 
     def adjust_offsets(self, emitter, push):
         """Adjust offsets of variables found on the call stack."""
-        offset = self.space + Size.WORD*(self.calls + len(push))
-        stack_params = {param.token.lexeme for param in self.parameters}
+        adjustment = self.space + Size.WORD*(self.calls + len(push))
         for inst in emitter.instructions:
-            if inst.variable in stack_params:
-                inst.offset += offset
+            inst.adjust_offset(adjustment)
 
 
 class Translation(UserList, CNode):
@@ -366,4 +374,3 @@ class Translation(UserList, CNode):
         for trans in self:
             trans.global_generate(emitter)
         emitter.optimize()
-        # return str(emitter)

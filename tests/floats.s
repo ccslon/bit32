@@ -59,13 +59,13 @@ func2:
   SUB    SP, 16
   LDI    A, 1069547520 ; 1.5
   FTI    A, A
-  ST     [SP, 4], A ; foo
-  LD     A, [SP, 0] ; foo
+  ST     [SP, 4], A ; foo.i
+  LD     A, [SP, 0] ; foo.f
   FTI    A, A
   ST     [SP, 8], A ; i
-  LD     A, [SP, 4] ; foo
+  LD     A, [SP, 4] ; foo.i
   ITF    A, A
-  LD     B, [SP, 0] ; foo
+  LD     B, [SP, 0] ; foo.f
   ADDF   A, B
   FTI    A, A
   ST     [SP, 12], A ; x

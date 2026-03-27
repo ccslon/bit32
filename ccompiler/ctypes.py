@@ -67,17 +67,17 @@ class Value(Type):
 
     def address(self, emitter, n, var, base):
         """Generate address code for generic type."""
-        emitter.emit_address(Reg(n), Reg(base), var.offset, var.name())
+        emitter.emit_address(Reg(n), Reg(base), var.offset, var.marked, var.name())
         return Reg(n)
 
     def reduce(self, emitter, n, var, base):
         """Generate code for generic type."""
-        emitter.emit_load(self.width, Reg(n), Reg(base), var.offset, var.name())
+        emitter.emit_load(self.width, Reg(n), Reg(base), var.offset, var.marked, var.name())
         return Reg(n)
 
     def store(self, emitter, n, var, base):
         """Generate code for storing to generic type."""
-        emitter.emit_store(self.width, Reg(n), Reg(base), var.offset, var.name())
+        emitter.emit_store(self.width, Reg(n), Reg(base), var.offset, var.marked, var.name())
         return Reg(n)
 
     def reduce_pre(self, emitter, n, op):
@@ -323,12 +323,12 @@ class Float(Numeric):
 
     def reduce_pre(self, emitter, n, op):
         """Generate code for pre operator."""
-        emitter.emit_load_immediate(Reg(n+1), floating_point(1))
+        emitter.emit_load_immediate(Reg(n+1), floating_point(1), '1.0')
         emitter.emit_binary(op, self.width, Reg(n), Reg(n+1))
 
     def reduce_post(self, emitter, n, op):
         """Generate code for post operator."""
-        emitter.emit_load_immediate(Reg(n+2), floating_point(1))
+        emitter.emit_load_immediate(Reg(n+2), floating_point(1), '1.0')
         emitter.emit_ternary(op, self.width, Reg(n+1), Reg(n), Reg(n+2))
 
     def reduce_binary(self, emitter, n, op, left, right):

@@ -53,13 +53,13 @@ main:
   PUSH   B, C, LR
   SUB    SP, 20
   LDI    A, =.S0
-  ST     [SP, 0], A ; cat
+  ST     [SP, 0], A ; cat.name
   MOV    A, 15
-  ST     [SP, 4], A ; cat
+  ST     [SP, 4], A ; cat.age
   LDI    A, =get_name
-  ST     [SP, 8], A ; cat
+  ST     [SP, 8], A ; cat.get_name
   ADD    A, SP, 0 ; cat
-  LD     B, [SP, 8] ; cat
+  LD     B, [SP, 8] ; cat.get_name
   CALL   B
   ST     [SP, 12], A ; name
   MOV    A, 10

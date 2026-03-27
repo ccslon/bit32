@@ -5,16 +5,16 @@ stack_cat:
   PUSH   A
   SUB    SP, 18
   MOV    A, 10
-  ST.B   [SP, 4], A ; cat
+  ST.B   [SP, 4], A ; cat.age
   LDI    A, =.S0
-  ST     [SP, 0], A ; cat
+  ST     [SP, 0], A ; cat.name
   LDI    A, =.S1
-  ST     [SP, 5], A ; cat
+  ST     [SP, 5], A ; cat.owner.name
   LDI    A, =.S2
-  ST     [SP, 9], A ; cat
-  LD.B   A, [SP, 4] ; cat
+  ST     [SP, 9], A ; cat.owner.email
+  LD.B   A, [SP, 4] ; cat.age
   ST.B   [SP, 13], A ; age
-  LD     A, [SP, 5] ; cat
+  LD     A, [SP, 5] ; cat.owner.name
   ST     [SP, 14], A ; name
   ADD    SP, 18
   POP    A
@@ -31,15 +31,15 @@ heap_cat:
   ST.B   [B, 4], A ; .age
   LDI    A, =.S1
   LD     B, [SP, 0] ; cat
-  ST     [B, 5], A ; .owner
+  ST     [B, 5], A ; .owner.name
   LDI    A, =.S2
   LD     B, [SP, 0] ; cat
-  ST     [B, 9], A ; .owner
+  ST     [B, 9], A ; .owner.email
   LD     A, [SP, 0] ; cat
   LD.B   A, [A, 4] ; .age
   ST.B   [SP, 4], A ; age
   LD     A, [SP, 0] ; cat
-  LD     A, [A, 5] ; .owner
+  LD     A, [A, 5] ; .owner.name
   ST     [SP, 5], A ; name
   ADD    SP, 9
   POP    B

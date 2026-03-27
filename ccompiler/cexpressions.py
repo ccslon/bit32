@@ -532,7 +532,7 @@ class Dot(Access):
 
     def address(self, emitter, n):
         """Generate address code for dot operator."""
-        emitter.emit_attribute(self.struct.address(emitter, n), self.attribute)
+        emitter.emit_attribute(self.struct.address(emitter, n), self.attribute.offset, self.attribute.name())
         return Reg(n)
 
     def reduce(self, emitter, n):
@@ -551,7 +551,7 @@ class Arrow(Access):
 
     def address(self, emitter, n):
         """Generate address code for arrow operator."""
-        emitter.emit_attribute(self.struct.reduce(emitter, n), self.attribute)
+        emitter.emit_attribute(self.struct.reduce(emitter, n), self.attribute.offset, self.attribute.name())
         return Reg(n)
 
     def reduce(self, emitter, n):

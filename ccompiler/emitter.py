@@ -111,35 +111,24 @@ class Global(Data):
 class Instruction(Object):
     """Base class for bit32 instruction objects."""
 
-    def __init__(self, labels, code):
-        super().__init__(labels)
-        self.code = code
-        self.variable = None
+    code = None
+
+    def adjust_offset(self, _):
+        """Adjust the offset of a marked address instruction (default is no action)."""
+        pass
 
     def max_used(self):
         """Find max register used by this instuction."""
         return 0
 
 
-class CMov(Instruction):
-    """Class for conditional move instruction objects."""
-
-    def __init__(self, labels, condition, target, value):
-        super().__init__(labels, Code.CMOV)
-        self.condition = condition
-        self.target = target
-        self.value = value
-
-    def display(self):
-        """Display cmov instruction as string."""
-        return f'{"MOV"+str(self.condition): <{JUST}} {self.target}, {self.value}'
-
-
 class Push(Instruction):
     """Class for push instruction objects."""
 
+    code = Code.PUSH
+
     def __init__(self, labels, push):
-        super().__init__(labels, Code.PUSH)
+        super().__init__(labels)
         self.push = push
 
     def display(self):
@@ -150,8 +139,10 @@ class Push(Instruction):
 class Pop(Instruction):
     """Class for pop instruction objects."""
 
+    code = Code.POP
+
     def __init__(self, labels, pop):
-        super().__init__(labels, Code.POP)
+        super().__init__(labels)
         self.pop = pop
 
     def display(self):
@@ -162,8 +153,10 @@ class Pop(Instruction):
 class Jump(Instruction):
     """Class for jump instructions objects."""
 
+    code = Code.JUMP
+
     def __init__(self, labels, condition, target):
-        super().__init__(labels, Code.JUMP)
+        super().__init__(labels)
         self.condition = condition
         self.target = target
 
@@ -175,8 +168,10 @@ class Jump(Instruction):
 class Call(Instruction):
     """Class for call instruction objects."""
 
+    code = Code.CALL
+
     def __init__(self, labels, target):
-        super().__init__(labels, Code.CALL)
+        super().__init__(labels)
         self.target = target
 
     def max_used(self):
@@ -189,15 +184,34 @@ class Call(Instruction):
         """Display call instruction as string."""
         return f'{"CALL": <{JUST}} {self.target}'
 
-
-class Unary(Instruction):
-    """Class for unary ALU instruction objects."""
+class Operation(Instruction):
+    """Base class for operation instructions."""
 
     def __init__(self, labels, op, size, target):
-        super().__init__(labels, Code.UNARY)
+        super().__init__(labels)
         self.op = op
         self.size = size
         self.target = target
+
+class CMov(Operation):
+    """Class for conditional move instruction objects."""
+
+    code = Code.CMOV
+
+    def __init__(self, labels, condition, target, source):
+        super().__init__(labels, Op.MOV, Size.WORD, target)
+        self.condition = condition
+        self.source = source
+
+    def display(self):
+        """Display cmov instruction as string."""
+        return f'{"MOV"+str(self.condition): <{JUST}} {self.target}, {self.source}'
+
+
+class Unary(Operation):
+    """Class for unary ALU instruction objects."""
+
+    code = Code.UNARY
 
     def max_used(self):
         """Find max register used by this instuction."""
@@ -211,9 +225,10 @@ class Unary(Instruction):
 class Binary(Unary):
     """Class for binary ALU instruction objects."""
 
+    code = Code.BINARY
+
     def __init__(self, labels, op, size, target, source):
         super().__init__(labels, op, size, target)
-        self.code = Code.BINARY
         self.source = source
 
     def max_used(self):
@@ -230,10 +245,11 @@ class Binary(Unary):
 class Ternary(Binary):
     """Class for ternary ALU instruction objects."""
 
-    def __init__(self, labels, op, size, target, rs, source):
-        super().__init__(labels, op, size, target, rs)
-        self.code = Code.TERNARY
-        self.source2 = source
+    code = Code.TERNARY
+
+    def __init__(self, labels, op, size, target, source, source2):
+        super().__init__(labels, op, size, target, source)
+        self.source2 = source2
 
     def max_used(self):
         """Find max register used by this instuction."""
@@ -249,12 +265,20 @@ class Ternary(Binary):
 class Address(Instruction):
     """Class for address instruction objects."""
 
-    def __init__(self, labels, target, base, offset, variable=None):
-        super().__init__(labels, Code.ADDRESS)
+    code = Code.ADDRESS
+
+    def __init__(self, labels, target, base, offset, marked, comment):
+        super().__init__(labels)
         self.target = target
         self.base = base
         self.offset = offset
-        self.variable = variable
+        self.marked = marked
+        self.comment = comment
+
+    def adjust_offset(self, adjustment):
+        """Adjust the offset of a marked address instruction."""
+        if self.marked:
+            self.offset += adjustment
 
     def max_used(self):
         """Find max register used by this instuction."""
@@ -262,49 +286,55 @@ class Address(Instruction):
 
     def display(self):
         """Display address instruction as string."""
-        return f'{"ADD": <{JUST}} {self.target}, {self.base}, {self.offset} ; {self.variable}'
+        return f'{"ADD": <{JUST}} {self.target}, {self.base}, {self.offset} ; {self.comment}'
 
 
-class Load(Instruction):
+class Load(Address):
     """Class for load/store instruction objects."""
 
-    def __init__(self, labels, code, size, target, base, offset, variable=None):
-        super().__init__(labels, code)
+    code = Code.LOAD
+
+    def __init__(self, labels, size, target, base, offset, marked, comment):
+        super().__init__(labels, target, base, offset, marked, comment)
         self.size = size
-        self.target = target
-        self.base = base
-        self.offset = offset
-        self.variable = variable
 
     def max_used(self):
         """Find max register used by this instuction."""
         if isinstance(self.offset, Reg):
-            return max(self.target, Reg.max_reg(self.base), self.offset)
-        return max(self.target, Reg.max_reg(self.base))
+            return max(Reg.max_reg(self.target), Reg.max_reg(self.base), self.offset)
+        return max(Reg.max_reg(self.target), Reg.max_reg(self.base))
 
     def display(self):
         """Display load instruction as string."""
-        if self.code is Code.STORE:
-            return '{} [{}{}], {}{}'.format(f'{"ST"+str(self.size): <{JUST}}',
-                                            self.base.name,
-                                            f', {self.offset}' if self.offset is not None else '',
-                                            self.target.name,
-                                            f' ; {self.variable}' if self.variable else '')
         return '{} {}, [{}{}]{}'.format(f'{"LD"+str(self.size): <{JUST}}',
                                         self.target.name,
                                         self.base.name,
                                         f', {self.offset}' if self.offset is not None else '',
-                                        f' ; {self.variable}' if self.variable else '')
+                                        f' ; {self.comment}' if self.comment else '')
+
+
+class Store(Load):
+
+    code = Code.STORE
+
+    def display(self):
+        return '{} [{}{}], {}{}'.format(f'{"ST"+str(self.size): <{JUST}}',
+                                        self.base.name,
+                                        f', {self.offset}' if self.offset is not None else '',
+                                        self.target.name,
+                                        f' ; {self.comment}' if self.comment else '')
 
 
 class LoadImmediate(Instruction):
     """Class for load-immediate instruction objects."""
 
-    def __init__(self, labels, target, value, comment):
-        super().__init__(labels, Code.IMMEDIATE)
+    code = Code.IMMEDIATE
+
+    def __init__(self, labels, target, source, comment):
+        super().__init__(labels)
         self.target = target
-        self.value = value
-        self.comment = comment
+        self.source = source
+        self.comment = f' ; {comment}' if comment else comment
 
     def max_used(self):
         """Find max register used by this instuction."""
@@ -312,17 +342,16 @@ class LoadImmediate(Instruction):
 
     def display(self):
         """Display load-immediate instruction as string."""
-        return '{} {}, {}{}'.format(f'{"LDI": <{JUST}}',
-                                    self.target,
-                                    self.value,
-                                    f' ; {self.comment}' if self.comment is not None else '')
+        return f'{"LDI": <{JUST}} {self.target}, {self.source}{self.comment}'
 
 
 class LoadGlobal(Instruction):
     """Class for load-global instruction objects."""
 
+    code = Code.GLOBAL
+
     def __init__(self, labels, target, name):
-        super().__init__(labels, Code.GLOBAL)
+        super().__init__(labels)
         self.target = target
         self.name = name
 
@@ -338,8 +367,10 @@ class LoadGlobal(Instruction):
 class Ret(Instruction):
     """Class for return instruction objects."""
 
+    code = Code.RET
+
     def __init__(self, labels):
-        super().__init__(labels, Code.RET)
+        super().__init__(labels)
 
     def display(self):
         """Display return instruction as string."""
@@ -450,7 +481,8 @@ class Emitter:
                     inst2.labels += inst1.labels
                     inst2.base = inst1.base
                     inst2.offset += inst1.offset
-                    inst2.variable = inst1.variable
+                    inst2.marked = inst1.marked
+                    inst2.comment = inst1.comment + inst2.comment
                 elif (inst2.code is Code.BINARY
                       and inst2.op is Op.ADD
                       and inst1.target is inst2.target
@@ -601,23 +633,23 @@ class Emitter:
         """Emit load-global instruction object."""
         self.add(LoadGlobal(self.labels, target, name))
 
-    def emit_attribute(self, base, variable):
+    def emit_attribute(self, base, offset, comment):
         """Emit address instruction object. Specifically for attributes."""
-        self.emit_address(base, base, variable.offset, variable.name())
+        self.emit_address(base, base, offset, False, comment)
 
-    def emit_address(self, target, base, offset, variable=None):
+    def emit_address(self, target, base, offset, marked, comment=''):
         """Emit address instruction object."""
-        self.add(Address(self.labels, target, base, offset, variable))
+        self.add(Address(self.labels, target, base, offset, marked, comment))
 
-    def emit_load(self, size, target, base, offset=None, variable=None):
+    def emit_load(self, size, target, base, offset=None, marked=False, comment=''):
         """Emit load instruction object."""
-        self.add(Load(self.labels, Code.LOAD, size, target, base, offset, variable))
+        self.add(Load(self.labels, size, target, base, offset, marked, comment))
 
-    def emit_store(self, size, target, base, offset=None, variable=None):
+    def emit_store(self, size, target, base, offset=None, marked=False, comment=''):
         """Emit store instruction object."""
-        self.add(Load(self.labels, Code.STORE, size, target, base, offset, variable))
+        self.add(Store(self.labels, size, target, base, offset, marked, comment))
 
-    def emit_load_immediate(self, target, value, comment=None):
+    def emit_load_immediate(self, target, value, comment=''):
         """Emit load-immediate instruction object."""
         self.add(LoadImmediate(self.labels, target, value, comment))
 

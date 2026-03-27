@@ -7,15 +7,15 @@ func1:
   PUSH   A, B, LR
   SUB    SP, 4
   MOV    A, 127
-  ST.B   [SP, 0], A ; ip
+  ST.B   [SP, 0], A ; ip.c
   MOV    A, 0
-  ST.B   [SP, 1], A ; ip
+  ST.B   [SP, 1], A ; ip.c
   MOV    A, 0
-  ST.B   [SP, 2], A ; ip
+  ST.B   [SP, 2], A ; ip.c
   MOV    A, 1
-  ST.B   [SP, 3], A ; ip
+  ST.B   [SP, 3], A ; ip.c
   LDI    A, =.S0
-  LD     B, [SP, 0] ; ip
+  LD     B, [SP, 0] ; ip.i
   CALL   printf
   ADD    SP, 4
   POP    A, B, PC
@@ -23,9 +23,9 @@ intToken:
   SUB    SP, 9
   ST     [SP, 0], A ; num
   MOV    A, 1
-  ST.B   [SP, 4], A ; token
+  ST.B   [SP, 4], A ; token.type
   LD     A, [SP, 0] ; num
-  ST     [SP, 5], A ; token
+  ST     [SP, 5], A ; token.num
   ADD    A, SP, 4 ; token
 .L0:
   ADD    SP, 9
@@ -34,9 +34,9 @@ strToken:
   SUB    SP, 9
   ST     [SP, 0], A ; str
   MOV    A, 2
-  ST.B   [SP, 4], A ; token
+  ST.B   [SP, 4], A ; token.type
   LD     A, [SP, 0] ; str
-  ST     [SP, 5], A ; token
+  ST     [SP, 5], A ; token.str
   ADD    A, SP, 4 ; token
 .L1:
   ADD    SP, 9
@@ -45,9 +45,9 @@ charToken:
   SUB    SP, 6
   ST.B   [SP, 0], A ; c
   MOV    A, 0
-  ST.B   [SP, 1], A ; token
+  ST.B   [SP, 1], A ; token.type
   LD.B   A, [SP, 0] ; c
-  ST.B   [SP, 2], A ; token
+  ST.B   [SP, 2], A ; token.sym
   ADD    A, SP, 1 ; token
 .L2:
   ADD    SP, 6
@@ -142,7 +142,7 @@ gets1:
   RET
 gets2:
   SUB    SP, 2
-  LD.H   A, [SP, 0] ; box
+  LD.H   A, [SP, 0] ; box.num
 .L12:
   ADD    SP, 2
   RET
@@ -154,7 +154,7 @@ geta1:
   RET
 geta2:
   SUB    SP, 10
-  LD.H   A, [SP, 6] ; boxes
+  LD.H   A, [SP, 6] ; boxes.num
 .L14:
   ADD    SP, 10
   RET

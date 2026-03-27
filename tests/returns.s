@@ -3,9 +3,9 @@ div:
   ST     [SP, 0], A ; num
   ST     [SP, 4], B ; den
   MOV    A, 3
-  ST     [SP, 8], A ; ans
+  ST     [SP, 8], A ; ans.quot
   MOV    A, 4
-  ST     [SP, 12], A ; ans
+  ST     [SP, 12], A ; ans.rem
   ADD    A, SP, 8 ; ans
 .L0:
   ADD    SP, 16
