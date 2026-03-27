@@ -83,7 +83,7 @@ class Switch(Statement):
         min_case = min(case.constant.value for case in self.cases)
         cases = sorted(case.constant.value - min_case for case in self.cases)
         '''
-        It takes 8 clock cycles for the O(1) method. It takes 9 clock cycles
+        It takes 7 clock cycles for the O(1) method. It takes 9 clock cycles
         for the regular method for 4 cases. Therefore, O(1) method is only
         considered if there are more than 3 cases
         '''
@@ -97,8 +97,7 @@ class Switch(Statement):
             emitter.emit_jump(Cond.HI, default)
             emitter.emit_load_global(Reg(m+1), table)
             emitter.emit_binary(Op.SHL, Size.WORD, Reg(m), 2)
-            emitter.emit_load(Size.WORD, Reg(m), Reg(m+1), Reg(m))
-            emitter.emit_jump(Cond.AL, Reg(m))
+            emitter.emit_load(Size.WORD, Reg.PC, Reg(m+1), Reg(m))
             for case in self.cases:
                 emitter.append_label(jumps[case.constant.value - min_case])
                 case.statement.generate(emitter, n)
