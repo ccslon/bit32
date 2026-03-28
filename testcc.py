@@ -5,31 +5,23 @@ Created on Fri Sep  8 14:37:22 2023
 @author: ccslon
 """
 from unittest import TestCase, main, expectedFailure
-
 from ccompiler.cpreprocessor import CPreProcessor
-from ccompiler import cparser
+from ccompiler.cparser import parse
 from ccompiler.emitter import Emitter
 
+tests = []
 
 class TestCompiler(TestCase):
-
-    @classmethod
-    def setUpClass(cls):
-        cls.tests = []
-
-    @classmethod
-    def tearDownClass(cls):
-        print(cls.tests)
 
     def generated_equals_expected(self, name):
         preproc = CPreProcessor()
         preproc.process(f'tests/{name}.c')
-        root = cparser.parse(preproc.output())
+        root = parse(preproc.output())
         emitter = Emitter()
         root.generate(emitter)
         with open(f'tests/{name}.s') as file:
             expected = file.read()
-        self.tests.append(name)
+        tests.append(name)
         self.assertEqual(str(emitter), expected)
 
     @expectedFailure
@@ -37,7 +29,7 @@ class TestCompiler(TestCase):
         preproc = CPreProcessor()
         preproc.process('tests/bad_const.c')
         emitter = Emitter()
-        root = cparser.parse(preproc.stream())
+        root = parse(preproc.stream())
         root.generate(emitter)
 
     def test_init(self):
@@ -162,3 +154,10 @@ class TestCompiler(TestCase):
 
 if __name__ == '__main__':
     main()
+
+
+def retest():
+    """Rerun all tests to get their output."""
+    from ccompiler import compile_file
+    for file in tests:
+        compile_file(f'tests/{file}.c', sflag=True, fflag=True)

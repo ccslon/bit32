@@ -6,47 +6,13 @@ Created on Wed Jun  4 10:31:38 2025
 """
 import assembler2 as assembler
 from .cpreprocessor import CPreProcessor
+from .cparser import parse
 from .emitter import Emitter
-from . import cparser
 
+def ccompile_cwd(cwd, files, oflag='out', Eflag=False, Sflag=False, fflag=True):
+    ccompile([f'{cwd}/{file}' for file in files], f'{cwd}/{oflag}', Eflag, Sflag, fflag)
 
-def compile_file(file_name, iflag=False, sflag=False, fflag=True):
-    """
-    Compile file based on the flags given the file name.
-
-    iflag: Output only preprocessed C code.
-    sflag: Output only bit32 assembly code.
-    fflag: Output to file.
-    """
-    if file_name.endswith('.c') or file_name.endswith('.h'):
-        cpreproc = CPreProcessor()
-        cpreproc.process(file_name)
-        if iflag:
-            text = str(cpreproc)
-            print(text)
-            if fflag:
-                with open(f'{file_name[:-2]}.i', 'w+') as file:
-                    file.write(text)
-        else:
-            ast = cparser.parse(cpreproc.output())
-            emitter = Emitter()
-            ast.generate(emitter)
-            asm = str(emitter)
-            if sflag:
-                assembler.display(asm)
-                # print(asm)
-                if fflag:
-                    with open(f'{file_name[:-2]}.s', 'w+') as file:
-                        file.write(asm)
-            else:
-                assembler.assemble(asm, fflag, file_name[:-2])
-    else:
-        print("Wrong file type")
-
-def comp_cwd(cwd, files, oflag='out', Eflag=False, Sflag=False, fflag=True):
-    comp([f'{cwd}/{file}' for file in files], f'{cwd}/{oflag}', Eflag, Sflag, fflag)
-
-def comp(files, oflag='out', Eflag=False, Sflag=False, fflag=True):
+def ccompile(cwd, files, oflag='out', Eflag=False, Sflag=False, fflag=True):
     processed = []
     for file_name in files:
         if file_name.endswith(('.c', '.h')):
@@ -57,8 +23,6 @@ def comp(files, oflag='out', Eflag=False, Sflag=False, fflag=True):
                 print(f'In file "{file_name}" {error}')
                 return
             processed.append(preproc)
-        # elif file_name.endswith(('.i', '.s')):
-        #     processed.append()
         else:
             print(f'"{file_name}" Wrong file type')
             return
@@ -70,7 +34,7 @@ def comp(files, oflag='out', Eflag=False, Sflag=False, fflag=True):
         emitter = Emitter()
         for file_name, preproc in zip(files, processed):
             try:
-                root = cparser.parse(preproc.output())
+                root = parse(preproc.output())
                 root.generate(emitter)
             except SyntaxError as error:
                 print(f'In file "{file_name}" {error}')
@@ -87,7 +51,7 @@ def comp(files, oflag='out', Eflag=False, Sflag=False, fflag=True):
             for std in stds & {'ctype', 'errno', 'math', 'stdio', 'stdlib', 'string'}:
                 try:
                     preproc.process(f'ccompiler/std/{std}.c')
-                    root = cparser.parse(preproc.output())
+                    root = parse(preproc.output())
                 except SyntaxError as error:
                     print(f'In file "{std}.c" {error}')
                     return

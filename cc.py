@@ -5,28 +5,20 @@ Created on Mon Aug 28 09:26:08 2023
 @author: ccslon
 """
 
-from ccompiler import compile_file
+from ccompiler import ccompile_cwd
+
+'''
+[X] Modify compile function
+[X] Comma operator
+[ ] static
+'''
 
 if __name__ == '__main__':
-    # compile_file('ccompiler/std/stdio.h', sflag=True, fflag=True)
-    # compile_file('ccompiler/std/stdio.h')
-    compile_file('tests/macros.c', iflag=True, fflag=False)
-    # compile_file('cprograms/test_addrs.c', sflag=True, fflag=False)
-    # compile_file('tests/includes.c', sflag=True, fflag=False)
-    # compile_file('tests/fact.c', sflag=True, fflag=False)
-    # compile_file('tests/unions.c', sflag=True, fflag=False)
-    # compile_file('switch.c', sflag=True, fflag=False)
-    # compile_file('tests/vardefns.c', sflag=True, fflag=False)
-    # compile_file('tests/ifs.c', sflag=True, fflag=False)
-    # compile_file('ccompiler/tests/fact.c')
-    # compile_file('cprograms/expr.c')
-
-
-def retest():
-    """Rerun all tests to get their output."""
-    for file in ['arrays', 'calls', 'const', 'cstrings', 'defines', 'enums', 'fact', 'fib',
-                 'floats', 'func_ptrs', 'getset', 'getset2', 'globs', 'goto', 'hello', 'ifs',
-                 'includes', 'init', 'logic', 'loops', 'main', 'neg_nums', 'ops', 'params',
-                 'pointers', 'rconst', 'returns', 'sizeof', 'structs', 'sum', 'unions', 'unsigned',
-                 'vardefns']:
-        compile_file(f'tests/{file}.c', sflag=True, fflag=True)
+    # ccompile_cwd('tests', ['getset.c'], Sflag=True, fflag=False)
+    # ccompile_cwd('ccompiler/std', ['string.c'], sflag=True, fflag=False)
+    # ccompile_cwd('cprograms', ['switch.c'], Sflag=True, fflag=False)
+    # ccompile_cwd('cprograms', ['hello.c'], oflag='hello', Sflag=True, fflag=False)
+    # ccompile_cwd('cprograms/assign', ['assign.c', 'lexer.c', 'nodes.c', 'parser.c', 'intmap.c'], 'assign', eflag=True, fflag=True)
+    ccompile_cwd('cprograms/assign', ['assign.c', 'lexer.c', 'nodes.c', 'parser.c', 'intmap.c'])
+    # ccompile_cwd('cprograms', ['test_pointers.c'], Sflag=True)
+    # ccompile_cwd('cprograms', ['hello.c'], oflag='hello')
