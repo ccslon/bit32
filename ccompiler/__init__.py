@@ -4,7 +4,7 @@ Created on Wed Jun  4 10:31:38 2025
 
 @author: Colin
 """
-import assembler
+import assembler2 as assembler
 from .cpreprocessor import CPreProcessor
 from .emitter import Emitter
 from . import cparser

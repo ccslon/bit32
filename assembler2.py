@@ -4,56 +4,56 @@ Created on Fri Oct  3 09:36:40 2025
 
 @author: ccslon
 """
-from enum import IntEnum, IntFlag
+from enum import Enum, IntEnum, auto
 from typing import NamedTuple
-from operator import add, sub, mul, floordiv, mod, lshift, rshift, eq, ne, gt, lt, ge, le
+from operator import add, sub, mul, floordiv, mod, lshift, rshift
 import re
 
 from bit32 import Size, Flag, Reg, Op, Cond, Byte, Char, Half, Word, Jump, Interrupt, Unary, Binary, Ternary, Load, PushPop, LoadImmediate, unescape
 
 
-class Debug(IntFlag):
-    """Flag enum class for debugging options."""
-
-    NONE = 0
-    OBJECT_FILE = 1
-    FULL = 2
-    SHORT = 4
-    PRINT_BYTES = 8
-
-
-DEBUG = Debug.NONE
-
 RE_SIZE = r'B|H|W'
-RE_OP = r'|'.join(op.name for op in Op) + '|LDI|LD|ST|SWI|PUSH|POP|CALL|IRET|RET'
+RE_OP = r'|'.join(op.name for op in Op) + '|NOP|LDI?|ST|SWI|PUSH|POP|CALL|I?RET|HALT'
 RE_COND = r'|'.join(cond.name for cond in Cond)
 RE_REG = r'|'.join(reg.name for reg in Reg)
+
+class Lex(Enum):
+    """Enum class for token types."""
+
+    NUMBER = auto()
+    CHARACTER = auto()
+    STRING = auto()
+    LABEL = auto()
+    CODE = auto()
+    SIZE = auto()
+    SPACE = auto()
+    REG = auto()
+    NAME = auto()
+    SYMBOL = auto()
+    END = auto()
+
 
 class Token(NamedTuple):
     """Class for tokens in input."""
 
-    type: str #Lex
+    type: Lex
     lexeme: str
-    line: int
+    match: re.Match
 
-    def error(self, msg):
-        """Raise error messages for the parser."""
-        raise SyntaxError(f'Line {self.line}: {msg}')
 
 TOKENS = {
-    'number': r'-?(0x[0-9a-f]+|0b[01]+|\d+)',
-    'string': r'"(\\"|[^"])*"',
-    'character': r"'(\\'|\\?[^'])'",
-    'label': r'\.?[a-z_]\w*\s*:',
-    'code': rf'^(?P<op>j(mp)?|{RE_OP})(?P<flag>s)?(?P<cond>{RE_COND})?(\.(?P<width>{RE_SIZE}))?\s',
-    'halt': r'^(halt)\b',
-    'size': r'\.(byte|half|word)\b',
-    'space': r'\.(space)\b',
-    'reg': rf'\b({RE_REG})\b',
-    'name': r'\.?[a-z_]\w*',
-    'symbol': r'<<|>>|[()+*/%^|&=!<>,~-]',
-    'end': r'$',
-    'error': r'\S+'
+    'NUMBER': r'-?(0x[0-9A-F]+|0b[01]+|\d+)',
+    'CHARACTER': r"'(\\'|\\?[^'])'",
+    'STRING': r'"(\\"|[^"])*"',
+    'LABEL': r'\.?[A-Z_]\w*\s*:',
+    'CODE': rf'^(?P<op>J(MP)?|{RE_OP})(?P<flag>S)?(?P<cond>{RE_COND})?(\.(?P<size>{RE_SIZE}))?\b',
+    'SIZE': r'\.(BYTE|HALF|WORD)\b',
+    'SPACE': r'\.(SPACE)\b',
+    'REG': rf'\b({RE_REG})\b',
+    'NAME': r'\.?[A-Z_]\w*',
+    'SYMBOL': r'<<|>>|[]()+*/%^|&=!<>,[~-]',
+    'END': r'$',
+    'ERROR': r'\S'
 }
 
 RE = re.compile('|'.join(rf'(?P<{token}>{pattern})' for token, pattern in TOKENS.items()), re.I)
@@ -61,7 +61,7 @@ RE = re.compile('|'.join(rf'(?P<{token}>{pattern})' for token, pattern in TOKENS
 
 def lex(text):
     """Produce list of tokens from input."""
-    return [Token(match.lastgroup, match.group(), match) for match in RE.finditer(text)]
+    return [Token(Lex[match.lastgroup], match.group(), match) for match in RE.finditer(text)]
 
 
 class Emitter:
@@ -121,11 +121,17 @@ class Emitter:
     def emit_binary(self, op, condition, flag, size, destination, source, immediate):
         """Emit binary instruction."""
         assert op not in {Op.NOT, Op.NEG, Op.NEGF}
-        self.new_instruction(Binary, condition, flag, size, immediate, op, source, destination)
+        if immediate and isinstance(source, int) and not (-128 <= source < 256):
+            assert op is Op.MOV
+            self.emit_load_immediate(condition, size, destination, source)
+        else:
+            self.new_instruction(Binary, condition, flag, size, immediate, op, source, destination)
 
     def emit_ternary(self, op, condition, flag, size, destination, source, source2, immediate):
         """Emit ternary instruction."""
         assert op not in {Op.MOV, Op.MVN, Op.CMN, Op.CMP, Op.NOT, Op.NEG, Op.TST, Op.TEQ, Op.CMPF}
+        if immediate:
+            assert -128 <= source2 < 256
         self.new_instruction(Ternary, condition, flag, size, immediate, op, source2, source, destination)
 
     def emit_load(self, condition, size, destination, base, offset, immediate):
@@ -136,15 +142,6 @@ class Emitter:
         """Emit store instruction."""
         self.new_instruction(Load, condition, size, immediate, True, destination, base, offset)
 
-    def emit_store0(self, condition, size, base, destination):
-        """Emit store instruction with 0 offset."""
-        self.new_instruction(Load, condition, size, True, True, destination, base, 0)
-
-    def emit_load_immediate(self, condition, size, destination, value):
-        """Emit load-immediate instruction."""
-        self.new_instruction(LoadImmediate, condition, size, destination)
-        self.new_instruction(Word, value)
-
     def emit_push(self, condition, size, destination):
         """Emit push instruction."""
         self.new_instruction(PushPop, condition, size, True, destination)
@@ -153,18 +150,10 @@ class Emitter:
         """Emit pop instruction."""
         self.new_instruction(PushPop, condition, size, False, destination)
 
-    def emit_binary_with_name(self, op, condition, flag, size, destination, value):
-        """Emit binary instruction with named variable."""
-        if -128 <= value < 256:
-            self.emit_binary(op, condition, flag, size, destination, value, immediate=True)
-        else:
-            assert op == Op.MOV, f'{op.name}'
-            self.emit_load_immediate(condition, size, destination, value)
-
-    def emit_ternary_with_name(self, op, condition, flag, size, destination, source, value):
-        """Emit ternary instruction with named variable."""
-        assert -128 <= value < 256
-        self.emit_ternary(op, condition, flag, size, destination, source, value, immediate=True)
+    def emit_load_immediate(self, condition, size, destination, value):
+        """Emit load-immediate instruction."""
+        self.new_instruction(LoadImmediate, condition, size, destination)
+        self.new_instruction(Word, value)
 
     def new_instruction(self, instruction, *arguments):
         """Emit a new instruction."""
@@ -187,24 +176,27 @@ class Assembler:
 
     def primary(self):
         """
-        PRIMARY -> 'defined' name
-                  |'defined' '(' name ')'
-                  |name|decimal|number|character|string|'(' EXPRESSION ')'
+        PRIMARY -> name|number|character|'(' EXPRESSION ')'
         """
-        if self.accept(Lex.NAME):
-            name = next(self)
-            if name.lexeme in self.names:
-                return self.names[name.lexeme]
-            return name.lexeme
+        if self.peek(Lex.NAME):
+            name = next(self).lexeme
+            if name in self.names:
+                return self.names[name]
+            return name
         if self.peek(Lex.NUMBER):
-            return int(next(self).lexeme)
+            value = next(self).lexeme
+            if value.startswith('0x'):
+                return int(value, base=16)
+            if value.startswith('0b'):
+                return int(value, base=2)
+            return int(value)
         if self.peek(Lex.CHARACTER):
-            return ord(unescape(next(self).lexeme))
+            return ord(unescape(next(self).lexeme[1:-1]))
         if self.accept('('):
             primary = self.expression()
             self.expect(')')
             return primary
-        self.error('Expected primary expression')
+        self.error("Expected name, number, character, or '('")
 
     def unary(self):
         """
@@ -255,7 +247,7 @@ class Assembler:
 
     def bitwise_and(self):
         """
-        BITWISE_AND -> EQUALITY {'&' EQUALITY}
+        BITWISE_AND -> SHIFT {'&' SHIFT}
         """
         bitwise_and = self.shift()
         while self.accept('&'):
@@ -282,41 +274,169 @@ class Assembler:
 
     def expression(self):
         """
-        EXPRESSION -> LOGICAL_OR
+        EXPRESSION -> BITWISE_OR
         """
-        return self.bitwise_or()
+        try:
+            return self.bitwise_or()
+        except TypeError:
+            self.error('Did you forget to declare a variable?')
 
     def definition(self):
-        name = next(self)
+        """
+        DEFINITION -> name '=' EXPRESSION
+        """
+        name = next(self).lexeme
         self.expect('=')
-        self.names[name.lexeme] = self.expression()
+        self.names[name] = self.expression()
 
     def size(self):
-        return Size[next(self).lexeme.lower()[1:]]
+        """
+        SIZE -> size
+        """
+        return {'BYTE': Byte,
+                'HALF': Half,
+                'WORD': Word}[next(self).lexeme.upper()[1:]]
 
     def string(self):
+        """
+        STRING -> string
+        """
         return unescape(next(self).lexeme[1:-1])
 
     def labeled(self, emitter):
-        label = next(self)
-        # size
-        if self.peek('size'):
-            emitter.emit_literal(label.lexeme, self.size(), self.expression())
-        # string
-        elif self.accept('string'):
-            emitter.emit_string(label.lexeme, self.string())
-        # space
-        elif self.peek('space'):
-            emitter.emit_string(label.lexeme, self.expression())
-        # error
+        """
+        LABELED -> LABEL ':' [(SIZE|space) EXPRESSION|STRING]
+        """
+        label = next(self).lexeme[:-1].strip()
+        if self.peek(Lex.SIZE):
+            emitter.emit_literal(label, self.size(), self.expression())
+        elif self.accept(Lex.SPACE):
+            emitter.emit_space(label, self.expression())
+        elif self.peek(Lex.STRING):
+            emitter.emit_string(label, self.string())
         else:
-            self.error()
+            emitter.labels.append(label)
+
+    def reg(self):
+        """
+        REG -> reg
+        """
+        return Reg[self.expect(Lex.REG).lexeme]
+
+    def label(self):
+        """
+        LABEL -> name
+        """
+        return self.expect(Lex.NAME).lexeme
 
     def code(self, emitter):
-        op, flag, cond, width = ...
-        
+        """
+        CODE -> 'nop'|JUMP|CALL|LOAD|STORE|PUSH|POP|LOAD_IMM|RET...
+
+        """
+        op, flag, cond, size = next(self).match.group('op', 'flag', 'cond', 'size')
+        op = op.upper()
+        cond = Cond.get(cond)
+        size = Size.get(size)
+        if op == 'NOP':
+            emitter.emit_jump(Cond.NV, 0)
+        elif op in {'J', 'JMP'}:
+            assert flag is None
+            assert size is Size.WORD
+            if self.peek(Lex.NAME):
+                emitter.emit_jump(cond, self.label())
+            elif self.peek(Lex.REG):
+                emitter.emit_binary(Op.MOV, cond, False, Size.WORD, Reg.PC, self.reg(), False)
+            else:
+                self.error('JMP instruction expects label or register')
+        elif op == 'LD':
+            target = self.reg()
+            self.expect(',')
+            self.expect('[')
+            base = self.reg()
+            imm = True
+            if self.accept(','):
+                if self.peek(Lex.REG):
+                    imm = False
+                    offset = self.reg()
+                else:
+                    offset = self.expression()
+            else:
+                offset = 0
+            self.expect(']')
+            emitter.emit_load(cond, size, target, base, offset, imm)
+        elif op == 'ST':
+            self.expect('[')
+            base = self.reg()
+            imm = True
+            if self.accept(','):
+                if self.peek(Lex.REG):
+                    imm = False
+                    offset = self.reg()
+                else:
+                    offset = self.expression()
+            else:
+                offset = 0
+            self.expect(']')
+            self.expect(',')
+            target = self.reg()
+            emitter.emit_store(cond, size, base, offset, target, imm)
+        elif op == 'PUSH':
+            args = [self.reg()]
+            while self.accept(','):
+                args.append(self.reg())
+            for reg in reversed(args):
+                emitter.emit_push(Cond.AL, Size.WORD, reg)
+        elif op == 'POP':
+            args = [self.reg()]
+            while self.accept(','):
+                args.append(self.reg())
+            for reg in args:
+                emitter.emit_pop(Cond.AL, Size.WORD, reg)
+        elif op == 'LDI':
+            target = self.reg()
+            self.expect(',')
+            emitter.emit_load_immediate(cond, size, target, self.label() if self.accept('=') else self.expression())
+        elif op == 'CALL':
+            if self.peek(Lex.REG):
+                emitter.emit_ternary(Op.ADD, cond, False, Size.WORD, Reg.LR, Reg.PC, 2*Size.WORD, True)
+                emitter.emit_binary(Op.MOV, cond, False, Size.WORD, Reg.PC, self.reg(), False)
+            else:
+                emitter.emit_call(cond, self.label())
+        elif op == 'RET':
+            emitter.emit_binary(Op.MOV, cond, False, Size.WORD, Reg.PC, Reg.LR, False)
+        elif op == 'IRET':
+            emitter.emit_binary(Op.MOV, Cond.AL, False, Size.WORD, Reg.PC, Reg.ILR, False)
+        elif op == 'HALT':
+            emitter.emit_binary(Op.OR, cond, False, Size.WORD, Reg.SR, Flag.HALT, True)
+        elif op == 'SWI':
+            emitter.emit_interrupt(cond, self.label())
+        else:
+            op = Op[op]
+            flag = bool(flag)
+            target = self.reg()
+            if self.accept(','):
+                if self.peek(Lex.REG):
+                    source = self.reg()
+                    if self.accept(','):
+                        if self.peek(Lex.REG):
+                            imm = False
+                            source2 = self.reg()
+                        else:
+                            imm = True
+                            source2 = self.expression()
+                        emitter.emit_ternary(op, cond, flag, size, target, source, source2, imm)
+                    else:
+                        emitter.emit_binary(op, cond, flag, size, target, source, False)
+                else:
+                    emitter.emit_binary(op, cond, flag, size, target, self.expression(), True)
+            else:
+                emitter.emit_unary(op, cond, flag, size, target)
 
     def data(self, emitter):
+        """
+        DATA -> SIZE EXPRESSION
+        """
         emitter.new_data(self.size(), self.expression())
 
     def assemble(self, assembly):
@@ -331,228 +451,31 @@ class Assembler:
             if line:
                 self.tokens = lex(line)
                 self.index = 0
-                if self.peek('id'):
+                if self.peek(Lex.NAME):
                     self.definition()
-                elif self.peek('label'):
+                elif self.peek(Lex.LABEL):
                     self.labeled(emitter)
-                elif self.peek('code'):
+                elif self.peek(Lex.CODE):
                     self.code(emitter)
                 else:
                     self.data(emitter)
-
-
-
-                if self.match('id', '=', 'const'):
-                    name, value = self.matched()
-                    self.names[name] = value
-
-                elif self.peek('label'):
-                    if self.match('label'):
-                        emitter.labels.append(*self.matched())
-                    elif self.match('label', 'size', 'const'):
-                        emitter.emit_literal(*self.matched())
-                    elif self.match('label', 'size', 'id'):
-                        emitter.emit_literal(*self.matched())
-                    elif self.match('label', 'size', 'char'):
-                        emitter.emit_char(*self.matched())
-                    elif self.match('label', 'string'):
-                        emitter.emit_string(*self.matched())
-                    elif self.match('label', 'space', 'const'):
-                        emitter.emit_space(*self.matched())
-                    elif self.match('label', 'space', 'id'):
-                        emitter.emit_space(*self.matched())
-                    else:
-                        self.error()
-                elif self.peek('op'):
-                    if self.match('op', 'reg'):
-                        emitter.emit_unary(*self.matched())
-
-                    elif self.match('op', 'reg', ',', 'reg'):
-                        emitter.emit_binary(*self.matched(), False)
-                    elif self.match('op', 'reg', ',', 'const'):
-                        emitter.emit_binary(*self.matched(), True)
-                    elif self.match('op', 'reg', ',', 'char'):
-                        emitter.emit_binary(*self.matched(), True)
-                    elif self.match('op', 'reg', ',', 'id'):
-                        emitter.emit_binary_with_name(*self.matched())
-
-                    elif self.match('op', 'reg', ',', 'reg', ',', 'reg'):
-                        emitter.emit_ternary(*self.matched(), False)
-                    elif self.match('op', 'reg', ',', 'reg', ',', 'const'):
-                        emitter.emit_ternary(*self.matched(), True)
-                    elif self.match('op', 'reg', ',', 'reg', ',', 'char'):
-                        emitter.emit_ternary(*self.matched(), True)
-                    elif self.match('op', 'reg', ',', 'reg', ',', 'id'):
-                        emitter.emit_ternary_with_name(*self.matched())
-                    else:
-                        self.error()
-                else:
-                    if self.match('nop'):
-                        emitter.emit_jump(Cond.NV, 0)
-
-                    elif self.match('size', 'const') or self.match('size', 'id'):
-                        size, value = self.matched()
-                        if size == Size.BYTE:
-                            emitter.new_data(Byte, value)
-                        elif size == Size.HALF:
-                            emitter.new_data(Half, value)
-                        else:
-                            emitter.new_data(Word, value)
-                    elif self.match('size', 'char'):
-                        size, char = self.matched()
-                        emitter.new_data(Char, char)
-
-                    elif self.match('jump', 'id'):
-                        emitter.emit_jump(*self.matched())
-
-                    elif self.match('jump', 'reg'):
-                        cond, reg = self.matched()
-                        emitter.emit_binary(Op.MOV, cond, False, Size.WORD, Reg.PC, reg, False)
-
-                    elif self.match('swi', 'id'):
-                        emitter.emit_interrupt(*self.matched())
-
-                    elif self.match('ld', 'reg', ',', '[', 'reg', ',', 'reg', ']'):
-                        emitter.emit_load(*self.matched(), False)
-                    elif self.match('ld', 'reg', ',', '[', 'reg', ']'):
-                        emitter.emit_load(*self.matched(), 0, True)
-                    elif self.match('ld', 'reg', ',', '[', 'reg', ',', 'const', ']'):
-                        emitter.emit_load(*self.matched(), True)
-                    elif self.match('ld', 'reg', ',', '[', 'reg', ',', 'id', ']'):
-                        emitter.emit_load(*self.matched(), True)
-
-                    elif self.match('st', '[', 'reg', ',', 'reg', ']', ',', 'reg'):
-                        emitter.emit_store(*self.matched(), False)
-                    elif self.match('st', '[', 'reg', ']', ',', 'reg'):
-                        emitter.emit_store0(*self.matched())
-                    elif self.match('st', '[', 'reg', ',', 'const', ']', ',', 'reg'):
-                        emitter.emit_store(*self.matched(), True)
-                    elif self.match('st', '[', 'reg', ',', 'id', ']', ',', 'reg'):
-                        emitter.emit_store(*self.matched(), True)
-
-                    elif self.match('ldi', 'reg', ',', 'const'):
-                        emitter.emit_load_immediate(*self.matched())
-                    elif self.match('ldi', 'reg', ',', '=', 'id'):
-                        emitter.emit_load_immediate(*self.matched())
-
-                    elif self.match('push', 'rd'):
-                        emitter.emit_push(*self.matched())
-                    elif self.match('pop', 'rd'):
-                        emitter.emit_pop(*self.matched())
-
-                    elif self.accept('push'):
-                        args = [self.expect('reg')]
-                        while self.accept(','):
-                            args.append(self.expect('reg'))
-                        self.expect('end')
-                        for reg in reversed(args):
-                            emitter.emit_push(Cond.AL, Size.WORD, reg)
-
-                    elif self.accept('pop'):
-                        args = [self.expect('reg')]
-                        while self.accept(','):
-                            args.append(self.expect('reg'))
-                        self.expect('end')
-                        for reg in args:
-                            emitter.emit_pop(Cond.AL, Size.WORD, reg)
-
-                    elif self.match('call', 'reg'):
-                        cond, reg = self.matched()
-                        emitter.emit_ternary(Op.ADD, cond, False, Size.WORD, Reg.LR, Reg.PC, 2*Size.WORD, True)
-                        emitter.emit_binary(Op.MOV, cond, False, Size.WORD, Reg.PC, reg, False)
-
-                    elif self.match('call', 'id'):
-                        emitter.emit_call(*self.matched())
-
-                    elif self.match('ret'):
-                        emitter.emit_binary(Op.MOV, *self.matched(), False, Size.WORD, Reg.PC, Reg.LR, False)
-
-                    elif self.match('iret'):
-                        emitter.emit_binary(Op.MOV, Cond.AL, False, Size.WORD, Reg.PC, Reg.ILR, False)
-
-                    elif self.match('halt'):
-                        emitter.emit_binary(Op.OR, Cond.AL, False, Size.WORD, Reg.SR, Flag.HALT, True)
-
-                    else:
-                        print(line)
-                        self.error()
-
+                self.expect(Lex.END)
         return emitter.instructions + emitter.data
-
-    def translate(self, type, value):
-        """Translate matched values from their string values."""
-        if type == 'const':
-            if value.startswith('0x'):
-                return int(value, base=16)
-            if value.startswith('0b'):
-                return int(value, base=2)
-            return int(value)
-        if type in {'string', 'char'}:
-            return unescape(value[1:-1])
-        if type == 'reg':
-            return Reg[value.upper()]
-        if type == 'label':
-            return value[:-1].strip()
-        if type == 'id' and value in self.names:
-            return self.names[value]
-        return value
-
-    def matched(self):
-        """Get -important- value matched in match method."""
-        for type, value, match in self.tokens:
-            if type in {'const', 'string', 'char', 'reg', 'label', 'id'}:
-                yield self.translate(type, value)
-            elif type == 'op':
-                yield Op[match['op_name'].upper()]
-                yield Cond.get(match['op_cond'])
-                yield bool(match['flag'])
-                yield Size.get(match['op_size'])
-            elif type == 'jump':
-                yield Cond.get(match['jump_cond'])
-            elif type == 'int':
-                yield Cond.get(match['int_cond'])
-            elif type == 'ldi':
-                yield Cond.get(match['ldi_cond'])
-                yield Size.get(match['ldi_size'])
-            elif type == 'ld':
-                yield Cond.get(match['ld_cond'])
-                yield Size.get(match['ld_size'])
-            elif type == 'st':
-                yield Cond.get(match['st_cond'])
-                yield Size.get(match['st_size'])
-            elif type == 'push':
-                yield Cond.get(match['push_cond'])
-                yield Size.get(match['push_size'])
-            elif type == 'pop':
-                yield Cond.get(match['pop_cond'])
-                yield Size.get(match['pop_size'])
-            elif type == 'call':
-                yield Cond.get(match['call_cond'])
-            elif type == 'ret':
-                yield Cond.get(match['ret_cond'])
-            elif type == 'size':
-                if value.lower() == '.word':
-                    yield Size.WORD
-                elif value.lower() == '.byte':
-                    yield Size.BYTE
-                elif value.lower() == '.half':
-                    yield Size.HALF
-
-    def match(self, *pattern):
-        """Match given pattern."""
-        pattern += ('end',)
-        return len(self.tokens) == len(pattern) and all(self.peek(symbol, offset=i) for i, symbol in enumerate(pattern))
 
     def __next__(self):
         """Move parse index forward and return consumed token value."""
-        type, value, _ = self.tokens[self.index]
+        token = self.tokens[self.index]
         self.index += 1
-        return self.translate(type, value)
+        return token
 
-    def peek(self, symbol, offset=0):
+    def peek(self, peek, offset=0):
         """Peek at the next token to confirm correct desired symbol."""
-        type, value, _ = self.tokens[self.index+offset]
-        return type == symbol or (not value.isalnum() and value == symbol)
+        token = self.tokens[self.index+offset]
+        if isinstance(peek, set):
+            return (token.type in peek
+                    or token.type is Lex.SYMBOL and token.lexeme in peek)
+        return (token.type is peek
+                or token.type is Lex.SYMBOL and token.lexeme == peek)
 
     def accept(self, symbol):
         """Accept and return next token if it is the correct desired symbol."""
@@ -563,12 +486,12 @@ class Assembler:
         """Expect given symbol as the next token. Raise error if not."""
         if self.peek(symbol):
             return next(self)
-        self.error()
+        self.error(f'Expected {symbol}')
 
-    def error(self):
+    def error(self, message=''):
         """Raise syntax error if one is found while parsing tokens."""
-        etype, evalue, _ = self.tokens[self.index]
-        raise SyntaxError(f'Unexpected {etype} token "{evalue}" at token #{self.index} in line {self.line_no+1}')
+        error = self.tokens[self.index]
+        raise SyntaxError(f'Line {self.line_no+1}: Unexpected {error.type} token "{error.lexeme}". {message}')
 
 
 def link(objects):
@@ -588,8 +511,6 @@ def link(objects):
     targets['stdheap'] = addr
     contents = []
     i = 0
-    if DEBUG & Debug.OBJECT_FILE:
-        file = open('assemblylog.txt', 'w+')
     for type, args in objects:
         if args and type is not Char:
             *args, last = args
@@ -600,16 +521,7 @@ def link(objects):
             args = *args, last
         data = type(*args)
         contents.append(data.little_end())
-        if DEBUG & Debug.OBJECT_FILE:
-            print(f'{i:06x}:', data.str, file=file)
-        if DEBUG & Debug.FULL:
-            print('>>' if i in indices else '  ', f'{i:06x}:', f'{data.str: <20}', f'| {data.format_dec(): <23}', f'{data.format_bin(): <40}', data.hex())
-        elif DEBUG & Debug.SHORT:
-            print('>>' if i in indices else '  ', f'{i:08x}:', f'{data.little_end(): <11}', f'| {data.str: <20}')
         i += type.size
-    if DEBUG & Debug.OBJECT_FILE:
-        file.close()
-    if DEBUG & Debug.PRINT_BYTES:
         print('\n'+' '.join(contents))
     print('Interrupt Vector:', '0x'+Interrupt(Cond.AL, False, targets['interrupt_handler']).hex())
     print(repl('\nSuccess!', Color.GREEN), len(contents), 'items.', i, 'bytes')
@@ -640,7 +552,7 @@ PATTERNS = {
     rf'\b(call|ret|halt|j(mp)?)({RE_COND})?\b': Color.BLUE,  # ops
     rf'\b(ldi|ld|st|push|pop)({RE_COND})?(\.({RE_SIZE}))?\b': Color.BLUE,  # ops
     r'\.(byte|half|word|space)\b': Color.BLUE,  # size|space
-    r'\.?[a-z_]\w*': Color.CYAN,  # id
+    r'\.?[a-z_]\w*': Color.CYAN,  # name
     r';.*$': Color.GREY  # comment
 }
 
@@ -676,7 +588,11 @@ def assemble(program, fflag=True, name='out'):
         with open(program) as file:
             program = file.read()
     assembler = Assembler()
-    objects = assembler.assemble(program)
+    try:
+        objects = assembler.assemble(program)
+    except SyntaxError as error:
+        return print(error)
+    # objects = assembler.assemble(program)
     bit32 = link(objects)
     if fflag:
         with open(f'{name}.bit32', 'w+') as file:
@@ -685,7 +601,9 @@ def assemble(program, fflag=True, name='out'):
 
 if __name__ == '__main__':
     assembly = '''
+    MYSIZE = 32
     main:
+        OR A, MYSIZE - 1
     loop:
         JMP loop
         RET

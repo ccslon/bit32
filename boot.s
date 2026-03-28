@@ -19,6 +19,7 @@ out:
     ST.B [B], A
     POP B
     RET
+STDIN_BUFFER_SIZE = 32
 interrupt_handler:
     OR SR, 0b00100000 ; disable interrupts
     PUSH LR, A, B, C, D, SR
@@ -38,7 +39,7 @@ interrupt_handler:
     LD D, [C]
     ST.B [B, D], A
     ADD D, 1
-    AND D, 0b11111
+    AND D, STDIN_BUFFER_SIZE - 1
     ST [C], D
 .loop_tail:
     LD.B A, [SP, 0]
@@ -51,7 +52,6 @@ interrupt_handler:
     AND SR, 0b11011111 ; enable interrupts
     IRET
 
-STDIN_BUFFER_SIZE = 32
 .stdin_buf:     .space STDIN_BUFFER_SIZE
 .stdin:         .word .stdin_buf
 .stdin_read:    .word 0
