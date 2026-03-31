@@ -31,6 +31,7 @@ class Lex(Enum):
     NAME = auto()
     SYMBOL = auto()
     END = auto()
+    INVALID = auto()
 
 
 class Token(NamedTuple):
@@ -41,22 +42,22 @@ class Token(NamedTuple):
     match: re.Match
 
 
-TOKENS = {
-    'NUMBER': r'-?(0x[0-9A-F]+|0b[01]+|\d+)',
-    'CHARACTER': r"'(\\'|\\?[^'])'",
-    'STRING': r'"(\\"|[^"])*"',
-    'LABEL': r'\.?[A-Z_]\w*\s*:',
-    'CODE': rf'^(?P<op>J(MP)?|{RE_OP})(?P<flag>S)?(?P<cond>{RE_COND})?(\.(?P<size>{RE_SIZE}))?\b',
-    'SIZE': r'\.(BYTE|HALF|WORD)\b',
-    'SPACE': r'\.(SPACE)\b',
-    'REG': rf'\b({RE_REG})\b',
-    'NAME': r'\.?[A-Z_]\w*',
-    'SYMBOL': r'<<|>>|[]()+*/%^|&=!<>,[~-]',
-    'END': r'$',
-    'ERROR': r'\S'
+PATTERNS = {
+    Lex.NUMBER: r'-?(0x[0-9A-F]+|0b[01]+|\d+)',
+    Lex.CHARACTER: r"'(\\'|\\?[^'])'",
+    Lex.STRING: r'"(\\"|[^"])*"',
+    Lex.LABEL: r'\.?[A-Z_]\w*\s*:',
+    Lex.CODE: rf'^(?P<op>J(MP)?|{RE_OP})(?P<flag>S)?(?P<cond>{RE_COND})?(\.(?P<size>{RE_SIZE}))?\b',
+    Lex.SIZE: r'\.(BYTE|HALF|WORD)\b',
+    Lex.SPACE: r'\.(SPACE)\b',
+    Lex.REG: rf'\b({RE_REG})\b',
+    Lex.NAME: r'\.?[A-Z_]\w*',
+    Lex.SYMBOL: r'<<|>>|[]()+*/%^|&=!<>,[~-]',
+    Lex.END: r'$',
+    Lex.INVALID: r'\S'
 }
 
-RE = re.compile('|'.join(rf'(?P<{token}>{pattern})' for token, pattern in TOKENS.items()), re.I)
+RE = re.compile('|'.join(rf'(?P<{token.name}>{pattern})' for token, pattern in PATTERNS.items()), re.I)
 
 
 def lex(text):
@@ -67,7 +68,8 @@ def lex(text):
 class Emitter:
     """Class for emitting bit32 objects."""
 
-    def __init__(self):
+    def __init__(self, assembler):
+        self.assembler = assembler
         self.data = []
         self.instructions = []
         self.labels = []
@@ -115,7 +117,8 @@ class Emitter:
 
     def emit_unary(self, op, condition, flag, size, destination):
         """Emit unary instruction."""
-        assert op in {Op.NOT, Op.NEG, Op.NEGF}
+        if op not in {Op.NOT, Op.NEG, Op.NEGF}:
+            self.assembler.error(f'{op.name} is not a unary operator')
         self.new_instruction(Unary, condition, flag, size, op, destination)
 
     def emit_binary(self, op, condition, flag, size, destination, source, immediate):
@@ -130,8 +133,8 @@ class Emitter:
     def emit_ternary(self, op, condition, flag, size, destination, source, source2, immediate):
         """Emit ternary instruction."""
         assert op not in {Op.MOV, Op.MVN, Op.CMN, Op.CMP, Op.NOT, Op.NEG, Op.TST, Op.TEQ, Op.CMPF}
-        if immediate:
-            assert -128 <= source2 < 256
+        if immediate and not (-128 <= source < 256):
+            self.assembler.error(f'{source} does not fit within 8 bits. Use LDI instruction')
         self.new_instruction(Ternary, condition, flag, size, immediate, op, source2, source, destination)
 
     def emit_load(self, condition, size, destination, base, offset, immediate):
@@ -160,9 +163,9 @@ class Emitter:
         self.instructions.append((self.labels, instruction, arguments))
         self.labels = []
 
-    def new_data(self, type, value):
+    def new_data(self, Type, value):
         """Emit a new piece of data."""
-        self.data.append((self.labels, type, (value,)))
+        self.data.append((self.labels, Type, (value,)))
         self.labels = []
 
 
@@ -341,8 +344,6 @@ class Assembler:
         if op == 'NOP':
             emitter.emit_jump(Cond.NV, 0)
         elif op in {'J', 'JMP'}:
-            assert flag is None
-            assert size is Size.WORD
             if self.peek(Lex.NAME):
                 emitter.emit_jump(cond, self.label())
             elif self.peek(Lex.REG):
@@ -443,9 +444,9 @@ class Assembler:
         """Parse and assemble the given assembly code and output bit32 objects."""
         with open('boot.s') as boot:
             assembly = f'{boot.read()}\n{assembly}'
-        emitter = Emitter()
+        emitter = Emitter(self)
         self.names.clear()
-        for self.line_no, line in enumerate(map(str.strip, assembly.splitlines())):
+        for self.line, line in enumerate(map(str.strip, assembly.splitlines())):
             if ';' in line:
                 line, comment = map(str.strip, line.split(';', 1))
             if line:
@@ -486,12 +487,14 @@ class Assembler:
         """Expect given symbol as the next token. Raise error if not."""
         if self.peek(symbol):
             return next(self)
-        self.error(f'Expected {symbol}')
+        self.error(f'Expected {symbol.name.lower() if isinstance(symbol, Lex) else symbol}')
 
     def error(self, message=''):
         """Raise syntax error if one is found while parsing tokens."""
         error = self.tokens[self.index]
-        raise SyntaxError(f'Line {self.line_no+1}: Unexpected {error.type} token "{error.lexeme}". {message}')
+        if error.type is Lex.END:
+            raise SyntaxError(f'Line {self.line+1}: {message}')
+        raise SyntaxError(f'Line {self.line+1}: Unexpected {error.type.name.lower()} token "{error.lexeme}". {message}')
 
 
 def link(objects):
@@ -499,30 +502,30 @@ def link(objects):
     targets = {}
     indices = set()
     addr = 0
-    for i, (labels, type, args) in enumerate(objects):
+    for i, (labels, Type, args) in enumerate(objects):
         for label in labels:
             if label in targets:
                 print(f'{repl("Warning", Color.RED)}: label collision "{label}"')
             targets[label] = addr
             indices.add(addr)
-        objects[i] = (type, args)
-        addr += type.size
+        objects[i] = (Type, args)
+        addr += Type.size
     print(f'Heap starts at address 0x{addr:08x}')
     targets['stdheap'] = addr
     contents = []
     i = 0
-    for type, args in objects:
-        if args and type is not Char:
+    for Type, args in objects:
+        if args and Type is not Char:
             *args, last = args
             if isinstance(last, str):
                 last = targets[last]
-                if type is Jump:
+                if Type is Jump:
                     last -= i
             args = *args, last
-        data = type(*args)
+        data = Type(*args)
         contents.append(data.little_end())
-        i += type.size
-        print('\n'+' '.join(contents))
+        print('>>' if i in indices else '  ', f'{i:06x}:', f'{data.str: <20}', f'| {data.format_dec(): <23}', f'{data.format_bin(): <40}', data.hex())
+        i += Type.size
     print('Interrupt Vector:', '0x'+Interrupt(Cond.AL, False, targets['interrupt_handler']).hex())
     print(repl('\nSuccess!', Color.GREEN), len(contents), 'items.', i, 'bytes')
     return contents
@@ -592,7 +595,6 @@ def assemble(program, fflag=True, name='out'):
         objects = assembler.assemble(program)
     except SyntaxError as error:
         return print(error)
-    # objects = assembler.assemble(program)
     bit32 = link(objects)
     if fflag:
         with open(f'{name}.bit32', 'w+') as file:
@@ -601,9 +603,7 @@ def assemble(program, fflag=True, name='out'):
 
 if __name__ == '__main__':
     assembly = '''
-    MYSIZE = 32
     main:
-        OR A, MYSIZE - 1
     loop:
         JMP loop
         RET
