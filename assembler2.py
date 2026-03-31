@@ -123,17 +123,22 @@ class Emitter:
 
     def emit_binary(self, op, condition, flag, size, destination, source, immediate):
         """Emit binary instruction."""
-        assert op not in {Op.NOT, Op.NEG, Op.NEGF}
+        if op in {Op.NOT, Op.NEG, Op.NEGF}:
+            self.assembler.error(f'{op.name} is a unary operator only')
         if immediate and isinstance(source, int) and not (-128 <= source < 256):
-            assert op is Op.MOV
-            self.emit_load_immediate(condition, size, destination, source)
-        else:
-            self.new_instruction(Binary, condition, flag, size, immediate, op, source, destination)
+            if op is Op.MOV:
+                self.emit_load_immediate(condition, size, destination, source)
+                return
+            self.assembler.error(f'{source} does not fit within 8 bits. Use LDI instruction')
+        self.new_instruction(Binary, condition, flag, size, immediate, op, source, destination)
 
     def emit_ternary(self, op, condition, flag, size, destination, source, source2, immediate):
         """Emit ternary instruction."""
-        assert op not in {Op.MOV, Op.MVN, Op.CMN, Op.CMP, Op.NOT, Op.NEG, Op.TST, Op.TEQ, Op.CMPF}
-        if immediate and not (-128 <= source < 256):
+        if op in {Op.NOT, Op.NEG, Op.NEGF}:
+            self.assembler.error(f'{op.name} is a unary operation only')
+        if op in {Op.MOV, Op.MVN, Op.CMN, Op.CMP, Op.TST, Op.TEQ, Op.CMPF}:
+            self.assembler.error(f'{op.name} only takes 2 arguments but 3 were given')
+        if immediate and isinstance(source, int) and not (-128 <= source < 256):
             self.assembler.error(f'{source} does not fit within 8 bits. Use LDI instruction')
         self.new_instruction(Ternary, condition, flag, size, immediate, op, source2, source, destination)
 
@@ -281,8 +286,8 @@ class Assembler:
         """
         try:
             return self.bitwise_or()
-        except TypeError:
-            self.error('Did you forget to declare a variable?')
+        except TypeError as error:
+            self.error(f'{error}. Did you forget to declare a variable?')
 
     def definition(self):
         """
@@ -489,7 +494,7 @@ class Assembler:
             return next(self)
         self.error(f'Expected {symbol.name.lower() if isinstance(symbol, Lex) else symbol}')
 
-    def error(self, message=''):
+    def error(self, message):
         """Raise syntax error if one is found while parsing tokens."""
         error = self.tokens[self.index]
         if error.type is Lex.END:
