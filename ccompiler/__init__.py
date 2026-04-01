@@ -12,7 +12,7 @@ from .emitter import Emitter
 def ccompile_cwd(cwd, files, oflag='out', Eflag=False, Sflag=False, fflag=True):
     ccompile([f'{cwd}/{file}' for file in files], f'{cwd}/{oflag}', Eflag, Sflag, fflag)
 
-def ccompile(cwd, files, oflag='out', Eflag=False, Sflag=False, fflag=True):
+def ccompile(files, oflag='out', Eflag=False, Sflag=False, fflag=True):
     processed = []
     for file_name in files:
         if file_name.endswith(('.c', '.h')):
