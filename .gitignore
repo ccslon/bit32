@@ -12,4 +12,5 @@ cprograms/*.i
 *.bit32
 *.pyc
 asmlog.txt
+testcc_coverage.py
 .coverage
