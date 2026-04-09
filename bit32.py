@@ -159,6 +159,12 @@ ESCAPE = {
     '\b': r'\b',
     '\\': r'\\'
 }
+
+def escape(char):
+    """Escape given character."""
+    return ESCAPE.get(char, char)
+
+
 UNESCAPE = {
     r'\0': '\0',
     r'\"': '\"',
@@ -169,17 +175,11 @@ UNESCAPE = {
     r'\\': '\\'
 }
 
-
 def unescape(text):
     """Interpret escaped characters and replace with ascii value."""
     for k, v in UNESCAPE.items():
         text = text.replace(k, v)
     return text
-
-
-def escape(char):
-    """Escape given character."""
-    return ESCAPE.get(char, char)
 
 
 class Data:
@@ -189,33 +189,14 @@ class Data:
 
     def __init__(self):
         self.bin = 0
-        self.dec = []
 
     def little_end(self):
         """Produce little endian representaion for this instance of data."""
         return f'{self.bin & 0xff:02x} {self.bin>>8 & 0xff:02x} {self.bin>>16 & 0xff:02x} {self.bin>>24 & 0xff:02x}'
 
     def hex(self):
-        """Produde 32 bit hex representation for this instance of data."""
+        """Produce 32 bit hex representation for this instance of data."""
         return f'{self.bin:08x}'
-
-    def format_bin(self):
-        """
-        Produce binary representation for this instance of data.
-
-        Primarily for debugging.
-        """
-        return ' '.join('X'*size if value is None else f'{value:0{size}b}'
-                        for value, size in self.dec)
-
-    def format_dec(self):
-        """
-        Produce decimal representation for this instance of data.
-
-        Primarily for debugging.
-        """
-        return ' '.join('0' if value is None
-                        else f'{value:d}' for value, _ in self.dec)
 
     def __setitem__(self, item, value):
         """
@@ -224,11 +205,9 @@ class Data:
         Allows for syntactical sugar in derived classes.
         """
         if isinstance(item, slice):
-            self.bin |= (value or 0) << item.stop
-            self.dec.append((value, item.start-item.stop+1))
+            self.bin |= ((value or 0) & (1 << (item.start-item.stop+1)) - 1) << item.stop
         else:
-            self.bin |= (value or 0) << item
-            self.dec.append((value, 1))
+            self.bin |= ((value or 0) & 1) << item
 
 
 class ByteBase(Data):
@@ -250,9 +229,7 @@ class Byte(ByteBase):
 
     def __init__(self, byte):
         super().__init__()
-        byte = twos_compliment(byte, 8)
-        self[7:0] = byte
-        self.str = f'0x{byte:02x}'
+        self[7:0] = twos_compliment(byte, 8)
 
 
 class Char(ByteBase):
@@ -262,7 +239,6 @@ class Char(ByteBase):
         super().__init__()
         assert 0 <= ord(char) < 128
         self[7:0] = ord(char)
-        self.str = f"'{escape(char)}'"
 
 
 class Half(Data):
@@ -272,9 +248,7 @@ class Half(Data):
 
     def __init__(self, half):
         super().__init__()
-        half = twos_compliment(half, 16)
-        self[15:0] = half
-        self.str = f'0x{half:04x}'
+        self[15:0] = twos_compliment(half, 16)
 
     def little_end(self):
         """Produce little endian representaion for this half-word."""
@@ -290,12 +264,10 @@ class Word(Data):
 
     def __init__(self, word):
         super().__init__()
-        word = twos_compliment(word, 32)
-        self[31:0] = word
-        self.str = f'0x{word:08x}'
+        self[31:0] = twos_compliment(word, 32)
 
 
-class InstructionOp(IntEnum):
+class Code(IntEnum):
     """Enum for the different instruction types."""
 
     JUMP = 0
@@ -317,14 +289,8 @@ class Jump(Instruction):
         super().__init__()
         self[31:28] = cond
         self[27] = link
-        self[26:24] = InstructionOp.JUMP
-        op = f'CALL{cond}' if link else f'J{cond.jump()}'
-        if offset24 < 0:
-            self.str = f'{op} -0x{-offset24:06X}'
-        else:
-            self.str = f'{op} 0x{offset24:06X}'
-        offset24 = twos_compliment(offset24, 24)
-        self[23:0] = offset24
+        self[26:24] = Code.JUMP
+        self[23:0] = twos_compliment(offset24, 24)
 
 
 class Interrupt(Instruction):
@@ -334,9 +300,8 @@ class Interrupt(Instruction):
         super().__init__()
         self[31:28] = cond
         self[27] = software
-        self[26:24] = InstructionOp.INTERRUPT
+        self[26:24] = Code.INTERRUPT
         self[23:0] = code24
-        self.str = f'INT{cond} 0x{code24:06X}'
 
 
 class Unary(Instruction):
@@ -346,14 +311,13 @@ class Unary(Instruction):
         super().__init__()
         self[31:28] = cond
         self[27] = flag
-        self[26:24] = InstructionOp.ALU
+        self[26:24] = Code.ALU
         self[23:22] = size >> 1
         self[21:17] = op
         self[16:12] = None
         self[11:8] = rd
         self[7:4] = rd
         self[3:0] = rd
-        self.str = f'{op.name}{cond}{"S"*flag}.{size} {rd}'
 
 
 class Binary(Instruction):
@@ -362,15 +326,14 @@ class Binary(Instruction):
     def __init__(self, cond, flag, size, imm, op, src, rd):
         super().__init__()
         self[31:28] = cond
-        self[27] = op == Op.CMPF or flag
-        self[26:24] = InstructionOp.ALU | imm
+        self[27] = op is Op.CMPF or flag
+        self[26:24] = Code.ALU | imm
         self[23:22] = size >> 1
         self[21:17] = op
         if imm:
             if isinstance(src, str):
                 self[16] = True
                 self[15:8] = ord(src)
-                src = f"'{escape(src)}'"
             else:
                 assert -128 <= src < 256
                 self[16] = src >= 0
@@ -378,10 +341,8 @@ class Binary(Instruction):
         else:
             self[16:12] = None
             self[11:8] = src
-            src = src.name
         self[7:4] = rd
         self[3:0] = rd
-        self.str = f"{op.name}{cond}{'S'*flag}{size} {rd}, {src}"
 
 
 class Ternary(Instruction):
@@ -391,24 +352,21 @@ class Ternary(Instruction):
         super().__init__()
         self[31:28] = cond
         self[27] = flag
-        self[26:24] = InstructionOp.ALU | imm
+        self[26:24] = Code.ALU | imm
         self[23:22] = size >> 1
         self[21:17] = op
         if imm:
             self[16] = None
             if isinstance(src, str):
                 self[15:8] = ord(src)
-                src = f"'{escape(src)}'"
             else:
                 assert 0 <= src < 256
                 self[15:8] = src
         else:
             self[16:12] = None
             self[11:8] = src
-            src = src.name
         self[7:4] = rs
         self[3:0] = rd
-        self.str = f'{op.name}{cond}{"S"*flag}{size} {rd}, {rs}, {src}'
 
 
 class Load(Instruction):
@@ -418,24 +376,18 @@ class Load(Instruction):
         super().__init__()
         self[31:28] = cond
         self[27] = storing
-        self[26:24] = InstructionOp.LOAD | imm
+        self[26:24] = Code.LOAD | imm
         self[23:22] = size >> 1
         if imm:
             assert -128 <= offset < 256
             self[21:17] = None
             self[16] = offset >= 0
-            offset = twos_compliment(offset, 8)
-            self[15:8] = offset
+            self[15:8] = twos_compliment(offset, 8)
         else:
             self[21:12] = None
             self[11:8] = offset
-            offset = offset.name
         self[7:4] = rb
         self[3:0] = rd
-        if storing:
-            self.str = f'ST{cond}{size} [{rb}, {offset}], {rd}'
-        else:
-            self.str = f'LD{cond}{size} {rd}, [{rb}, {offset}]'
 
 
 class PushPop(Instruction):
@@ -444,16 +396,14 @@ class PushPop(Instruction):
     def __init__(self, cond, size, pushing, rd):
         super().__init__()
         self[31:28] = cond
-        op = 'PUSH' if pushing else 'POP'
         self[27] = pushing
-        self[26:24] = InstructionOp.STACK
+        self[26:24] = Code.STACK
         self[23:22] = size >> 1
         self[21:17] = None
         self[16] = not pushing
         self[15:8] = twos_compliment((-1)**pushing * size, 8)
         self[7:4] = None
         self[3:0] = rd
-        self.str = f'{op}{cond}{size} {rd}'
 
 
 class LoadImmediate(Instruction):
@@ -463,8 +413,7 @@ class LoadImmediate(Instruction):
         super().__init__()
         self[31:28] = cond
         self[27] = link
-        self[26:24] = InstructionOp.WORD
+        self[26:24] = Code.WORD
         self[23:22] = size >> 1
         self[21:4] = None
         self[3:0] = rd
-        self.str = f'LDI{cond}{size} {rd}, ...'

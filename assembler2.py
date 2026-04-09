@@ -516,7 +516,7 @@ def link(objects):
         objects[i] = (Type, args)
         addr += Type.size
     print(f'Heap starts at address 0x{addr:08x}')
-    targets['stdheap'] = addr
+    targets['.heap_start'] = addr
     contents = []
     i = 0
     for Type, args in objects:
@@ -529,7 +529,6 @@ def link(objects):
             args = *args, last
         data = Type(*args)
         contents.append(data.little_end())
-        print('>>' if i in indices else '  ', f'{i:06x}:', f'{data.str: <20}', f'| {data.format_dec(): <23}', f'{data.format_bin(): <40}', data.hex())
         i += Type.size
     print('Interrupt Vector:', '0x'+Interrupt(Cond.AL, False, targets['interrupt_handler']).hex())
     print(repl('\nSuccess!', Color.GREEN), len(contents), 'items.', i, 'bytes')

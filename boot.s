@@ -108,7 +108,7 @@ longjmp:
     LD A, [A, 0]
     RET
 
-.heap: .word stdheap
+.heap: .word .heap_start
 ; void* morecore(int);
 getheap:
     PUSH B, C, D
