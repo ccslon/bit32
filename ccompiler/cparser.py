@@ -161,9 +161,9 @@ class CParser(Parser):
         if self.peek(Lex.NUMBER):
             return Number(next(self).lexeme)
         if self.peek(Lex.CHARACTER):
-            return Character(next(self))
+            return Character(next(self).lexeme)
         if self.peek(Lex.STRING):
-            return String(next(self))
+            return String(next(self).lexeme)
         if self.accept('('):
             primary = self.expression()
             self.expect(')')
@@ -546,7 +546,7 @@ class CParser(Parser):
                 types.append((Function, (params, variadic)))
                 self.expect(')')
             elif self.accept('['):
-                types.append((Array, (Number(next(self).lexeme) if self.peek(Lex.NUMBER) else None,)))
+                types.append((Array, (None if self.peek(']') else self.constant().evaluate(),)))
                 self.expect(']')
         return ctype, name
 

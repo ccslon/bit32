@@ -7,7 +7,7 @@ Created on Fri Sep  6 14:09:48 2024
 from operator import (add, sub, mul, floordiv, truediv, mod,
                       lshift, rshift, neg, inv, or_, xor, and_,
                       eq, ne, gt, lt, ge, le)
-from bit32 import Size, Op, Reg, Cond, twos_compliment, floating_point, unescape
+from bit32 import Size, Op, Reg, Cond, twos_compliment, floating_point, escape_chr
 from .cnodes import Expression, Variable, Constant, Unary, Binary, Access, Statement
 from .ctypes import Type, Void, Char, Int, Float, Pointer, Array
 
@@ -65,21 +65,19 @@ class Global(Variable):
 
     def global_generate(self, emitter):
         """Generate code to allocate space for global variable."""
-        if self.type.size() > 0:
-            if self.type.size() in Size:
-                emitter.emit_global(self.token.lexeme, self.type.size(), 0)
+        size = self.type.size()
+        if size > 0:
+            if isinstance(size, Size):
+                emitter.emit_global(self.token.lexeme, size, 0)
             else:
-                emitter.emit_space(self.token.lexeme, self.type.size())
+                emitter.emit_space(self.token.lexeme, size)
 
-class Register(Local):
-    pass
 
 class Number(Constant):
     """Class for basic number nodes found anywhere in C code."""
 
     def __init__(self, value, ctype=Int()):
-        super().__init__(ctype)
-        self.value = int(value)
+        super().__init__(ctype, int(value))
 
     def data(self, _):
         """Get data representation of node."""
@@ -119,8 +117,7 @@ class Decimal(Constant):
     """Class for basic decimal numbers found anywhere in C code."""
 
     def __init__(self, value):
-        super().__init__(Float())
-        self.value = float(value)
+        super().__init__(Float(), float(value))
 
     def data(self, _):
         """Get data representation of decimal."""
@@ -135,14 +132,13 @@ class Decimal(Constant):
 class Character(Constant):
     """Class for character literals."""
 
-    def __init__(self, token):
-        super().__init__(Char())
-        self.token = token
-        self.value = ord(unescape(token.lexeme))
+    def __init__(self, value):
+        super().__init__(Char(), ord(value))
+        self.char = value
 
     def data(self, _):
         """Get data representation of character."""
-        return f"'{self.token.lexeme}'"
+        return f"'{escape_chr(self.char)}'"
 
     def reduce(self, emitter, n):
         """Generate code for character."""
@@ -157,14 +153,12 @@ class Character(Constant):
 class String(Constant):
     """Class for string literals."""
 
-    def __init__(self, token):
-        super().__init__(Pointer(Char()))
-        self.token = token
-        self.value = unescape(token.lexeme)
+    def __init__(self, value):
+        super().__init__(Array(Char(), len(value)+1), value)
 
     def data(self, emitter):
         """Get data representation of string."""
-        return emitter.emit_string_ptr(self.token.lexeme)
+        return emitter.emit_string_ptr(self.value)
 
     def address(self, emitter, n):
         """Generate address code for string."""

@@ -174,6 +174,10 @@ class Variable(Expression):
 class Constant(Expression):
     """Class for constant nodes."""
 
+    def __init__(self, ctype, value):
+        super().__init__(ctype)
+        self.value = value
+
     def is_constant(self):
         """Constants are constant."""
         return True

@@ -1,14 +1,11 @@
 #include <string.h>
-#include <stdlib.h>
 #include <stdio.h>
 
-// char* strcat(char*, const char*);
-// int strlen(const char*);
-// void printf(const char*, ...);
+int g;
 
 void fizzbuzz(int m) {
     int n;
-    char buffer[9]; // "f i z z b u z z \0"
+    char buffer[sizeof "fizzbuzz"];
     for (n = 1; n <= m; n++) {
         buffer[0] = '\0';
         if (n % 3 == 0) {
@@ -18,7 +15,7 @@ void fizzbuzz(int m) {
             strcat(buffer, "buzz");
         }
         if (buffer[0] != '\0') {
-            printf("%s\n", buffer);
+            puts(buffer);
         } else {
             printf("%d\n", n);
         }

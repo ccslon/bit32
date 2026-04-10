@@ -9,7 +9,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from operator import add, sub, mul, truediv, mod, lshift, rshift, eq, ne, gt, lt, ge, le
-from bit32 import unescape
+from bit32 import escape_chr, escape_str
 from .clexer import Lex, Token, CLexer
 from .parser import Parser
 '''
@@ -234,9 +234,9 @@ class CPreProcessor(Expander):
         if self.peek({Lex.DECIMAL, Lex.NUMBER}):
             return next(self).lexeme
         if self.peek(Lex.CHARACTER):
-            return ord(unescape(next(self).lexeme))
+            return ord(next(self).lexeme)
         if self.peek(Lex.STRING):
-            return unescape(next(self).lexeme)
+            return next(self).lexeme
         if self.accept('('):
             primary = self.expression()
             self.expect(')')
@@ -595,5 +595,7 @@ class CPreProcessor(Expander):
 
     def __str__(self):
         """Produce the processed input as text."""
-        return ''.join(f'"{token.lexeme}"' if token.type is Lex.STRING else str(token.lexeme)
+        return ''.join(f'"{escape_str(token.lexeme)}"' if token.type is Lex.STRING
+                       else f"'{escape_chr(token.lexeme)}'" if token.type is Lex.CHARACTER 
+                       else str(token.lexeme)
                        for _, tokens in self.files for token in tokens)

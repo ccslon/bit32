@@ -425,7 +425,7 @@ class Array(List, Value):
     def __init__(self, of, length):
         super().__init__()
         self.of = of
-        self.length = length if length is None else length.value
+        self.length = length
         self.width = Size.WORD
 
     def size(self):

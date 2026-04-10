@@ -57,7 +57,7 @@ def ccompile(files, oflag='out', Eflag=False, Sflag=False, fflag=True):
                     return
                 root.generate(emitter)
             try:
-                assemble(str(emitter), fflag, oflag)
+                assemble(str(emitter), oflag)
             except SyntaxError as error:
                 print(error)
             return

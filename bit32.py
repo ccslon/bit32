@@ -152,17 +152,20 @@ class Cond(IntEnum):
 
 ESCAPE = {
     '\0': r'\0',
-    '\"': r'\"',
-    '\'': r'\'',
     '\n': r'\n',
     '\t': r'\t',
     '\b': r'\b',
     '\\': r'\\'
 }
+ESCAPE_CHR = {'\'': r'\''} | ESCAPE
+ESCAPE_STR = {'\"': r'\"'} | ESCAPE
 
-def escape(char):
-    """Escape given character."""
-    return ESCAPE.get(char, char)
+def escape_chr(char):
+    return ESCAPE_CHR.get(char, char)
+
+def escape_str(text):
+    """Escape given string."""
+    return ''.join(ESCAPE_STR.get(char, char) for char in text)
 
 
 UNESCAPE = {

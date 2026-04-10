@@ -5,7 +5,7 @@ Created on Fri Sep  6 14:25:05 2024
 @author: ccslon
 """
 from collections import UserList
-from bit32 import Op, Cond, Reg, Size, escape
+from bit32 import Op, Cond, Reg, Size, escape_chr
 from .cnodes import Statement, Expression, Variable, Binary
 from .ctypes import Array
 
@@ -352,12 +352,12 @@ class InitStringArray(Statement):
         """Generate code for local string array assignments."""
         self.array.address(emitter, n)
         for i, c in enumerate(self.string.value+'\0'):  # TODO string can be longer than array length
-            emitter.emit_binary(Op.MOV, Size.BYTE, Reg(n+1), f"'{escape(c)}'")
+            emitter.emit_binary(Op.MOV, Size.BYTE, Reg(n+1), f"'{escape_chr(c)}'")
             emitter.emit_store(Size.BYTE, Reg(n+1), Reg(n), i)
 
     def global_generate(self, emitter):
         """Generate code for local string array assignments as a global."""
-        emitter.emit_string_array(self.array.token.lexeme, self.string.token.lexeme)
+        emitter.emit_string_array(self.array.token.lexeme, self.string.value)
 
 
 class Comma(Expression, Statement):

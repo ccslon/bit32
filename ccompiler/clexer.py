@@ -7,6 +7,7 @@ Created on Sun Aug 17 14:24:04 2025
 import re
 from enum import Enum, auto
 from typing import NamedTuple
+from bit32 import unescape
 
 
 class Lex(Enum):
@@ -111,11 +112,11 @@ class CLexer(Lexer):
 
     def RE_character(self, match):
         r"'(\\'|\\?[^'])'"
-        return match[1:-1]
+        return unescape(match[1:-1])
 
     def RE_string(self, match):
         r'"(\\"|[^"])*"'
-        return match[1:-1]
+        return unescape(match[1:-1])
 
     def RE_std(self, match):
         r'<\s*\w+\.h\s*>'
