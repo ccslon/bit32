@@ -4,7 +4,7 @@ Created on Wed Jun  4 10:31:38 2025
 
 @author: Colin
 """
-import assembler2 as assembler
+from assembler import assemble, display
 from .cpreprocessor import CPreProcessor
 from .cparser import parse
 from .emitter import Emitter
@@ -42,7 +42,7 @@ def ccompile(files, oflag='out', Eflag=False, Sflag=False, fflag=True):
         if Sflag:
             file_type = 's'
             output = str(emitter)
-            assembler.display(output)
+            display(output)
         else:
             stds = set()
             for preproc in processed:
@@ -57,7 +57,7 @@ def ccompile(files, oflag='out', Eflag=False, Sflag=False, fflag=True):
                     return
                 root.generate(emitter)
             try:
-                assembler.assemble(str(emitter), fflag, oflag)
+                assemble(str(emitter), fflag, oflag)
             except SyntaxError as error:
                 print(error)
             return
