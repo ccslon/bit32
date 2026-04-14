@@ -444,7 +444,7 @@ class CParser(Parser):
         """
         TYPE_SPEC -> 'void'
                     |name
-                    |STRUCT_OR_UNIO
+                    |STRUCT_OR_UNION
                     |'enum' [name] '{' ENUM {',' ENUM}'}
                     |type
         """
