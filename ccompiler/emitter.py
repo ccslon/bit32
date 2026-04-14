@@ -6,7 +6,7 @@ Created on Sat Sep  7 01:02:16 2024
 """
 
 from enum import Enum
-from bit32 import Reg, Size, Op
+from bit32 import Reg, Size, Op, escape_str
 
 '''
 [x] add CMovs
@@ -82,7 +82,7 @@ class String(Data):
 
     def __str__(self):
         """Get string representaion for string objects."""
-        return rf'{self.labels[0]}: "{self.value}\0"'
+        return rf'{self.labels[0]}: "{escape_str(self.value)}\0"'
 
 
 class Space(Object):
