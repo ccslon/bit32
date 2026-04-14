@@ -113,9 +113,10 @@ class Expander(Parser):
                     if self.accept(')'):
                         break
                     self.expect(',')
-
             def stringize(lexeme):
-                return ''.join(str(arg.lexeme) for arg in args[lexeme])
+                if lexeme in args:
+                    return ''.join(str(arg.lexeme) for arg in args[lexeme])
+                return lexeme
             expanded_args = {}
             for ttype, lexeme in macro.body:
                 if ttype is Lex.STRINGIZE:
@@ -538,20 +539,28 @@ class CPreProcessor(Expander):
                 elif self.frame.active:
                     if self.peek_defined():
                         self.expand()
-                    elif self.peek(Lex.STRING):
-                        left = next(self)
-                        space = self.accept(Lex.SPACE)
-                        if self.peek(Lex.STRING):
-                            right = next(self)
-                            self.push([Token(Lex.STRING, left.lexeme+right.lexeme, left.line)], None)
-                        else:
-                            output.append(left)
-                            if space is not None:
-                                output.append(space)
                     else:
                         output.append(next(self))
                 else:
                     next(self)
+        # string concat pass
+        self.stack = [(0, output, None)]
+        output = []
+        while self.stack:
+            self.pop()
+            while self.index < len(self.tokens):
+                if self.peek(Lex.STRING):
+                    left = next(self)
+                    space = self.accept(Lex.SPACE)
+                    if self.peek(Lex.STRING):
+                        right = next(self)
+                        self.push([Token(Lex.STRING, left.lexeme+right.lexeme, left.line)], None)
+                    else:
+                        output.append(left)
+                        if space is not None:
+                            output.append(space)
+                else:
+                    output.append(next(self))
         return output
 
     root = program
@@ -560,7 +569,7 @@ class CPreProcessor(Expander):
         """Process a single source file."""
         with open(os.path.sep.join(file_path + [file_name])) as file:
             self.frame = Frame(os.path.dirname(os.path.abspath(file.name)))
-            self.defined['__FILE__'] = Macro(None, [(Lex.STRING, os.path.abspath(file.name))])
+            self.defined['__FILE__'] = Macro(None, [(Lex.STRING, file_name)])
             self.defined['__LINE__'] = Macro(None, [(Lex.NUMBER, 1)])
             text = file.read()
         text = self.replace_comments(text)
