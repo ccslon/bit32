@@ -36,6 +36,14 @@ class Void(Type):
     def __init__(self):
         self.width = 0
 
+    def cast(self, _):
+        """Any type can be case to void"""
+        return True
+
+    def get_node(self, _):
+        """Get the constant node associated with this type."""
+        return cexpressions.Number(0)
+
     def __eq__(self, other):
         """Determine if the given type is equal to void."""
         return isinstance(other, Void)
