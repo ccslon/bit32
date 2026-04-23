@@ -85,11 +85,9 @@ float atof(const char* s) {
 }
 Header base;
 Header *freehead = NULL;
-#define NALLOC 1024
 Header* morecore(size_t n) {
     void* core;
     Header* header;
-    // if (n < NALLOC) n = NALLOC;
     core = getheap(n);
     header = (Header*)core;
     header->size = n;
@@ -98,7 +96,7 @@ Header* morecore(size_t n) {
 }
 void* malloc(size_t bytes) {
     Header *p, *prevp;
-    size_t units = sizeof(Header) + bytes; //(bytes+sizeof(Header)-1)/sizeof(Header) + 1;
+    size_t units = sizeof(Header) + bytes;
     if ((prevp = freehead) == NULL) {
         base.next = freehead = prevp = &base;
         base.size = 0;
@@ -109,7 +107,6 @@ void* malloc(size_t bytes) {
                 prevp->next = p->next;
             } else {
                 p->size -= units;
-                //p += (int)p->size;
                 p = (Header*)((int)p + p->size);
                 p->size = units;
             }

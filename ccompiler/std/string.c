@@ -17,16 +17,29 @@ char* strncpy(char* s, const char* t, size_t n) {
         ;
     return s;
 }
-char* strdup(char* s) {
+char* strdup(const char* s) {
     void* malloc(unsigned);
     char* p = malloc(strlen(s)+1);
     if (p != (void*)0)
         strncpy(p, s, strlen(s)+1);
     return p;
 }
+char* strndup(const char* s, size_t n) {
+    void* malloc(unsigned);
+    char* p = malloc(n);
+    if (p != (void*)0)
+        strncpy(p, s, n);
+    return p;
+}
 char* strcat(char* s, const char* t) {
     size_t i = strlen(s), j = 0;
     while((s[i++] = t[j++]) != '\0')
+        ;
+    return s;
+}
+char* strncat(char* s, const char* t, size_t n) {
+    size_t i = strlen(s), j = 0;
+    while(i < n && (s[i++] = t[j++]) != '\0')
         ;
     return s;
 }

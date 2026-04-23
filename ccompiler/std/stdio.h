@@ -9,20 +9,20 @@ typedef struct {
 } FILE;
 extern FILE* stdin;
 extern FILE* stdout;
-char fgetc(FILE* stream);
+char fgetc(FILE*);
 #define getc() (fgetc(stdin))
 char getchar();
 char* fgets(char*, size_t, FILE*);
 char* gets(char*, size_t);
-int fputc(char c, FILE* stream);
+int fputc(char, FILE*);
 #define putc(c) (fputc((c), stdout))
 int putchar(char c) ;
-int fputs(const char* s, FILE* stream);
-int puts(const char* s);
-void uprint(unsigned n);
-void oprint(unsigned n);
-void dprint(int n);
-void xprint(unsigned n, char uplo);
-void fprint(float f, char prec);
-void eprint(float f, char prec);
-void printf(const char* format, ...);
+int fputs(const char*, FILE*);
+int puts(const char*);
+void uprint(unsigned);
+void oprint(unsigned);
+void dprint(int);
+void xprint(unsigned, char);
+void fprint(float, char);
+void eprint(float, char);
+void printf(const char*, ...);
