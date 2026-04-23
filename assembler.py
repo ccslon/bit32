@@ -8,7 +8,6 @@ from enum import Enum, IntEnum, auto
 from typing import NamedTuple
 from operator import add, sub, mul, floordiv, mod, lshift, rshift
 import re
-
 from bit32 import (Size, Flag, Reg, Op, Cond, Byte, Char, Half, Word, Jump, Interrupt, Unary,
                    Binary, Ternary, Load, PushPop, LoadImmediate, unescape)
 
@@ -193,12 +192,12 @@ class Assembler:
                 return self.names[name]
             return name
         if self.peek(Lex.NUMBER):
-            value = next(self).lexeme
-            if value.startswith('0x'):
-                return int(value, base=16)
-            if value.startswith('0b'):
-                return int(value, base=2)
-            return int(value)
+            number = next(self).lexeme
+            if number.startswith('0x'):
+                return int(number, base=16)
+            if number.startswith('0b'):
+                return int(number, base=2)
+            return int(number)
         if self.peek(Lex.CHARACTER):
             return ord(unescape(next(self).lexeme[1:-1]))
         if self.accept('('):
