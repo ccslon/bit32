@@ -326,13 +326,11 @@ class Not(Unary):
 
     def compare(self, emitter, n, label):
         """Generate code for comparing nodes with logical not."""
-        emitter.emit_binary(self.type.CMP, self.width, self.value.reduce(emitter, n), 0)
-        emitter.emit_jump(Cond.NE, label)
+        self.value.inverse_compare(emitter, n, label)
 
     def inverse_compare(self, emitter, n, label):
         """Generate code for inverse comparing nodes with logical not."""
-        emitter.emit_binary(self.type.CMP, self.width, self.value.reduce(emitter, n), 0)
-        emitter.emit_jump(Cond.EQ, label)
+        self.value.compare(emitter, n, label)
 
 
 class BinaryOp(Binary):
