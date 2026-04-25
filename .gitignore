@@ -14,3 +14,4 @@ cprograms/*.i
 asmlog.txt
 testcc_coverage.py
 .coverage
+cc.py
