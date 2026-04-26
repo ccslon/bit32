@@ -119,3 +119,6 @@ getheap:
     MOV A, C
     POP B, C, D
     RET
+
+abort:
+    HALT
