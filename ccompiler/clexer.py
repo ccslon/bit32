@@ -124,17 +124,17 @@ class CLexer(Lexer):
 
     RE_ctype = rf"\b({'|'.join(CTYPES)})\b"
 
-    RE_keyword = r'\b(include|defined?|undef|typedef|static|extern|register|sizeof|return|if|ifdef|ifndef|elif|else|endif|switch|case|default|while|do|for|break|continue|goto)\b'
+    RE_keyword = r'\b(return|if(n?def)?|else|switch|case|default|while|do|for|break|continue|goto|(el|end)if|include|(un|type)def|sizeof|extern|defined?|static|register)\b'
 
     RE_symbol = r'[#]{2}|[]#;:()[{}]|[+]{2}|--|->|(<<|>>|[+*/%^|&=!<>-])?=|<<|>>|[|]{2}|[&]{2}|[+*/%^|&=!<>?~-]|[.]{3}|[.]|,'
 
     RE_name = r'[A-Za-z_]\w*'
 
-    RE_space = r'[ \t]+'
-
     def RE_line_splice(self, _):
-        r'\\\s*\n'
+        r'\s*\\\s*\n'
         self.line += 1
+
+    RE_space = r'[ \t]+'
 
     def RE_new_line(self, match):
         r'\n'
