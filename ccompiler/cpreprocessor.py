@@ -569,7 +569,7 @@ class CPreProcessor(Expander):
         """Process a single source file."""
         with open(os.path.sep.join(file_path + [file_name])) as file:
             self.frame = Frame(os.path.dirname(os.path.abspath(file.name)))
-            self.defined['__FILE__'] = Macro(None, [(Lex.STRING, file_name)])
+            self.defined['__FILE__'] = Macro(None, [(Lex.STRING, os.path.basename(file_name))])
             self.defined['__LINE__'] = Macro(None, [(Lex.NUMBER, 1)])
             text = file.read()
         text = self.replace_comments(text)
