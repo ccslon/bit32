@@ -302,7 +302,7 @@ class InitAssignment(Binary, Statement):
 
     def global_generate(self, emitter):
         """Generate initial assignment as global."""
-        emitter.emit_global(self.left.token.lexeme, self.width, self.right.data(emitter))
+        emitter.emit_global(self.left.name, self.width, self.right.data(emitter))
 
 
 class Assignment(InitAssignment):
@@ -334,7 +334,7 @@ class InitListAssignment(Statement):
 
     def global_generate(self, emitter):
         """Generate code for initial list assignment as a global."""
-        emitter.emit_datas(self.left.token.lexeme, self.left.type.global_data(emitter, self.right, []))
+        emitter.emit_datas(self.left.name, self.left.type.global_data(emitter, self.right, []))
 
 
 class InitStringArray(Statement):
@@ -357,7 +357,7 @@ class InitStringArray(Statement):
 
     def global_generate(self, emitter):
         """Generate code for local string array assignments as a global."""
-        emitter.emit_string_array(self.array.token.lexeme, self.string.value)
+        emitter.emit_string_array(self.array.name, self.string.value)
 
 
 class Comma(Expression, Statement):
@@ -389,7 +389,7 @@ class Call(Expression, Statement):
     def __init__(self, token, function, arguments):
         if len(arguments) < len(function.type.parameters):
             token.error('Not enough arguments provided for function call'
-                        + f' "{function.name()}"' if isinstance(function, Variable) else '')
+                        + f' "{function.name}"' if isinstance(function, Variable) else '')
         for i, (param, arg) in enumerate(zip(function.type.parameters, arguments)):
             if param.type != arg.type:
                 token.error(f'Argument #{i+1} of "{function.token.lexeme}" {param.type} != {arg.type}')

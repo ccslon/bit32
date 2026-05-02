@@ -75,17 +75,17 @@ class Value(Type):
 
     def address(self, emitter, n, var, base):
         """Generate address code for generic type."""
-        emitter.emit_address(Reg(n), Reg(base), var.offset, var.marked, var.name())
+        emitter.emit_address(Reg(n), Reg(base), var.offset, var.marked, var.name)
         return Reg(n)
 
     def reduce(self, emitter, n, var, base):
         """Generate code for generic type."""
-        emitter.emit_load(self.width, Reg(n), Reg(base), var.offset, var.marked, var.name())
+        emitter.emit_load(self.width, Reg(n), Reg(base), var.offset, var.marked, var.name)
         return Reg(n)
 
     def store(self, emitter, n, var, base):
         """Generate code for storing to generic type."""
-        emitter.emit_store(self.width, Reg(n), Reg(base), var.offset, var.marked, var.name())
+        emitter.emit_store(self.width, Reg(n), Reg(base), var.offset, var.marked, var.name)
         return Reg(n)
 
     def reduce_pre(self, emitter, n, op):
@@ -112,7 +112,7 @@ class Value(Type):
 
     def global_address(self, emitter, n, glob):
         """Generate address code for global variable."""
-        emitter.emit_load_global(Reg(n), glob.name())
+        emitter.emit_load_global(Reg(n), glob.name)
         return Reg(n)
 
     def global_reduce(self, emitter, n, glob):
@@ -123,7 +123,7 @@ class Value(Type):
 
     def global_store(self, emitter, n, glob):  # TODO test
         """Generate code for storing a global variable."""
-        emitter.emit_load_global(Reg(n+1), glob.name())
+        emitter.emit_load_global(Reg(n+1), glob.name)
         emitter.emit_store(self.width, Reg(n), Reg(n+1))
         return Reg(n)
 
@@ -523,7 +523,7 @@ class Struct(List, Record):
 
 
 class UnionFrame(Frame):
-
+    """Class for union frames."""
 
     def __setitem__(self, name, attr):
         """Override of __setitem__ to match C union behavior."""

@@ -149,14 +149,10 @@ class Expression(CNode):
 class Variable(Expression):
     """Base class for variable nodes."""
 
-    def __init__(self, ctype, token):
+    def __init__(self, ctype, name):
         super().__init__(ctype)
-        self.token = token
+        self.name = name
         self.marked = False
-
-    def name(self):
-        """Get variable name."""
-        return self.token.lexeme
 
     def hard_calls(self):
         """Variables do not hard call."""
@@ -168,7 +164,7 @@ class Variable(Expression):
 
     def call(self, emitter, _):
         """Generate default call behavior."""
-        emitter.emit_call(self.token.lexeme)
+        emitter.emit_call(self.name)
 
 
 class Constant(Expression):
@@ -320,7 +316,7 @@ class Definition(CNode):
         if self.space:
             emitter.emit_binary(Op.SUB, Size.WORD, Reg.SP, self.space)
         for i, param in enumerate(self.parameters[:4]):
-            emitter.emit_store(param.width, Reg(i), Reg.SP, param.offset, False, param.name())
+            emitter.emit_store(param.width, Reg(i), Reg.SP, param.offset, False, param.name)
 
     def ret(self, emitter, pop):
         """Generate return code specific to regular functions."""

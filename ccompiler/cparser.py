@@ -97,6 +97,7 @@ class Scope:
 
     def __init__(self):
         self.locals = Frame()
+        self.globals = {}
         self.enums = {}
         self.types = {}
         self.typedefs = {}
@@ -105,6 +106,7 @@ class Scope:
         """Create a copy of the scope."""
         new = Scope()
         new.locals.update(self.locals)
+        new.globals.update(self.globals)
         new.enums.update(self.enums)
         new.types.update(self.types)
         new.typedefs.update(self.typedefs)
@@ -113,6 +115,7 @@ class Scope:
     def clear(self):
         """Clear the scope."""
         self.locals.clear()
+        self.globals.clear()
         self.enums.clear()
         self.types.clear()
         self.typedefs.clear()
@@ -126,14 +129,12 @@ class CParser(Parser):
     STORAGE = {'typedef', 'extern', 'static', 'auto', 'register'}
 
     def __init__(self):
-        self.globals = {}
         self.scope = Scope()
         self.stack = []
         super().__init__()
 
     def parse(self, tokens):
         """Override of parse."""
-        self.globals.clear()
         self.scope.clear()
         self.stack.clear()
         return super().parse(tokens)
@@ -144,8 +145,8 @@ class CParser(Parser):
             return self.scope.locals[name]
         if name in self.stack_parameters:
             return self.stack_parameters[name]
-        if name in self.globals:
-            return self.globals[name]
+        if name in self.scope.globals:
+            return self.scope.globals[name]
         if name in self.scope.enums:
             return self.scope.enums[name]
         self.error(f'Name "{name}" not found')
@@ -397,28 +398,28 @@ class CParser(Parser):
         """
         ENUM -> name ['=' CONSTANT]
         """
-        name = self.expect(Lex.NAME)
-        if name.lexeme in self.scope.enums:
-            self.error(f'Redeclaration of enumerator "{name.lexeme}"')
+        enum = self.expect(Lex.NAME).lexeme
+        if enum in self.scope.enums:
+            self.error(f'Redeclaration of enumerator "{enum}"')
         if self.accept('='):
             value = self.constant().value
-        self.scope.enums[name.lexeme] = Number(value)
+        self.scope.enums[enum] = Number(value)
         return value
 
     def attribute(self, frame, ctype):
         """
-        ATTRIBUTE -> DECLARATOR [':' number]
+        ATTRIBUTE -> DECLARATOR [':' CONSTANT]
         """
         ctype, name = self.declarator(ctype)
         if self.accept(':'):
-            self.expect(Lex.NUMBER)
+            self.constant()
         if name is None and isinstance(ctype, Union):
             for name, attr in ctype.frame.items():
                 attr.offset = frame.size
                 frame.data[name] = attr
             frame.size += ctype.size()
         else:
-            frame[name.lexeme] = Attribute(ctype, name)
+            frame[name.lexeme] = Attribute(ctype, name.lexeme)
 
     def struct_or_union(self, NewType):
         """
@@ -451,10 +452,10 @@ class CParser(Parser):
         if self.accept('void'):
             return Void()
         if self.peek(Lex.NAME):
-            token = next(self)
-            if token.lexeme not in self.scope.typedefs:
-                self.error(f'typedef "{token.lexeme}" not found')
-            return copy(self.scope.typedefs[token.lexeme])
+            typedef = next(self).lexeme
+            if typedef not in self.scope.typedefs:
+                self.error(f'typedef "{typedef}" not found')
+            return copy(self.scope.typedefs[typedef])
         if self.accept('struct'):
             return self.struct_or_union(Struct)
         if self.accept('union'):
@@ -533,7 +534,7 @@ class CParser(Parser):
 
     def direct_declarator(self, ctype, types):
         """
-        DIRECT_DECLARATOR -> ('(' _DECLARATOR ')'|[name]){'(' PARAMETERS ')'|'[' [number] ']'}
+        DIRECT_DECLARATOR -> ('(' DECLARATOR ')'|[name]){'(' PARAMETERS ')'|'[' [number] ']'}
         """
         if self.accept('('):
             ctype, name = self.declarator(ctype, types, is_top=False)
@@ -591,7 +592,10 @@ class CParser(Parser):
             while True:
                 init_decl = self.init_declarator(storage, qualifier)
                 if init_decl:
-                    declaration.append(init_decl)
+                    if storage == 'static':
+                        self.externals.append(init_decl)
+                    else:
+                        declaration.append(init_decl)
                 if self.accept(';'):
                     break
                 self.expect(',')
@@ -605,7 +609,7 @@ class CParser(Parser):
         ctype, name = self.declarator(qualifier)
         if isinstance(ctype, Array):
             ctype = Pointer(ctype.of, ctype.const)
-        return Local(ctype, name)
+        return Local(ctype, name.lexeme if name else None)
 
     def parameters(self):
         """
@@ -761,25 +765,26 @@ class CParser(Parser):
                         self.error(f'Function definition cannot be {storage}')
                     if not isinstance(ctype, Function):
                         self.error(f'"{name.lexeme}" is not of function type')
-                    if any(param.token is None for param in ctype.parameters):
+                    if any(param.name is None for param in ctype.parameters):
                         self.error(f'"{name.lexeme}" cannot have abstract parameters')
-                    self.globals[name.lexeme] = Global(ctype, name)
+                    self.scope.globals[name.lexeme] = Global(ctype, name.lexeme)
                     self.function = FunctionInfo(ctype.return_type, name.lexeme)
                     self.stack_parameters = Frame()
                     self.begin_scope()
                     for param in ctype.parameters[:4]:
-                        self.scope.locals[param.token.lexeme] = param
+                        self.scope.locals[param.name] = param
                     for param in ctype.parameters[4:]:
-                        self.stack_parameters[param.token.lexeme] = param
+                        self.stack_parameters[param.name] = param
                     DefinitionType = VariadicDefinition if ctype.variadic else Definition
                     compound = self.compound()
                     self.end_scope()
                     self.expect('}')
                     external.append(DefinitionType(ctype, name, compound, self.function))
+                    self.function = None
                     break
                 else:  # DECLARATION
                     declaring = True
-                    tail = self._init_declarator_tail(storage, ctype, name, Global, self.globals, self.constant)
+                    tail = self._init_declarator_tail(storage, ctype, name, Global, self.scope.globals, self.constant)
                     if tail:
                         external.append(tail)
                     if self.accept(';'):
@@ -794,9 +799,9 @@ class CParser(Parser):
             self.scope.typedefs[name.lexeme] = ctype
             return
         if storage == 'extern':
-            self.globals[name.lexeme] = Global(ctype, name)
+            self.scope.globals[name.lexeme] = Global(ctype, name.lexeme)
             return
-        variable = Global(ctype, name) if storage == 'static' else VarType(ctype, name)
+        variable = Global(ctype, name.lexeme if self.function is None else f'{self.function.name}_{name.lexeme}') if storage == 'static' else VarType(ctype, name.lexeme)
         init_decl = variable
         if self.peek('='):
             if isinstance(ctype, Void):
@@ -812,7 +817,7 @@ class CParser(Parser):
             else:
                 init_decl = InitAssignment(token, init_decl, initializer)
         if storage == 'static':
-            self.globals[name.lexeme] = variable
+            self.scope.globals[name.lexeme] = variable
         else:
             scope[name.lexeme] = variable
         return init_decl
@@ -821,7 +826,7 @@ class CParser(Parser):
         """
         TRANSLATION -> {EXTERNAL}
         """
-        translation = Translation()
+        self.externals = translation = Translation()
         while not self.peek(Lex.END):
             translation.extend(self.external())
         return translation

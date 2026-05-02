@@ -137,6 +137,9 @@ class TestCompiler(TestCase):
     def test_commas(self):
         self.generated_equals_expected('commas')
 
+    def test_static(self):
+        self.generated_equals_expected('static')
+
     def test_macro(self):
         preproc = CPreProcessor()
         preproc.process('tests/macros.c')

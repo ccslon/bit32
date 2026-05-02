@@ -31,9 +31,8 @@ class Local(Variable):
 class Attribute(Variable):
     """Class for attributes found in structs or unions."""
 
-    def name(self):
-        """Get attribute name. Excludes attributes from offset adjustment."""
-        return f'.{super().name()}'
+    def __init__(self, ctype, name):
+        super().__init__(ctype, f'.{name}')
 
     def address(self, emitter, n):
         """Generate address code for attributes."""
@@ -68,9 +67,9 @@ class Global(Variable):
         size = self.type.size()
         if size > 0:
             if isinstance(size, Size):
-                emitter.emit_global(self.token.lexeme, size, 0)
+                emitter.emit_global(self.name, size, 0)
             else:
-                emitter.emit_space(self.token.lexeme, size)
+                emitter.emit_space(self.name, size)
 
 
 class Number(Constant):
@@ -524,7 +523,7 @@ class Dot(Access):
 
     def address(self, emitter, n):
         """Generate address code for dot operator."""
-        emitter.emit_attribute(self.struct.address(emitter, n), self.attribute.offset, self.attribute.name())
+        emitter.emit_attribute(self.struct.address(emitter, n), self.attribute.offset, self.attribute.name)
         return Reg(n)
 
     def reduce(self, emitter, n):
@@ -543,7 +542,7 @@ class Arrow(Access):
 
     def address(self, emitter, n):
         """Generate address code for arrow operator."""
-        emitter.emit_attribute(self.struct.reduce(emitter, n), self.attribute.offset, self.attribute.name())
+        emitter.emit_attribute(self.struct.reduce(emitter, n), self.attribute.offset, self.attribute.name)
         return Reg(n)
 
     def reduce(self, emitter, n):
