@@ -22,3 +22,6 @@ int params6(int a, short b, char c, int d, int e, int f) {
     char l = 'c';
     return a + b + c + d + e + f;
 }
+int main() {
+    int i = params6(1,2,3,4,5,6);
+}

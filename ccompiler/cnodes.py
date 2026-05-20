@@ -6,6 +6,7 @@ Created on Sat Mar  1 11:43:13 2025
 """
 from collections import UserDict, UserList
 from bit32 import Op, Cond, Size, Reg
+from .emitter import Virtual
 
 
 class Frame(UserDict):
@@ -34,13 +35,13 @@ class Frame(UserDict):
 class CNode:
     """Base class for nodes representing C programs."""
 
-    def generate(self, emitter, n):
+    def generate(self, emitter):
         """Generate target code."""
         pass
 
-    def branch(self, emitter, n, _):
+    def branch(self, emitter, _):
         """Handle branch for if statements."""
-        self.generate(emitter, n)
+        self.generate(emitter)
 
 
 class Statement(CNode):
@@ -93,25 +94,25 @@ class Expression(CNode):
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def reduce(self, emitter, n):
+    def reduce(self, emitter):
         """Generate code to "reduce" the expression into a single register."""
         raise NotImplementedError(self.__class__.__name__)
 
-    def compare(self, emitter, n, label):
+    def compare(self, emitter, label):
         """Generate code for comparing nodes. Default is comparing to 0."""
-        emitter.emit_binary(self.type.CMP, self.width, self.reduce(emitter, n), 0)
+        emitter.emit_compare(self.type.CMP, self.width, self.reduce(emitter), 0)
         emitter.emit_jump(Cond.EQ, label)
 
-    def inverse_compare(self, emitter, n, label):
+    def inverse_compare(self, emitter, label):
         """Generate code for inverse comparing nodes."""
-        emitter.emit_binary(self.type.CMP, self.width, self.reduce(emitter, n), 0)
+        emitter.emit_compare(self.type.CMP, self.width, self.reduce(emitter), 0)
         emitter.emit_jump(Cond.NE, label)
 
-    def reduce_branch(self, emitter, n, _):
+    def reduce_branch(self, emitter, _):
         """Reduce expression for ternary condition operator."""
-        self.reduce(emitter, n)
+        return self.reduce(emitter)
 
-    def reduce_number(self, emitter, n):
+    def reduce_number(self, emitter):
         """
         Reduce to number constant if applicable.
 
@@ -125,25 +126,24 @@ class Expression(CNode):
             ADD A, 76
         """
         if self.is_constant():
-            return self.fold().reduce_number(emitter, n)
-        return self.reduce(emitter, n)
+            return self.fold().reduce_number(emitter)
+        return self.reduce(emitter)
 
-    def reduce_float(self, emitter, n):
+    def reduce_float(self, emitter):
         """Reduce to float (convert if applicable)."""
-        self.reduce(emitter, n)
-        self.type.itf(emitter, n)
-        return Reg(n)
+        target = self.reduce(emitter)
+        return self.type.itf(emitter, target)
 
-    def reduce_subscript(self, emitter, n, size):
+    def reduce_subscript(self, emitter, size):
         """
         Generate special reduction case for subscript nodes.
 
         Used especially when the index is a constant.
         """
-        self.reduce(emitter, n)
+        index = self.reduce(emitter)
         if size > 1:
-            emitter.emit_binary(Op.MUL, Size.WORD, Reg(n), int(size))
-        return Reg(n)
+            return emitter.emit_binary(Op.MUL, Size.WORD, index, int(size))
+        return index
 
 
 class Variable(Expression):
@@ -162,9 +162,9 @@ class Variable(Expression):
         """Variables do not soft call."""
         return False
 
-    def call(self, emitter, _):
+    def call(self, emitter, args):
         """Generate default call behavior."""
-        emitter.emit_call(self.name)
+        emitter.emit_call(self.name, args)
 
 
 class Constant(Expression):
@@ -273,22 +273,24 @@ class Definition(CNode):
 
     def global_generate(self, emitter):
         """Generate all of the code for the function."""
-        max_args = max(self.calls, self.max_arguments)
+        Virtual.next_virt = 0
         emitter.begin_body(self)
         # mark stack locals
         self.mark_stack_locals()
         # generate function body
-        self.block.generate(emitter, max_args)
+        self.block.generate(emitter)
         # peephole optimize
         emitter.optimize_body()
         # find max register used in body
-        max_reg = -1
-        for inst in emitter.instructions:
-            max_reg = max(max_reg, inst.max_used())
+        
+        max_reg = emitter.allocate_registers()
+        # for inst in emitter.instructions:
+        #     max_reg = max(max_reg, inst.max_used())
 
         # calculate list of register to push onto the stack
         push = list(map(Reg, range(max(bool(self.type.return_type.width),
-                                       len(self.parameters[:4])), max_reg+1)))
+                                       len(self.parameters[:4])),
+                                   max_reg+1)))
         pop = push.copy()
 
         self.adjust_offsets(emitter, push)
@@ -299,10 +301,10 @@ class Definition(CNode):
         # epilogue
         if self.returns or self.type.return_type.width:
             emitter.append_label(emitter.return_label)
-        if self.returns and self.type.return_type.width and max_args:
-            emitter.emit_binary(Op.MOV, Size.WORD, Reg.A, Reg(max_args))
+        # if self.returns and self.type.return_type.width and max_args:
+        #     emitter.emit_binary(Op.MOV, Size.WORD, Reg.A, Reg(max_args))
         if self.space:
-            emitter.emit_binary(Op.ADD, Size.WORD, Reg.SP, self.space)
+            emitter.emit_stack_deallocation(self.space)
         self.ret(emitter, pop)
 
     def mark_stack_locals(self):
@@ -314,7 +316,7 @@ class Definition(CNode):
         """Generate prologue code specific to regular functions."""
         emitter.emit_push(push + [Reg.LR]*self.calls)
         if self.space:
-            emitter.emit_binary(Op.SUB, Size.WORD, Reg.SP, self.space)
+            emitter.emit_stack_allocation(self.space)
         for i, param in enumerate(self.parameters[:4]):
             emitter.emit_store(param.width, Reg(i), Reg.SP, param.offset, False, param.name)
 
@@ -322,7 +324,7 @@ class Definition(CNode):
         """Generate return code specific to regular functions."""
         if len(self.parameters) > 4:
             emitter.emit_pop(pop + [Reg.LR]*self.calls)
-            emitter.emit_binary(Op.ADD, Size.WORD, Reg.SP, (len(self.parameters)-4) * Size.WORD)
+            emitter.emit_stack_deallocation((len(self.parameters)-4) * Size.WORD)
             emitter.emit_ret()
         elif self.calls:
             emitter.emit_pop(pop + [Reg.PC])
@@ -356,7 +358,7 @@ class VariadicDefinition(Definition):  # TODO test
     def ret(self, emitter, push):
         """Generate return code specific to variadic functions."""
         emitter.emit_pop(push + [Reg.LR]*self.calls)
-        emitter.emit_binary(Op.ADD, Size.WORD, Reg.SP, (len(self.parameters[4:])+4) * Size.WORD)
+        emitter.emit_stack_deallocation((len(self.parameters[4:])+4) * Size.WORD)
         emitter.emit_ret()
 
     def adjust_offsets(self, emitter, push):
