@@ -75,6 +75,7 @@ class TestCompiler(TestCase):
         self.generated_equals_expected('structs')
 
     def test_array(self):
+        self.maxDiff = None
         self.generated_equals_expected('arrays')
 
     def test_global_struct(self):
@@ -161,6 +162,6 @@ if __name__ == '__main__':
 
 def retest():
     """Rerun all tests to get their output."""
-    from ccompiler import compile_file
+    from ccompiler import ccompile_cwd
     for file in tests:
-        compile_file(f'tests/{file}.c', sflag=True, fflag=True)
+        ccompile_cwd('tests', [f'{file}.c'], oflag=file, Sflag=True, fflag=True)

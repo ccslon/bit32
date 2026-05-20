@@ -8,33 +8,29 @@ foo:
   JEQ    .L1
   LD     A, [SP, 4] ; b
   CMP    A, 0
-  JEQ    .L1
-  MOV    A, 1
-  JMP    .L2
 .L1:
-  MOV    A, 0
-.L2:
+  MOVNE  A, 1
+  MOVEQ  A, 0
   ST     [SP, 8], A ; n
-.L3:
+.L2:
   CALL   baz
+  LD     A, [SP, 0] ; a
+  CMP    A, 0
+  JEQ    .L4
+  LD     A, [SP, 4] ; b
+  CMP    A, 0
+  JNE    .L2
+.L4:
+.L3:
   LD     A, [SP, 0] ; a
   CMP    A, 0
   JEQ    .L5
   LD     A, [SP, 4] ; b
   CMP    A, 0
-  JNE    .L3
+  JEQ    .L5
+  MOV    A, 100
 .L5:
-.L4:
-  LD     A, [SP, 0] ; a
-  CMP    A, 0
-  JEQ    .L6
-  LD     A, [SP, 4] ; b
-  CMP    A, 0
-  JEQ    .L6
-  MOV    B, 100
-.L6:
 .L0:
-  MOV    A, B
   ADD    SP, 12
   POP    PC
 bar:
@@ -44,60 +40,53 @@ bar:
   ST     [SP, 4], B ; b
   LD     A, [SP, 0] ; a
   CMP    A, 0
-  JNE    .L8
+  JNE    .L7
   LD     A, [SP, 4] ; b
   CMP    A, 0
-  JEQ    .L9
-.L8:
-  MOV    A, 1
-  JMP    .L10
-.L9:
-  MOV    A, 0
-.L10:
+.L7:
+  MOVNE  A, 1
+  MOVEQ  A, 0
   ST     [SP, 8], A ; n
-.L11:
+.L8:
   CALL   baz
   LD     A, [SP, 0] ; a
   CMP    A, 0
-  JNE    .L11
+  JNE    .L8
   LD     A, [SP, 4] ; b
   CMP    A, 0
-  JNE    .L11
-.L12:
+  JNE    .L8
+.L9:
   LD     A, [SP, 0] ; a
   CMP    A, 0
-  JNE    .L14
+  JNE    .L11
   LD     A, [SP, 4] ; b
   CMP    A, 0
-  JEQ    .L13
-.L14:
-  MOV    B, 100
-.L13:
-.L7:
-  MOV    A, B
+  JEQ    .L10
+.L11:
+  MOV    A, 100
+.L10:
+.L6:
   ADD    SP, 12
   POP    PC
 no:
-  PUSH   B, LR
+  PUSH   LR
   SUB    SP, 8
   ST     [SP, 0], A ; a
-  LD     A, [SP, 0] ; a
   CMP    A, 0
   MOVEQ  A, 1
   MOVNE  A, 0
   ST     [SP, 4], A ; n
-.L16:
+.L13:
   CALL   baz
   LD     A, [SP, 0] ; a
   CMP    A, 0
-  JEQ    .L16
-.L17:
+  JEQ    .L13
+.L14:
   LD     A, [SP, 0] ; a
   CMP    A, 0
-  JNE    .L18
-  MOV    B, 100
-.L18:
+  JNE    .L15
+  MOV    A, 100
 .L15:
-  MOV    A, B
+.L12:
   ADD    SP, 8
-  POP    B, PC
+  POP    PC

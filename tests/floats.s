@@ -14,7 +14,6 @@ func1:
   SUB    SP, 4
   LDI    A, 1069547520 ; 1.5
   ST     [SP, 0], A ; f
-  LD     A, [SP, 0] ; f
   LDI    B, 3217031168 ; -1.5
   CALL   foo
   ADD    SP, 4
@@ -32,27 +31,26 @@ half3:
 .L3:
   RET
 test:
+  PUSH   C
   SUB    SP, 24
   ST     [SP, 0], A ; i
   ST     [SP, 4], B ; f
   LD     A, [SP, 0] ; i
-  SHR    A, 1
-  ST     [SP, 8], A ; half1
-  LD     A, [SP, 0] ; i
+  SHR    B, A, 1
+  ST     [SP, 8], B ; half1
   ITF    A, A
-  LDI    B, 1073741824 ; 2.0
-  DIVF   A, B
+  LDI    C, 1073741824 ; 2.0
+  DIVF   A, C
   FTI    A, A
   ST     [SP, 12], A ; half2
-  LD     A, [SP, 4] ; f
-  ITF    B, 2
-  DIVF   A, B
+  LD     B, [SP, 4] ; f
+  ITF    A, 2
+  DIVF   A, B, A
   ST     [SP, 16], A ; half3
-  LD     A, [SP, 4] ; f
-  LDI    B, 1073741824 ; 2.0
-  DIVF   A, B
+  DIVF   A, B, C
   ST     [SP, 20], A ; half4
   ADD    SP, 24
+  POP    C
   RET
 func2:
   PUSH   A, B

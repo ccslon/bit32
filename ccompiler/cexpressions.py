@@ -554,5 +554,5 @@ class SubScript(Binary):
                            self.left.type.reduce_array(emitter, self.left),
                            self.right.reduce_subscript(emitter, self.left.type.of.size()))
         # Can we just put kill here?
-        # emitter.table.clear()
+        emitter.table.clear()
         return st

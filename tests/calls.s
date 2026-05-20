@@ -2,10 +2,10 @@ baz:
   SUB    SP, 8
   ST     [SP, 0], A ; y
   ST     [SP, 4], B ; z
-  LD     A, [SP, 0] ; y
-  LD     B, [SP, 4] ; z
-  LD     B, [B]
-  MUL    A, B
+  LD     B, [SP, 0] ; y
+  LD     A, [SP, 4] ; z
+  LD     A, [A]
+  MUL    A, B, A
 .L0:
   ADD    SP, 8
   RET
@@ -36,8 +36,7 @@ foo:
   MOV    A, -3
   MOV    B, 4
   CALL   bar
-  ADD    C, A
+  ADD    A, C, A
 .L2:
-  MOV    A, C
   ADD    SP, 12
   POP    PC

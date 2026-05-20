@@ -110,7 +110,7 @@ class Emitter:
 
     def add(self, instruction):
         """Append the given instruction to the current list of instructions."""
-        print(instruction)
+        # print(instruction)
         self.instructions.append(instruction)
         if self.labels:
             self.table.clear()
@@ -161,7 +161,8 @@ class Emitter:
             elif inst1.code is Code.ADDRESS:
                 # address collapse
                 if (inst2.code in {Code.ADDRESS, Code.LOAD, Code.STORE}
-                    and inst1.target == inst2.base):
+                    and inst1.target == inst2.base
+                    and not isinstance(inst2.offset, Register)):
                     '''
                     ADD A, B, n
                     LD C, [A, m]
@@ -174,14 +175,16 @@ class Emitter:
                     inst2.comment = inst1.comment + inst2.comment
                 elif (inst2.code is Code.BINARY
                       and inst2.op is Op.ADD
-                      and inst1.target == inst2.target
+                      and inst1.target == inst2.source2
+                      # and inst2.target == inst2.source2
                       and not isinstance(inst2.source, Register)):
                     '''
                     ADD A, B, n
-                    ADD A, m
-                    = ADD A, B, n+m
+                    ADD C, A, m
+                    = ADD C, B, n+m
                     '''
-                    inst1.offset += inst2.source
+                    inst1.target = inst2.target
+                    inst1.offset.value += inst2.source.value
                     self.instructions[i+1] = inst1
                 else:
                     new.append(inst1)
@@ -285,8 +288,8 @@ class Emitter:
         changed = True
         while changed:
             self.calculate_liveliness()
-            for inst in self.instructions:
-                print(inst, inst.live_in, inst.live_out)
+            # for inst in self.instructions:
+            #     print(inst, inst.live_in, inst.live_out)
             graph = self.build_graph()
             changed = self.coalesce(graph)
         colors, spill = self.color(graph, 11)
@@ -295,7 +298,7 @@ class Emitter:
         for virt in self.virtuals:
             if virt in colors:
                 virt.devirtualize(Registers[colors[virt]])
-        self.instructions = [inst for inst in self.instructions if not inst.obsolete()] # if inst.
+        self.instructions = [inst for inst in self.instructions if not inst.obsolete()]
         return max_reg
 
     def begin_body(self, definition):
@@ -386,12 +389,12 @@ class Emitter:
 
     def emit_address(self, base, offset, marked, comment=''):
         """Emit address instruction object."""
-        t = (Code.ADDRESS, base, offset)
-        if not self.labels and t in self.table:
-            return self.table[t]
+        # t = (Code.ADDRESS, base, offset)
+        # if not self.labels and t in self.table:
+        #     return self.table[t]
         target = self.next_virtual()
         self.add(Address(self.labels, target, base, offset, marked, comment))
-        self.table[t] = target
+        # self.table[t] = target
         return target
 
     def emit_load(self, size, base, offset=None, marked=False, comment=''):

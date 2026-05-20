@@ -3,6 +3,7 @@ g: .word 32
 half: .word 1056964608
 .S0: "def\0"
 main:
+  PUSH   B
   SUB    SP, 52
   MOV    A, 128
   ST     [SP, 0], A ; i
@@ -10,8 +11,8 @@ main:
   ST     [SP, 4], A ; j
   LDI    A, 3204448256 ; -0.5
   ST     [SP, 8], A ; k
-  MOV    A, 4
-  ST     [SP, 12], A ; l
+  MOV    B, 4
+  ST     [SP, 12], B ; l
   LD     A, [SP, 12] ; l
   ADD    A, 3
   ST     [SP, 16], A ; m
@@ -19,12 +20,10 @@ main:
   ST     [SP, 20], A ; n
   MOV    A, 1
   ST     [SP, 24], A ; m
-  MOV    A, 1
   ST     [SP, 28], A ; o
   LD     A, [SP, 24] ; m
   ST     [SP, 32], A ; p
-  MOV    A, 4
-  ST     [SP, 36], A ; q
+  ST     [SP, 36], B ; q
   LDI    A, =.S0
   ST     [SP, 40], A ; r
   MOV    A, 2
@@ -33,6 +32,7 @@ main:
   ST     [SP, 48], A ; t
 .L0:
   ADD    SP, 52
+  POP    B
   RET
 test_loops:
   PUSH   A, B, LR
@@ -56,8 +56,8 @@ test_loops:
   CALL   foo
 .L6:
   LD     A, [SP, 0] ; i
-  ADD    B, A, 1
-  ST     [SP, 0], B ; i
+  ADD    A, 1
+  ST     [SP, 0], A ; i
   JMP    .L5
 .L7:
 .L8:
@@ -66,19 +66,19 @@ test_loops:
   ADD    SP, 12
   POP    A, B, PC
 test_ifs:
-  PUSH   A, B, LR
+  PUSH   A, LR
   SUB    SP, 4
   JMP    .L11
   CALL   foo
   JMP    .L10
 .L11:
   LD     A, [SP, 0] ; q
-  ADD    B, A, 1
-  ST     [SP, 0], B ; q
+  ADD    A, 1
+  ST     [SP, 0], A ; q
   JMP    .L10
 .L12:
   MOV    A, 10
   ST     [SP, 0], A ; q
 .L10:
   ADD    SP, 4
-  POP    A, B, PC
+  POP    A, PC

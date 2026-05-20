@@ -554,7 +554,7 @@ HIGHLIGHTS = {
     r"'(\\'|\\?[^'])'": Color.GREEN,  # char
     r'"(\\"|[^"])*"': Color.GREEN,  # string
     rf'\b({RE_REG})\b': Color.WHITE,  # register
-    rf'^(J(MP)?|{RE_OP})S?({RE_COND})?(\.{RE_SIZE})?\b': Color.BLUE, # op
+    rf'^(J(MP)?|{RE_OP})S?({RE_COND})?(\.({RE_SIZE}))?\b': Color.BLUE, # op
     r'\.(BYTE|HALF|WORD|SPACE)\b': Color.BLUE,  # size|space
     r'\.?[A-Z_]\w*': Color.CYAN,  # name
     r';.*$': Color.GREY  # comment

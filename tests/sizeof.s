@@ -19,23 +19,22 @@ loop1:
   SUB    SP, 8
   MOV    A, 0
   ST     [SP, 4], A ; s
-  MOV    A, 0
   ST     [SP, 0], A ; i
 .L0:
   LD     A, [SP, 0] ; i
   CMP    A, 5
   JGE    .L2
-  LD     A, [SP, 4] ; s
+  LD     C, [SP, 4] ; s
   LDI    B, =data
-  LD     C, [SP, 0] ; i
-  SHL    C, 1
-  LD.H   B, [B, C]
-  ADD    A, B
+  LD     A, [SP, 0] ; i
+  SHL    A, 1
+  LD.H   A, [B, A]
+  ADD    A, C, A
   ST     [SP, 4], A ; s
 .L1:
   LD     A, [SP, 0] ; i
-  ADD    B, A, 1
-  ST     [SP, 0], B ; i
+  ADD    A, 1
+  ST     [SP, 0], A ; i
   JMP    .L0
 .L2:
   ADD    SP, 8
@@ -46,23 +45,22 @@ loop2:
   SUB    SP, 8
   MOV    A, 0
   ST     [SP, 4], A ; s
-  MOV    A, 0
   ST     [SP, 0], A ; i
 .L3:
   LD     A, [SP, 0] ; i
   CMP    A, 5
   JGE    .L5
-  LD     A, [SP, 4] ; s
+  LD     C, [SP, 4] ; s
   LDI    B, =data
-  LD     C, [SP, 0] ; i
-  SHL    C, 1
-  LD.H   B, [B, C]
-  ADD    A, B
+  LD     A, [SP, 0] ; i
+  SHL    A, 1
+  LD.H   A, [B, A]
+  ADD    A, C, A
   ST     [SP, 4], A ; s
 .L4:
   LD     A, [SP, 0] ; i
-  ADD    B, A, 1
-  ST     [SP, 0], B ; i
+  ADD    A, 1
+  ST     [SP, 0], A ; i
   JMP    .L3
 .L5:
   ADD    SP, 8

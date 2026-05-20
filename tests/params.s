@@ -5,7 +5,6 @@ params0:
 params1:
   SUB    SP, 4
   ST     [SP, 0], A ; foo
-  LD     A, [SP, 0] ; foo
 .L1:
   ADD    SP, 4
   RET
@@ -56,15 +55,14 @@ params5:
   ST     [SP, 12], D ; d
   MOV    A, 10
   ST     [SP, 16], A ; i
-  LD     A, [SP, 0] ; a
-  LD     B, [SP, 4] ; b
-  ADD    A, B
+  LD     C, [SP, 0] ; a
+  LD     A, [SP, 4] ; b
+  ADD    A, C, A
   LD     B, [SP, 8] ; c
   ADD    A, B
   LD     B, [SP, 12] ; d
   ADD    A, B
-  LD     B, [SP, 20] ; e
-  ADD    A, B
+  ADD    A, C
 .L5:
   ADD    SP, 20
   ADD    SP, 4
@@ -79,18 +77,32 @@ params6:
   ST     [SP, 11], A ; i
   MOV.B  A, 'c'
   ST.B   [SP, 15], A ; l
-  LD     A, [SP, 0] ; a
-  LD.H   B, [SP, 4] ; b
-  ADD    A, B
+  LD     C, [SP, 0] ; a
+  LD.H   D, [SP, 4] ; b
+  ADD    A, C, D
   LD.B   B, [SP, 6] ; c
   ADD    A, B
   LD     B, [SP, 7] ; d
   ADD    A, B
-  LD     B, [SP, 16] ; e
-  ADD    A, B
-  LD     B, [SP, 20] ; f
-  ADD    A, B
+  ADD    A, C
+  ADD    A, D
 .L6:
   ADD    SP, 16
   ADD    SP, 8
   RET
+main:
+  PUSH   B, C, D, E, F, LR
+  SUB    SP, 4
+  MOV    A, 1
+  MOV    B, 2
+  MOV    C, 3
+  MOV    D, 4
+  MOV    E, 5
+  MOV    F, 6
+  PUSH   F
+  PUSH   E
+  CALL   params6
+  ST     [SP, 0], A ; i
+.L7:
+  ADD    SP, 4
+  POP    B, C, D, E, F, PC

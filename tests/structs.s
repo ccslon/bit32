@@ -27,19 +27,14 @@ heap_cat:
   LD     B, [SP, 0] ; cat
   ST     [B, 0], A ; .name
   MOV    A, 15
-  LD     B, [SP, 0] ; cat
   ST.B   [B, 4], A ; .age
   LDI    A, =.S1
-  LD     B, [SP, 0] ; cat
   ST     [B, 5], A ; .owner.name
   LDI    A, =.S2
-  LD     B, [SP, 0] ; cat
   ST     [B, 9], A ; .owner.email
-  LD     A, [SP, 0] ; cat
-  LD.B   A, [A, 4] ; .age
+  LD.B   A, [B, 4] ; .age
   ST.B   [SP, 4], A ; age
-  LD     A, [SP, 0] ; cat
-  LD     A, [A, 5] ; .owner.name
+  LD     A, [B, 5] ; .owner.name
   ST     [SP, 5], A ; name
   ADD    SP, 9
   POP    B

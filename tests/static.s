@@ -2,14 +2,13 @@ n: .word 3
 next_int_n: .word 0
 f: .word 0
 next_int:
-  PUSH   B, C
+  PUSH   B
   LDI    A, =next_int_n
   LD     A, [A]
   ADD    B, A, 1
-  LDI    C, =next_int_n
-  ST     [C], B
+  ST     [A], B
 .L0:
-  POP    B, C
+  POP    B
   RET
 main:
   LDI    A, =n

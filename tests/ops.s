@@ -247,7 +247,6 @@ or:
 not:
   SUB    SP, 4
   ST     [SP, 0], A ; a
-  LD     A, [SP, 0] ; a
   CMP    A, 0
 .L33:
   LD     A, [SP, 0] ; a

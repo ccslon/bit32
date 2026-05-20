@@ -2,7 +2,6 @@ foo1:
   PUSH   LR
   SUB    SP, 4
   ST     [SP, 0], A ; n
-  LD     A, [SP, 0] ; n
   CMP    A, 1
   JNE    .L0
   MOV    A, 100
@@ -14,7 +13,6 @@ foo2:
   PUSH   LR
   SUB    SP, 4
   ST     [SP, 0], A ; n
-  LD     A, [SP, 0] ; n
   CMP    A, 1
   JNE    .L2
   MOV    A, 100
@@ -33,7 +31,6 @@ foo2_5:
   PUSH   LR
   SUB    SP, 4
   ST     [SP, 0], A ; n
-  LD     A, [SP, 0] ; n
   CMP    A, 1
   JNE    .L4
   MOV    A, 100
@@ -53,7 +50,6 @@ foo3:
   PUSH   LR
   SUB    SP, 4
   ST     [SP, 0], A ; n
-  LD     A, [SP, 0] ; n
   CMP    A, 1
   JNE    .L7
   MOV    A, 100
@@ -69,7 +65,6 @@ foo4:
   PUSH   LR
   SUB    SP, 4
   ST     [SP, 0], A ; n
-  LD     A, [SP, 0] ; n
   CMP    A, 1
   JNE    .L9
   MOV    A, 100

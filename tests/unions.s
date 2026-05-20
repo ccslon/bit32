@@ -56,7 +56,6 @@ printToken:
   PUSH   B, LR
   SUB    SP, 4
   ST     [SP, 0], A ; token
-  LD     A, [SP, 0] ; token
   LD.B   A, [A, 0] ; .type
   CMP.B  A, 2
   JEQ    .L5
@@ -90,29 +89,29 @@ main:
   SUB    SP, 15
   MOV.B  A, 'c'
   CALL   charToken
-  ADD    B, SP, 0 ; t0
-  LD.B   C, [A, 0]
-  ST.B   [B, 0], C
-  LD     C, [A, 1]
-  ST     [B, 1], C
+  ADD    C, SP, 0 ; t0
+  LD.B   B, [A, 0]
+  ST.B   [C, 0], B
+  LD     A, [A, 1]
+  ST     [C, 1], A
   ADD    A, SP, 0 ; t0
   CALL   printToken
   MOV    A, 5
   CALL   intToken
-  ADD    B, SP, 5 ; t1
-  LD.B   C, [A, 0]
-  ST.B   [B, 0], C
-  LD     C, [A, 1]
-  ST     [B, 1], C
+  ADD    C, SP, 5 ; t1
+  LD.B   B, [A, 0]
+  ST.B   [C, 0], B
+  LD     A, [A, 1]
+  ST     [C, 1], A
   ADD    A, SP, 5 ; t1
   CALL   printToken
   LDI    A, =.S4
   CALL   strToken
-  ADD    B, SP, 10 ; t2
-  LD.B   C, [A, 0]
-  ST.B   [B, 0], C
-  LD     C, [A, 1]
-  ST     [B, 1], C
+  ADD    C, SP, 10 ; t2
+  LD.B   B, [A, 0]
+  ST.B   [C, 0], B
+  LD     A, [A, 1]
+  ST     [C, 1], A
   ADD    A, SP, 10 ; t2
   CALL   printToken
 .L8:
@@ -121,7 +120,6 @@ main:
 getp1:
   SUB    SP, 4
   ST     [SP, 0], A ; s
-  LD     A, [SP, 0] ; s
   LD.H   A, [A]
 .L9:
   ADD    SP, 4
@@ -129,7 +127,6 @@ getp1:
 getp2:
   SUB    SP, 4
   ST     [SP, 0], A ; s
-  LD     A, [SP, 0] ; s
   LD.H   A, [A, 0] ; .num
 .L10:
   ADD    SP, 4

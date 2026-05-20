@@ -92,7 +92,7 @@ class Switch(Statement):
             default = emitter.next_label()
             emitter.emit_datas(table, [(Size.WORD, jumps.get(c, default)) for c in range(cases[-1] + 1)])
             sub = emitter.emit_binary(Op.SUB, self.test.width, test, min(self.cases, key=lambda c: c.constant.value).constant.data(emitter))
-            emitter.emit_binary(Op.CMP, self.test.width, sub, cases[-1])
+            emitter.emit_compare(Op.CMP, self.test.width, sub, cases[-1])
             emitter.emit_jump(Cond.HI, default)
             base = emitter.emit_load_global(table)
             scaled = emitter.emit_binary(Op.SHL, Size.WORD, sub, 2)
@@ -327,7 +327,8 @@ class InitListAssignment(Statement):
 
     def generate(self, emitter):
         """Generate code for initial list assignment."""
-        base = self.left.address(emitter)
+        # base = self.left.address(emitter)
+        base = emitter.emit_binary(Op.ADD, Size.WORD, Reg.SP, self.left.offset)
         for (offset, ctype), element in zip(self.left.type, self.right):
             ctype.list_generate(emitter, element, base, offset)
 

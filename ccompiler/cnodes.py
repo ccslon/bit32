@@ -353,7 +353,7 @@ class VariadicDefinition(Definition):  # TODO test
         emitter.emit_push(list(map(Reg, range(4))))
         emitter.emit_push(push + [Reg.LR]*self.calls)
         if self.space:
-            emitter.emit_binary(Op.SUB, Size.WORD, Reg.SP, self.space)
+            emitter.emit_stack_allocation(self.space)
 
     def ret(self, emitter, push):
         """Generate return code specific to variadic functions."""

@@ -68,6 +68,7 @@ class Register(Argument):
     def color(self, graph, spill, edges):
         if self not in graph and self.value not in {'SP', 'SR', 'ILR', 'LR', 'PC'}:
             graph[self] = Registers.index(self)
+            #graph[self] = Registers[self.reg]
 
     def __hash__(self):
         return hash(self.value)
