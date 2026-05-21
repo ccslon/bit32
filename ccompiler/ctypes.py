@@ -366,10 +366,14 @@ class Pointer(Int):
         """Generate code for binary operator."""
         if self.interval > 1:
             if right.is_constant():
+                if op is Op.ADD:
+                    return emitter.emit_address(left.reduce(emitter), right.fold().evaluate() * self.interval, False)
                 return emitter.emit_binary(op, Size.WORD, left.reduce(emitter), right.fold().evaluate() * self.interval)
             left = left.reduce(emitter)
             right = right.reduce(emitter)
             scaled = emitter.emit_binary(Op.MUL, Size.WORD, right, self.interval)
+            if op is Op.ADD:
+                return emitter.emit_address(left, scaled, False)
             return emitter.emit_binary(op, Size.WORD, left, scaled)
         return super().reduce_binary(emitter, op, left, right)
 
@@ -406,7 +410,6 @@ class List:
 
     def list_generate(self, emitter, right, base, offset):
         """Generate code for initialization lists."""
-        # can't be address or it will be optimized away incorrectly.
         base = emitter.emit_binary(Op.ADD, Size.WORD, base, offset)
         for (offset, ctype), element in zip(self, right):
             ctype.list_generate(emitter, element, base, offset)

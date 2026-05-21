@@ -548,7 +548,7 @@ class LoadGlobal(Instruction):
     def __init__(self, labels, target, name):
         super().__init__(labels)
         self.target = target
-        self.name = Label(name)
+        self.name = Label(name)  # TODO do we need Label object for name here?
 
     def defined(self):
         return self.target.live()

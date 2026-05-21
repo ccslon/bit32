@@ -279,10 +279,8 @@ class Definition(CNode):
         self.mark_stack_locals()
         # generate function body
         self.block.generate(emitter)
-        # peephole optimize
-        emitter.optimize_body()
-        # find max register used in body
-        
+
+        # find max register used in body        
         max_reg = emitter.allocate_registers()
         # for inst in emitter.instructions:
         #     max_reg = max(max_reg, inst.max_used())
@@ -301,8 +299,6 @@ class Definition(CNode):
         # epilogue
         if self.returns or self.type.return_type.width:
             emitter.append_label(emitter.return_label)
-        # if self.returns and self.type.return_type.width and max_args:
-        #     emitter.emit_binary(Op.MOV, Size.WORD, Reg.A, Reg(max_args))
         if self.space:
             emitter.emit_stack_deallocation(self.space)
         self.ret(emitter, pop)

@@ -20,6 +20,7 @@ sum:
   ST     [SP, 4], B ; f
   MOV    A, 0
   ST     [SP, 8], A ; s
+  MOV    A, 0
   ST     [SP, 12], A ; i
 .L3:
   LD     A, [SP, 12] ; i
@@ -51,8 +52,9 @@ main:
   ST     [SP, 4], A ; cat.age
   LDI    A, =get_name
   ST     [SP, 8], A ; cat.get_name
-  ADD    A, SP, 0 ; cat
-  LD     B, [SP, 8] ; cat.get_name
+  ADD    B, SP, 0 ; cat
+  MOV    A, B
+  LD     B, [B, 8] ; .get_name
   CALL   B
   ST     [SP, 12], A ; name
   MOV    A, 10

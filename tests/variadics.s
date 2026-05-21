@@ -18,13 +18,14 @@ printf:
   LD.B   A, [A]
   CMP.B  A, '%'
   JNE    .L4
-  LD     C, [SP, 8] ; c
-  ADD    A, C, 1
+  LD     A, [SP, 8] ; c
+  ADD    A, 1
   ST     [SP, 8], A ; c
   MOV    A, 0
   ST.B   [SP, 16], A ; precision
   MOV.B  B, '0'
-  LD.B   A, [C]
+  LD     A, [SP, 8] ; c
+  LD.B   A, [A]
   CMP.B  B, A
   JGT    .L5
   LD     A, [SP, 8] ; c

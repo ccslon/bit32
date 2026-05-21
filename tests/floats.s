@@ -31,29 +31,30 @@ half3:
 .L3:
   RET
 test:
-  PUSH   C
   SUB    SP, 24
   ST     [SP, 0], A ; i
   ST     [SP, 4], B ; f
   LD     A, [SP, 0] ; i
-  SHR    B, A, 1
-  ST     [SP, 8], B ; half1
+  SHR    A, 1
+  ST     [SP, 8], A ; half1
+  LD     A, [SP, 0] ; i
   ITF    A, A
-  LDI    C, 1073741824 ; 2.0
-  DIVF   A, C
+  LDI    B, 1073741824 ; 2.0
+  DIVF   A, B
   FTI    A, A
   ST     [SP, 12], A ; half2
-  LD     B, [SP, 4] ; f
-  ITF    A, 2
-  DIVF   A, B, A
+  LD     A, [SP, 4] ; f
+  ITF    B, 2
+  DIVF   A, B
   ST     [SP, 16], A ; half3
-  DIVF   A, B, C
+  LD     A, [SP, 4] ; f
+  LDI    B, 1073741824 ; 2.0
+  DIVF   A, B
   ST     [SP, 20], A ; half4
   ADD    SP, 24
-  POP    C
   RET
 func2:
-  PUSH   A, B
+  PUSH   A, B, C
   SUB    SP, 16
   LDI    A, 1069547520 ; 1.5
   FTI    A, A
@@ -61,12 +62,13 @@ func2:
   LD     A, [SP, 0] ; foo.f
   FTI    A, A
   ST     [SP, 8], A ; i
-  LD     A, [SP, 4] ; foo.i
-  ITF    A, A
-  LD     B, [SP, 0] ; foo.f
-  ADDF   A, B
+  ADD    B, SP, 0 ; foo
+  LD     A, [B, 4] ; .i
+  ITF    C, A
+  LD     A, [B, 0] ; .f
+  ADDF   A, C, A
   FTI    A, A
   ST     [SP, 12], A ; x
   ADD    SP, 16
-  POP    A, B
+  POP    A, B, C
   RET

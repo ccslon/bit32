@@ -5,28 +5,31 @@
 .S4: "Nick\0"
 .S5: "Chuck\0"
 stack_int:
-  PUSH   B, C, D, E
+  PUSH   B, C
   SUB    SP, 51
-  ADD    A, SP, 0 ; ints
-  MOV    B, 1
-  ST     [A, 0], B
-  MOV    C, 2
-  ST     [A, 4], C
-  MOV    D, 3
-  ST     [A, 8], D
-  ADD    E, SP, 12 ; ints2d
-  ADD    A, E, 0
-  ST     [A, 0], B
-  ST     [A, 4], C
-  ST     [A, 8], D
-  ADD    B, E, 12
+  ADD    B, SP, 0 ; ints
+  MOV    A, 1
+  ST     [B, 0], A
+  MOV    A, 2
+  ST     [B, 4], A
+  MOV    A, 3
+  ST     [B, 8], A
+  ADD    C, SP, 12 ; ints2d
+  ADD    B, C, 0
+  MOV    A, 1
+  ST     [B, 0], A
+  MOV    A, 2
+  ST     [B, 4], A
+  MOV    A, 3
+  ST     [B, 8], A
+  ADD    B, C, 12
   MOV    A, 4
   ST     [B, 0], A
   MOV    A, 5
   ST     [B, 4], A
   MOV    A, 6
   ST     [B, 8], A
-  ADD    B, E, 24
+  ADD    B, C, 24
   MOV    A, 7
   ST     [B, 0], A
   MOV    A, 8
@@ -42,7 +45,7 @@ stack_int:
   ST.B   [B, 2], A
 .L0:
   ADD    SP, 51
-  POP    B, C, D, E
+  POP    B, C
   RET
 stack_cat:
   PUSH   A, B
@@ -89,7 +92,7 @@ stack_person:
   POP    A, B
   RET
 list_person:
-  PUSH   A, B, C, D
+  PUSH   A, B, C
   SUB    SP, 20
   ADD    C, SP, 0 ; people
   ADD    B, C, 0
@@ -100,17 +103,18 @@ list_person:
   ADD    B, 5
   LDI    A, =.S3
   ST     [B, 0], A
-  MOV    D, 15
-  ST.B   [B, 4], D
+  MOV    A, 15
+  ST.B   [B, 4], A
   ADD    B, C, 10
   LDI    A, =.S4
   ST     [B, 0], A
   MOV    A, 24
   ST.B   [B, 4], A
-  ADD    A, B, 5
-  LDI    B, =.S5
-  ST     [A, 0], B
-  ST.B   [A, 4], D
+  ADD    B, 5
+  LDI    A, =.S5
+  ST     [B, 0], A
+  MOV    A, 15
+  ST.B   [B, 4], A
   ADD    SP, 20
-  POP    A, B, C, D
+  POP    A, B, C
   RET

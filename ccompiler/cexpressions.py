@@ -538,9 +538,8 @@ class SubScript(Binary):
 
     def address(self, emitter):
         """Generate address code for array access."""
-        return emitter.emit_binary(Op.ADD, Size.WORD,
-                            self.left.type.reduce_array(emitter, self.left),
-                            self.right.reduce_subscript(emitter, self.left.type.of.size()))
+        return emitter.emit_address(self.left.type.reduce_array(emitter, self.left),
+                                    self.right.reduce_subscript(emitter, self.left.type.of.size()), False)
 
     def reduce(self, emitter):
         """Generate code for array access."""
@@ -550,9 +549,6 @@ class SubScript(Binary):
 
     def store(self, emitter, source):
         """Generate code for storing to an array."""
-        st = emitter.emit_store(self.width, source,
+        return emitter.emit_store(self.width, source,
                            self.left.type.reduce_array(emitter, self.left),
                            self.right.reduce_subscript(emitter, self.left.type.of.size()))
-        # Can we just put kill here?
-        emitter.table.clear()
-        return st

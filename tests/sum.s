@@ -5,6 +5,7 @@ sumfs:
   ST     [SP, 4], B ; f
   MOV    A, 0
   ST     [SP, 8], A ; s
+  MOV    A, 0
   ST     [SP, 12], A ; i
 .L1:
   LD     A, [SP, 12] ; i
@@ -44,6 +45,7 @@ sum:
   ST     [SP, 4], B ; f
   MOV    A, 0
   ST     [SP, 8], A ; sum
+  MOV    A, 0
   ST     [SP, 12], A ; i
 .L6:
   LD     A, [SP, 12] ; i
@@ -69,12 +71,15 @@ sum:
 main:
   PUSH   B, LR
   SUB    SP, 20
-  ADD    A, SP, 0 ; funcs
-  LDI    B, =sqr
-  ST     [A, 0], B
-  ST     [A, 4], B
-  ST     [A, 8], B
-  ST     [A, 12], B
+  ADD    B, SP, 0 ; funcs
+  LDI    A, =sqr
+  ST     [B, 0], A
+  LDI    A, =sqr
+  ST     [B, 4], A
+  LDI    A, =sqr
+  ST     [B, 8], A
+  LDI    A, =sqr
+  ST     [B, 12], A
   MOV    A, 4
   ADD    B, SP, 0 ; funcs
   CALL   sumfs

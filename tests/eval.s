@@ -3,7 +3,6 @@ g: .word 32
 half: .word 1056964608
 .S0: "def\0"
 main:
-  PUSH   B
   SUB    SP, 52
   MOV    A, 128
   ST     [SP, 0], A ; i
@@ -11,19 +10,20 @@ main:
   ST     [SP, 4], A ; j
   LDI    A, 3204448256 ; -0.5
   ST     [SP, 8], A ; k
-  MOV    B, 4
-  ST     [SP, 12], B ; l
-  LD     A, [SP, 12] ; l
+  MOV    A, 4
+  ST     [SP, 12], A ; l
   ADD    A, 3
   ST     [SP, 16], A ; m
   MOV    A, 0
   ST     [SP, 20], A ; n
   MOV    A, 1
   ST     [SP, 24], A ; m
+  MOV    A, 1
   ST     [SP, 28], A ; o
   LD     A, [SP, 24] ; m
   ST     [SP, 32], A ; p
-  ST     [SP, 36], B ; q
+  MOV    A, 4
+  ST     [SP, 36], A ; q
   LDI    A, =.S0
   ST     [SP, 40], A ; r
   MOV    A, 2
@@ -32,7 +32,6 @@ main:
   ST     [SP, 48], A ; t
 .L0:
   ADD    SP, 52
-  POP    B
   RET
 test_loops:
   PUSH   A, B, LR

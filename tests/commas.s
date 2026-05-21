@@ -13,13 +13,15 @@ strrev:
   LD     B, [SP, 8] ; back
   CMP    A, B
   JGE    .L3
-  LD     B, [SP, 0] ; s
-  LD     C, [SP, 4] ; front
-  LD.B   A, [B, C]
+  LD     A, [SP, 0] ; s
+  LD     B, [SP, 4] ; front
+  LD.B   A, [A, B]
   ST.B   [SP, 12], A ; temp
+  LD     C, [SP, 0] ; s
   LD     A, [SP, 8] ; back
-  LD.B   A, [B, A]
-  ST.B   [B, C], A
+  LD.B   A, [C, A]
+  LD     B, [SP, 4] ; front
+  ST.B   [C, B], A
   LD.B   A, [SP, 12] ; temp
   LD     B, [SP, 0] ; s
   LD     C, [SP, 8] ; back

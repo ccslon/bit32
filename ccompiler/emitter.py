@@ -150,44 +150,32 @@ class Emitter:
                 and inst2.op is Op.ITF
                 and inst1.target == inst2.source
                 and not isinstance(inst1.source, Register)):
-                # redundant MOV after function call
                 '''
-                MOV A, n
-                ITF C, A
-                = ITF C, n
+                MOV A, n    {...} {A, ...}
+                ITF C, A    {A, ...} {C, ...}
+                = ITF C, n  {...} {C, ...}
                 '''
                 inst2.labels += inst1.labels
-                inst2.source = inst1.source
-            elif inst1.code is Code.ADDRESS:
-                # address collapse
-                if (inst2.code in {Code.ADDRESS, Code.LOAD, Code.STORE}
-                    and inst1.target == inst2.base
-                    and not isinstance(inst2.offset, Register)):
-                    '''
-                    ADD A, B, n
-                    LD C, [A, m]
-                    = LD C, [B, n+m]
-                    '''
-                    inst2.labels += inst1.labels
-                    inst2.base = inst1.base
-                    inst2.offset.value += inst1.offset.value
-                    inst2.marked = inst1.marked
-                    inst2.comment = inst1.comment + inst2.comment
-                elif (inst2.code is Code.BINARY
-                      and inst2.op is Op.ADD
-                      and inst1.target == inst2.source2
-                      # and inst2.target == inst2.source2
-                      and not isinstance(inst2.source, Register)):
-                    '''
-                    ADD A, B, n
-                    ADD C, A, m
-                    = ADD C, B, n+m
-                    '''
-                    inst1.target = inst2.target
-                    inst1.offset.value += inst2.source.value
-                    self.instructions[i+1] = inst1
-                else:
-                    new.append(inst1)
+                inst2.source = inst1.source                
+                inst2.live_in = inst1.live_in
+            elif (inst1.code is Code.ADDRESS
+                  and inst2.code in {Code.ADDRESS, Code.LOAD, Code.STORE}
+                  and inst1.target not in inst2.live_out
+                  and inst1.target == inst2.base
+                  and not isinstance(inst1.offset, Register)
+                  and not isinstance(inst2.offset, Register)):
+                '''
+                Address collapse
+                ADD A, B, n         {B} {A}
+                LD C, [A, m]        {A} {C}
+                = LD C, [B, n+m]    {B} {C}
+                '''
+                inst2.labels += inst1.labels
+                inst2.base = inst1.base
+                inst2.offset.value += inst1.offset.value
+                inst2.marked = inst1.marked
+                inst2.comment = inst1.comment + inst2.comment
+                inst2.live_in = inst1.live_in
             else:
                 new.append(inst1)
             i += 1
@@ -292,6 +280,10 @@ class Emitter:
             #     print(inst, inst.live_in, inst.live_out)
             graph = self.build_graph()
             changed = self.coalesce(graph)
+        # peephole optimize
+        self.optimize_body()
+        # build graph again
+        graph = self.build_graph()
         colors, spill = self.color(graph, 11)
         # print(colors)
         max_reg = max(colors.values()) if colors else -1
@@ -389,12 +381,12 @@ class Emitter:
 
     def emit_address(self, base, offset, marked, comment=''):
         """Emit address instruction object."""
-        # t = (Code.ADDRESS, base, offset)
-        # if not self.labels and t in self.table:
-        #     return self.table[t]
+        t = (Code.ADDRESS, base, offset)
+        if not self.labels and t in self.table:
+            return self.table[t]
         target = self.next_virtual()
         self.add(Address(self.labels, target, base, offset, marked, comment))
-        # self.table[t] = target
+        self.table[t] = target
         return target
 
     def emit_load(self, size, base, offset=None, marked=False, comment=''):
@@ -410,7 +402,7 @@ class Emitter:
     def emit_store(self, size, target, base, offset=None, marked=False, comment=''):
         """Emit store instruction object."""
         self.add(Store(self.labels, size, target, base, offset, marked, comment))
-        # self.table.clear()
+        self.table.clear()
         return target
 
     def emit_load_immediate(self, value, comment=''):

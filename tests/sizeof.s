@@ -19,6 +19,7 @@ loop1:
   SUB    SP, 8
   MOV    A, 0
   ST     [SP, 4], A ; s
+  MOV    A, 0
   ST     [SP, 0], A ; i
 .L0:
   LD     A, [SP, 0] ; i
@@ -45,6 +46,7 @@ loop2:
   SUB    SP, 8
   MOV    A, 0
   ST     [SP, 4], A ; s
+  MOV    A, 0
   ST     [SP, 0], A ; i
 .L3:
   LD     A, [SP, 0] ; i
