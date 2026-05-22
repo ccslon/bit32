@@ -7,7 +7,7 @@ Created on Sat Sep  7 01:02:16 2024
 from .instructions import (Code, Register, Registers, Virtual, String, Space, Global, Data, Push, Pop,
                            Call, Ret, LoadGlobal, Address, Load, Store, LoadImmediate, Unary, Binary,
                            LeftMove, RightMove, Jump, CMov)
-from bit32 import Reg, Size, Op, escape_chr
+from bit32 import Reg, Size, Cond, Op, escape_chr
 
 '''
 [x] add CMovs
@@ -282,7 +282,7 @@ class Emitter:
             changed = self.coalesce(graph)
         # peephole optimize
         self.optimize_body()
-        # build graph again
+        # # build graph again
         graph = self.build_graph()
         colors, spill = self.color(graph, 11)
         # print(colors)
@@ -290,7 +290,17 @@ class Emitter:
         for virt in self.virtuals:
             if virt in colors:
                 virt.devirtualize(Registers[colors[virt]])
-        self.instructions = [inst for inst in self.instructions if not inst.obsolete()]
+        new = []
+        abandonded = []
+        for inst in self.instructions:
+            if inst.obsolete():
+                abandonded += inst.labels
+            else:
+                inst.labels += abandonded
+                abandonded.clear()
+                new.append(inst)
+        # self.instructions = [inst for inst in self.instructions if not inst.obsolete()]
+        self.instructions = new
         return max_reg
 
     def begin_body(self, definition):
@@ -366,27 +376,14 @@ class Emitter:
         """Emit return instruction object."""
         self.add(Ret(self.labels))
 
-    def emit_load_global(self, name):
-        """Emit load-global instruction object."""
-        if not self.labels and name in self.table:
-            return self.table[name]
-        target = self.next_virtual()
-        self.add(LoadGlobal(self.labels, target, name))
-        self.table[name] = target
-        return target
-
     def emit_attribute(self, base, offset, comment):
         """Emit address instruction object. Specifically for attributes."""
         return self.emit_address(base, offset, False, comment)
 
     def emit_address(self, base, offset, marked, comment=''):
         """Emit address instruction object."""
-        t = (Code.ADDRESS, base, offset)
-        if not self.labels and t in self.table:
-            return self.table[t]
         target = self.next_virtual()
         self.add(Address(self.labels, target, base, offset, marked, comment))
-        self.table[t] = target
         return target
 
     def emit_load(self, size, base, offset=None, marked=False, comment=''):
@@ -403,6 +400,15 @@ class Emitter:
         """Emit store instruction object."""
         self.add(Store(self.labels, size, target, base, offset, marked, comment))
         self.table.clear()
+        return target
+
+    def emit_load_global(self, name):
+        """Emit load-global instruction object."""
+        if not self.labels and name in self.table:
+            return self.table[name]
+        target = self.next_virtual()
+        self.add(LoadGlobal(self.labels, target, name))
+        self.table[name] = target
         return target
 
     def emit_load_immediate(self, value, comment=''):
@@ -456,6 +462,17 @@ class Emitter:
         self.add(CMov(self.labels, cond, target, 1))
         self.add(CMov(self.labels, inv, target, 0))
         return target
+
+    def emit_logic(self, label, sublabel):
+        target = self.next_virtual()
+        self.add(Unary(self.labels, Op.MOV, Size.WORD, target, 1))
+        self.emit_jump(Cond.AL, sublabel)
+        self.append_label(label)
+        self.add(Unary(self.labels, Op.MOV, Size.WORD, target, 0))
+        return target
+
+    def emit_table_load(self, base, offset):
+        self.add(Load(self.labels, Size.WORD, Registers[Reg.PC], base, offset, False, ''))
 
     def emit_stack_allocation(self, space):
         self.add(Binary(self.labels, Op.SUB, Size.WORD, Reg.SP, Reg.SP, space))

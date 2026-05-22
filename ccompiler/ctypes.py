@@ -338,7 +338,7 @@ class Float(Numeric):
 
     def reduce_compare(self, emitter, left, right):
         """Generate code for compare operator."""
-        emitter.emit_binary(Op.CMPF, self.width, left.reduce_float(emitter), right.reduce_float(emitter))
+        emitter.emit_compare(Op.CMPF, self.width, left.reduce_float(emitter), right.reduce_float(emitter))
 
     def get_node(self, value):
         """Get the constant node associated with floats."""

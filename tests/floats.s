@@ -54,7 +54,7 @@ test:
   ADD    SP, 24
   RET
 func2:
-  PUSH   A, B, C
+  PUSH   A, B
   SUB    SP, 16
   LDI    A, 1069547520 ; 1.5
   FTI    A, A
@@ -62,13 +62,12 @@ func2:
   LD     A, [SP, 0] ; foo.f
   FTI    A, A
   ST     [SP, 8], A ; i
-  ADD    B, SP, 0 ; foo
-  LD     A, [B, 4] ; .i
-  ITF    C, A
-  LD     A, [B, 0] ; .f
-  ADDF   A, C, A
+  LD     A, [SP, 4] ; foo.i
+  ITF    A, A
+  LD     B, [SP, 0] ; foo.f
+  ADDF   A, B
   FTI    A, A
   ST     [SP, 12], A ; x
   ADD    SP, 16
-  POP    A, B, C
+  POP    A, B
   RET

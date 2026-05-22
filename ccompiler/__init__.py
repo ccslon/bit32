@@ -64,3 +64,11 @@ def ccompile(files, oflag='out', Eflag=False, Sflag=False, fflag=True):
     if fflag:
         with open(f'{oflag}.{file_type}', 'w+') as file:
             file.write(output)
+
+def debug_std(std):
+    preproc = CPreProcessor()
+    preproc.process(f'ccompiler/std/{std}.c')
+    root = parse(preproc.output())
+    emitter = Emitter()
+    root.generate(emitter)
+    print(emitter)

@@ -123,8 +123,6 @@ class Emitter:
 
     def emit_binary(self, op, condition, flag, size, destination, source, immediate):
         """Emit binary instruction."""
-        if op in {Op.NOT, Op.NEG, Op.NEGF}:
-            self.assembler.error(f'{op.name} is a unary operator only')
         if immediate and isinstance(source, int) and not (-128 <= source < 256):
             if op is Op.MOV:
                 self.emit_load_immediate(condition, size, destination, source)

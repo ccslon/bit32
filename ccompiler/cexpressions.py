@@ -400,16 +400,22 @@ class Logic(BinaryOp):
             return self.fold().reduce(emitter)
         if self.op is Op.AND:
             label = emitter.next_label()
+            sublabel = emitter.next_label()
             self.left.compare(emitter, label)
-            self.right.compare(emitter, label)            
-            emitter.append_label(label)
-            return emitter.emit_cmov(Cond.NE, Cond.EQ)
+            self.right.compare(emitter, label)
+            target = emitter.emit_logic(label, sublabel)            
+            emitter.append_label(sublabel)
+            return target
         if self.op is Op.OR:
             label = emitter.next_label()
+            sublabel = emitter.next_label()
+            subsublabel = emitter.next_label()
             self.left.inverse_compare(emitter, label)
-            self.right.inverse_compare(emitter, label)            
+            self.right.compare(emitter, sublabel)
             emitter.append_label(label)
-            return emitter.emit_cmov(Cond.NE, Cond.EQ)
+            target = emitter.emit_logic(sublabel, subsublabel)  
+            emitter.append_label(subsublabel)
+            return target
 
     def compare(self, emitter, label):
         """Generate code for comparing with logical operators."""

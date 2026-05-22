@@ -96,7 +96,7 @@ class Switch(Statement):
             emitter.emit_jump(Cond.HI, default)
             base = emitter.emit_load_global(table)
             scaled = emitter.emit_binary(Op.SHL, Size.WORD, sub, 2)
-            emitter.emit_load(Size.WORD, Reg.PC, base, scaled)
+            emitter.emit_table_load(base, scaled)
             for case in self.cases:
                 emitter.append_label(jumps[case.constant.value - min_case])
                 case.statement.generate(emitter)
