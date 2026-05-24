@@ -5,13 +5,15 @@ Created on Fri Sep  6 14:25:05 2024
 @author: ccslon
 """
 from collections import UserList
-from bit32 import Op, Cond, Reg, Size, escape_chr
+from bit32 import Op, Cond, Reg, Size
 from .cnodes import Statement, Expression, Variable, Binary
 from .ctypes import Array
 
 
 class If(Statement):
     """Class for if statements."""
+
+    jump_end = []
 
     def __init__(self, test, true):
         self.test = test
@@ -20,7 +22,7 @@ class If(Statement):
 
     def generate(self, emitter):
         """Generate code for if statement."""
-        emitter.if_jump_end.append(False)
+        If.jump_end.append(False)
         label = emitter.next_label()
         sublabel = emitter.next_label() if self.false else label
         if self.test.is_constant():
@@ -32,14 +34,14 @@ class If(Statement):
         if self.false:
             if not self.true.last_is_return():
                 emitter.emit_jump(Cond.AL, label)
-                emitter.if_jump_end[-1] = True
+                If.jump_end[-1] = True
             emitter.append_label(sublabel)
             self.false.branch(emitter, label)
-            if emitter.if_jump_end[-1]:
+            if If.jump_end[-1]:
                 emitter.append_label(label)
         else:
             emitter.append_label(label)
-        emitter.if_jump_end.pop()
+        If.jump_end.pop()
 
     def branch(self, emitter, root):
         """Generate code for else statement."""
@@ -53,7 +55,7 @@ class If(Statement):
         if self.false:
             if not self.true.last_is_return():
                 emitter.emit_jump(Cond.AL, root)
-                emitter.if_jump_end[-1] = True
+                If.jump_end[-1] = True
             emitter.append_label(sublabel)
             self.false.branch(emitter, root)
 
@@ -95,8 +97,8 @@ class Switch(Statement):
             emitter.emit_compare(Op.CMP, self.test.width, sub, cases[-1])
             emitter.emit_jump(Cond.HI, default)
             base = emitter.emit_load_global(table)
-            scaled = emitter.emit_binary(Op.SHL, Size.WORD, sub, 2)
-            emitter.emit_table_load(base, scaled)
+            offset = emitter.emit_binary(Op.SHL, Size.WORD, sub, 2)
+            emitter.emit_table_jump(base, offset)
             for case in self.cases:
                 emitter.append_label(jumps[case.constant.value - min_case])
                 case.statement.generate(emitter)
@@ -258,7 +260,7 @@ class Return(Statement):
             else:
                 target = self.value.reduce(emitter)
                 target = self.type.convert(emitter, target, self.value.type)
-            emitter.emit_left_move(self.type.width, Reg.A, target)            
+            emitter.emit_left_move(self.type.width, Reg.A, target)
         emitter.emit_jump(Cond.AL, emitter.return_label)
 
 
@@ -284,10 +286,6 @@ class InitAssignment(Binary, Statement):
         if left.type != right.type:
             token.error(f'{left.type} != {right.type}')
         super().__init__(left.type, left, right)
-
-    def soft_calls(self):
-        """Determine if initial assignment soft calls."""
-        return self.left.hard_calls() or self.right.soft_calls()
 
     def reduce(self, emitter):
         """Generate code for initial assignment."""
@@ -328,7 +326,6 @@ class InitListAssignment(Statement):
     def generate(self, emitter):
         """Generate code for initial list assignment."""
         base = self.left.address(emitter)
-        # base = emitter.emit_binary(Op.ADD, Size.WORD, Reg.SP, self.left.offset)
         for (offset, ctype), element in zip(self.left.type, self.right):
             ctype.list_generate(emitter, element, base, offset)
 
@@ -395,14 +392,6 @@ class Call(Expression, Statement):
         self.function = function
         self.arguments = arguments
         self.parameters = function.type.parameters
-
-    def hard_calls(self):
-        """Determine if function calls "hard call" (they do)."""
-        return True
-
-    def soft_calls(self):
-        """Determine if a funciton call "soft calls"."""
-        return self.function.hard_calls() or any(arg.hard_calls() for arg in self.arguments)
 
     def reduce_arguments(self, emitter):
         """Generate code for arguments."""

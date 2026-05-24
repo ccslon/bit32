@@ -23,10 +23,10 @@ printf:
   ST     [SP, 8], A ; c
   MOV    A, 0
   ST.B   [SP, 16], A ; precision
-  MOV.B  B, '0'
-  LD     A, [SP, 8] ; c
-  LD.B   A, [A]
-  CMP.B  B, A
+  MOV.B  A, '0'
+  LD     B, [SP, 8] ; c
+  LD.B   B, [B]
+  CMP.B  A, B
   JGT    .L5
   LD     A, [SP, 8] ; c
   LD.B   A, [A]
@@ -133,12 +133,12 @@ printf:
   CALL   oprint
   JMP    .L7
 .L18:
-  LD     C, [SP, 12] ; n
-  LD     A, [SP, 4] ; ap
-  ADD    B, A, 4
-  ST     [SP, 4], B ; ap
-  LD     A, [A]
-  ST     [A], C
+  LD     A, [SP, 12] ; n
+  LD     B, [SP, 4] ; ap
+  ADD    C, B, 4
+  ST     [SP, 4], C ; ap
+  LD     B, [B]
+  ST     [B], A
   JMP    .L7
 .L19:
   LD     A, [SP, 8] ; c

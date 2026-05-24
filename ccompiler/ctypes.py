@@ -4,7 +4,7 @@ Created on Fri Sep  6 14:05:50 2024
 
 @author: ccslon
 """
-from bit32 import Op, Size, Reg, Cond
+from bit32 import Op, Size, Cond
 from .cnodes import Frame
 from . import cexpressions
 
@@ -72,15 +72,15 @@ class Value(Type):
         """Convert integer to float."""
         return source
 
-    def address(self, emitter, var, base):
+    def address(self, emitter, base, var):
         """Generate address code for generic type."""
         return emitter.emit_address(base, var.offset, var.marked, var.name)
 
-    def reduce(self, emitter, var, base):
+    def reduce(self, emitter, base, var):
         """Generate code for generic type."""
         return emitter.emit_load(self.width, base, var.offset, var.marked, var.name)
 
-    def store(self, emitter, source, var, base):
+    def store(self, emitter, source, base, var):
         """Generate code for storing to generic type."""
         return emitter.emit_store(self.width, source, base, var.offset, var.marked, var.name)
 
@@ -115,7 +115,7 @@ class Value(Type):
         base = self.global_address(emitter, glob)
         return emitter.emit_load(self.width, base)
 
-    def global_store(self, emitter, source, glob):  # TODO test
+    def global_store(self, emitter, source, glob):
         """Generate code for storing a global variable."""
         base = emitter.emit_load_global(glob.name)
         return emitter.emit_store(self.width, source, base)
@@ -367,14 +367,14 @@ class Pointer(Int):
         if self.interval > 1:
             if right.is_constant():
                 if op is Op.ADD:
-                    return emitter.emit_address(left.reduce(emitter), right.fold().evaluate() * self.interval, False)
+                    return emitter.emit_address(left.reduce(emitter), right.fold().evaluate() * self.interval)
                 return emitter.emit_binary(op, Size.WORD, left.reduce(emitter), right.fold().evaluate() * self.interval)
             left = left.reduce(emitter)
             right = right.reduce(emitter)
-            scaled = emitter.emit_binary(Op.MUL, Size.WORD, right, self.interval)
+            offset = emitter.emit_binary(Op.MUL, Size.WORD, right, self.interval)
             if op is Op.ADD:
-                return emitter.emit_address(left, scaled, False)
-            return emitter.emit_binary(op, Size.WORD, left, scaled)
+                return emitter.emit_address(left, offset)
+            return emitter.emit_binary(op, Size.WORD, left, offset)
         return super().reduce_binary(emitter, op, left, right)
 
     def reduce_array(self, emitter, array):
@@ -433,9 +433,9 @@ class Array(List, Value):
     def size(self):
         return self.length * self.of.size()
 
-    def reduce(self, emitter, var, base):
+    def reduce(self, emitter, base, var):
         """Generate code for loading array."""
-        return self.address(emitter, var, base)
+        return self.address(emitter, base, var)
 
     def reduce_array(self, emitter, array):
         """Generate code for special array access."""
@@ -476,13 +476,13 @@ class Struct(List, Record):
 
     FrameType = Frame
 
-    def reduce(self, emitter, var, base):
+    def reduce(self, emitter, base, var):
         """Generate code for loading a struct."""
-        return self.address(emitter, var, base)
+        return self.address(emitter, base, var)
 
-    def store(self, emitter, source, var, base):
+    def store(self, emitter, source, base, var):
         """Generate code for storing a struct."""
-        base = self.address(emitter, var, base)
+        base = self.address(emitter, base, var)
         frame = {}
         for offset, ctype in self:
             # I forget what this loop does. I think it has to do with absorbed unions

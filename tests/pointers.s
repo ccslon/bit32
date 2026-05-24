@@ -2,10 +2,9 @@ change:
   PUSH   B
   SUB    SP, 4
   ST     [SP, 0], A ; n
-  LD     B, [SP, 0] ; n
-  LD     A, [B]
-  ADD    A, 10
-  ST     [B], A
+  LD     B, [A]
+  ADD    B, 10
+  ST     [A], B
   ADD    SP, 4
   POP    B
   RET

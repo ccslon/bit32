@@ -48,10 +48,10 @@ current: .word 0
 .S25: "Expected %c\n\0"
 .S26: "Expected NUM, VAR, or (\n\0"
 .S27: "Can only assign to variables\0"
+errno: .word 0
 next_rand: .word 0
 base: .space 8
 freehead: .word 0
-errno: .word 0
 exec:
   PUSH   B, LR
   SUB    SP, 16
@@ -558,45 +558,45 @@ allocBinary:
   LD     A, [SP, 12] ; node
   LD     A, [A, 1] ; .token
   LD.B   A, [A, 1] ; .sym
-  SUB.B  A, '*'
-  CMP.B  A, 5
+  SUB.B  B, A, '*'
+  CMP.B  B, 5
   JHI    .L59
-  LDI    B, =.L54
-  SHL    A, 2
-  LD     PC, [B, A]
+  LDI    A, =.L54
+  SHL    B, 2
+  LD     PC, [A, B]
 .L56:
-  LDI    B, =add_
-  LD     A, [SP, 12] ; node
-  LD     A, [A, 5] ; .binary
-  ST     [A, 0], B ; .op
+  LDI    A, =add_
+  LD     B, [SP, 12] ; node
+  LD     B, [B, 5] ; .binary
+  ST     [B, 0], A ; .op
   JMP    .L53
 .L57:
-  LDI    B, =sub_
-  LD     A, [SP, 12] ; node
-  LD     A, [A, 5] ; .binary
-  ST     [A, 0], B ; .op
+  LDI    A, =sub_
+  LD     B, [SP, 12] ; node
+  LD     B, [B, 5] ; .binary
+  ST     [B, 0], A ; .op
   JMP    .L53
 .L55:
-  LDI    B, =mul_
-  LD     A, [SP, 12] ; node
-  LD     A, [A, 5] ; .binary
-  ST     [A, 0], B ; .op
+  LDI    A, =mul_
+  LD     B, [SP, 12] ; node
+  LD     B, [B, 5] ; .binary
+  ST     [B, 0], A ; .op
   JMP    .L53
 .L58:
-  LDI    B, =div_
-  LD     A, [SP, 12] ; node
-  LD     A, [A, 5] ; .binary
-  ST     [A, 0], B ; .op
+  LDI    A, =div_
+  LD     B, [SP, 12] ; node
+  LD     B, [B, 5] ; .binary
+  ST     [B, 0], A ; .op
 .L59:
 .L53:
-  LD     B, [SP, 4] ; left
-  LD     A, [SP, 12] ; node
-  LD     A, [A, 5] ; .binary
-  ST     [A, 4], B ; .left
-  LD     B, [SP, 8] ; right
-  LD     A, [SP, 12] ; node
-  LD     A, [A, 5] ; .binary
-  ST     [A, 8], B ; .right
+  LD     A, [SP, 4] ; left
+  LD     B, [SP, 12] ; node
+  LD     B, [B, 5] ; .binary
+  ST     [B, 4], A ; .left
+  LD     A, [SP, 8] ; right
+  LD     B, [SP, 12] ; node
+  LD     B, [B, 5] ; .binary
+  ST     [B, 8], A ; .right
   LD     A, [SP, 12] ; node
 .L51:
   ADD    SP, 16
@@ -620,18 +620,18 @@ allocAssign:
   CALL   malloc
   LD     B, [SP, 12] ; node
   ST     [B, 5], A ; .binary
-  MOV    B, 0
-  LD     A, [SP, 12] ; node
-  LD     A, [A, 5] ; .binary
-  ST     [A, 0], B ; .op
-  LD     B, [SP, 4] ; left
-  LD     A, [SP, 12] ; node
-  LD     A, [A, 5] ; .binary
-  ST     [A, 4], B ; .left
-  LD     B, [SP, 8] ; right
-  LD     A, [SP, 12] ; node
-  LD     A, [A, 5] ; .binary
-  ST     [A, 8], B ; .right
+  MOV    A, 0
+  LD     B, [SP, 12] ; node
+  LD     B, [B, 5] ; .binary
+  ST     [B, 0], A ; .op
+  LD     A, [SP, 4] ; left
+  LD     B, [SP, 12] ; node
+  LD     B, [B, 5] ; .binary
+  ST     [B, 4], A ; .left
+  LD     A, [SP, 8] ; right
+  LD     B, [SP, 12] ; node
+  LD     B, [B, 5] ; .binary
+  ST     [B, 8], A ; .right
   LD     A, [SP, 12] ; node
 .L60:
   ADD    SP, 16
@@ -673,12 +673,12 @@ eval:
   SUB    SP, 8
   ST     [SP, 0], A ; node
   LD.B   A, [A, 0] ; .type
-  SUB.B  A, 0
-  CMP.B  A, 3
+  SUB.B  B, A, 0
+  CMP.B  B, 3
   JHI    .L74
-  LDI    B, =.L69
-  SHL    A, 2
-  LD     PC, [B, A]
+  LDI    A, =.L69
+  SHL    B, 2
+  LD     PC, [A, B]
 .L70:
   LD     A, [SP, 0] ; node
   LD     A, [A, 5] ; .num
@@ -790,10 +790,10 @@ next:
   LDI    A, =current
   LD     A, [A]
   ST     [SP, 0], A ; next
-  LDI    B, =current
-  LD     A, [B]
-  LD     A, [A, 7] ; .next
-  ST     [B], A
+  LDI    A, =current
+  LD     B, [A]
+  LD     B, [B, 7] ; .next
+  ST     [A], B
   LD     A, [SP, 0] ; next
 .L81:
   ADD    SP, 4
@@ -855,10 +855,10 @@ expectToken:
   JMP    .L86
 .L87:
   LDI    A, =.S24
-  LDI    C, =TokenTypeMap
-  LD.B   B, [SP, 0] ; token
-  SHL    B, 2
-  LD     B, [C, B]
+  LDI    B, =TokenTypeMap
+  LD.B   C, [SP, 0] ; token
+  SHL    C, 2
+  LD     B, [B, C]
   CALL   printf
   MOV    A, 202
   LDI    B, =errno
@@ -1083,11 +1083,11 @@ hash:
   CMP.B  A, '\0'
   JEQ    .L111
   LD     A, [SP, 0] ; key
-  LD.B   C, [A]
-  MOV    A, 31
-  LD     B, [SP, 4] ; hash
-  MUL    A, B
-  ADD    A, C, A
+  LD.B   A, [A]
+  MOV    B, 31
+  LD     C, [SP, 4] ; hash
+  MUL    B, C
+  ADD    A, B
   ST     [SP, 4], A ; hash
 .L110:
   LD     A, [SP, 0] ; key
@@ -1191,26 +1191,26 @@ _IntMap_resize:
   PUSH   B, C, LR
   SUB    SP, 12
   ST     [SP, 0], A ; old
-  MOV    B, 2
-  LD     A, [SP, 0] ; old
-  LD     A, [A, 8] ; .capacity
-  MUL    A, B, A
+  MOV    A, 2
+  LD     B, [SP, 0] ; old
+  LD     B, [B, 8] ; .capacity
+  MUL    A, B
   CALL   _allocIntMap
   ST     [SP, 4], A ; map
   MOV    A, 0
   ST     [SP, 8], A ; i
 .L123:
-  LD     B, [SP, 8] ; i
-  LD     A, [SP, 0] ; old
-  LD     A, [A, 8] ; .capacity
-  CMP    B, A
+  LD     A, [SP, 8] ; i
+  LD     B, [SP, 0] ; old
+  LD     B, [B, 8] ; .capacity
+  CMP    A, B
   JGE    .L125
   LD     A, [SP, 4] ; map
   LD     B, [SP, 0] ; old
-  LD     C, [B, 0] ; .data
-  LD     B, [SP, 8] ; i
-  SHL    B, 2
-  LD     B, [C, B]
+  LD     B, [B, 0] ; .data
+  LD     C, [SP, 8] ; i
+  SHL    C, 2
+  LD     B, [B, C]
   CALL   _IntMap_rehash
 .L124:
   LD     A, [SP, 8] ; i
@@ -1236,10 +1236,10 @@ IntMap_set:
   LD     A, [SP, 0] ; map
   CMP    A, 0
   JEQ    .L126
-  LD     A, [SP, 0] ; map
-  LD     B, [A, 4] ; .size
-  LD     A, [A, 8] ; .capacity
-  CMP    B, A
+  LD     B, [SP, 0] ; map
+  LD     A, [B, 4] ; .size
+  LD     B, [B, 8] ; .capacity
+  CMP    A, B
   JNE    .L127
   LD     A, [SP, 0] ; map
   CALL   _IntMap_resize
@@ -1262,43 +1262,43 @@ IntMap_set:
   CALL   IntMap_hash
   ST     [SP, 16], A ; h
   LD     A, [SP, 0] ; map
-  LD     B, [A, 0] ; .data
-  LD     A, [SP, 16] ; h
-  SHL    A, 2
-  LD     A, [B, A]
+  LD     A, [A, 0] ; .data
+  LD     B, [SP, 16] ; h
+  SHL    B, 2
+  LD     A, [A, B]
   CMP    A, 0
   JNE    .L130
   MOV    A, 0
   LD     B, [SP, 12] ; pair
   ST     [B, 8], A ; .next
-  LD     C, [SP, 12] ; pair
-  LD     A, [SP, 0] ; map
-  LD     B, [A, 0] ; .data
-  LD     A, [SP, 16] ; h
-  SHL    A, 2
-  ST     [B, A], C
+  LD     A, [SP, 12] ; pair
+  LD     B, [SP, 0] ; map
+  LD     B, [B, 0] ; .data
+  LD     C, [SP, 16] ; h
+  SHL    C, 2
+  ST     [B, C], A
   JMP    .L129
 .L130:
   LD     A, [SP, 0] ; map
-  LD     B, [A, 0] ; .data
-  LD     A, [SP, 16] ; h
-  SHL    A, 2
-  LD     A, [B, A]
+  LD     A, [A, 0] ; .data
+  LD     B, [SP, 16] ; h
+  SHL    B, 2
+  LD     A, [A, B]
   LD     A, [A, 8] ; .next
   LD     B, [SP, 12] ; pair
   ST     [B, 8], A ; .next
-  LD     C, [SP, 12] ; pair
-  LD     A, [SP, 0] ; map
-  LD     B, [A, 0] ; .data
-  LD     A, [SP, 16] ; h
-  SHL    A, 2
-  LD     A, [B, A]
-  ST     [A, 8], C ; .next
-.L129:
+  LD     A, [SP, 12] ; pair
   LD     B, [SP, 0] ; map
-  LD     A, [B, 4] ; .size
-  ADD    A, 1
-  ST     [B, 4], A ; .size
+  LD     B, [B, 0] ; .data
+  LD     C, [SP, 16] ; h
+  SHL    C, 2
+  LD     B, [B, C]
+  ST     [B, 8], A ; .next
+.L129:
+  LD     A, [SP, 0] ; map
+  LD     B, [A, 4] ; .size
+  ADD    B, 1
+  ST     [A, 4], B ; .size
 .L128:
   LD     A, [SP, 0] ; map
   LD     B, [SP, 4] ; key
@@ -1329,33 +1329,33 @@ IntMap_del:
   ST     [SP, 12], A ; h
   LD     A, [SP, 4] ; key
   LD     B, [SP, 0] ; map
-  LD     C, [B, 0] ; .data
-  LD     B, [SP, 12] ; h
-  SHL    B, 2
-  LD     B, [C, B]
+  LD     B, [B, 0] ; .data
+  LD     C, [SP, 12] ; h
+  SHL    C, 2
+  LD     B, [B, C]
   LD     B, [B, 0] ; .key
   CALL   strcmp
   CMP    A, 0
   JNE    .L134
   LD     A, [SP, 0] ; map
-  LD     B, [A, 0] ; .data
-  LD     A, [SP, 12] ; h
-  SHL    A, 2
-  LD     A, [B, A]
+  LD     A, [A, 0] ; .data
+  LD     B, [SP, 12] ; h
+  SHL    B, 2
+  LD     A, [A, B]
   ST     [SP, 8], A ; pair
-  LD     C, [A, 8] ; .next
-  LD     A, [SP, 0] ; map
-  LD     B, [A, 0] ; .data
-  LD     A, [SP, 12] ; h
-  SHL    A, 2
-  ST     [B, A], C
+  LD     A, [A, 8] ; .next
+  LD     B, [SP, 0] ; map
+  LD     B, [B, 0] ; .data
+  LD     C, [SP, 12] ; h
+  SHL    C, 2
+  ST     [B, C], A
   JMP    .L133
 .L134:
   LD     A, [SP, 0] ; map
-  LD     B, [A, 0] ; .data
-  LD     A, [SP, 12] ; h
-  SHL    A, 2
-  LD     A, [B, A]
+  LD     A, [A, 0] ; .data
+  LD     B, [SP, 12] ; h
+  SHL    B, 2
+  LD     A, [A, B]
   ST     [SP, 16], A ; prev
   LD     A, [A, 8] ; .next
   ST     [SP, 8], A ; pair
@@ -1387,10 +1387,10 @@ IntMap_del:
   CALL   free
   LD     A, [SP, 8] ; pair
   CALL   free
-  LD     B, [SP, 0] ; map
-  LD     A, [B, 4] ; .size
-  SUB    A, 1
-  ST     [B, 4], A ; .size
+  LD     A, [SP, 0] ; map
+  LD     B, [A, 4] ; .size
+  SUB    B, 1
+  ST     [A, 4], B ; .size
 .L132:
 .L131:
   ADD    SP, 20
@@ -1426,16 +1426,16 @@ freeIntMap:
   MOV    A, 0
   ST     [SP, 4], A ; i
 .L142:
-  LD     B, [SP, 4] ; i
-  LD     A, [SP, 0] ; map
-  LD     A, [A, 8] ; .capacity
-  CMP    B, A
+  LD     A, [SP, 4] ; i
+  LD     B, [SP, 0] ; map
+  LD     B, [B, 8] ; .capacity
+  CMP    A, B
   JGE    .L144
   LD     A, [SP, 0] ; map
-  LD     B, [A, 0] ; .data
-  LD     A, [SP, 4] ; i
-  SHL    A, 2
-  LD     A, [B, A]
+  LD     A, [A, 0] ; .data
+  LD     B, [SP, 4] ; i
+  SHL    B, 2
+  LD     A, [A, B]
   CALL   freePairs
 .L143:
   LD     A, [SP, 4] ; i
@@ -1451,22 +1451,840 @@ freeIntMap:
   CALL   free
   ADD    SP, 8
   POP    B, PC
+isupper:
+  PUSH   B
+  SUB    SP, 1
+  ST.B   [SP, 0], A ; c
+  MOV.B  A, 'A'
+  LD.B   B, [SP, 0] ; c
+  CMP.B  A, B
+  JGT    .L146
+  LD.B   A, [SP, 0] ; c
+  CMP.B  A, 'Z'
+  JGT    .L146
+  MOV    A, 1
+  JMP    .L147
+.L146:
+  MOV    A, 0
+.L145:
+.L147:
+  ADD    SP, 1
+  POP    B
+  RET
+islower:
+  PUSH   B
+  SUB    SP, 1
+  ST.B   [SP, 0], A ; c
+  MOV.B  A, 'a'
+  LD.B   B, [SP, 0] ; c
+  CMP.B  A, B
+  JGT    .L149
+  LD.B   A, [SP, 0] ; c
+  CMP.B  A, 'z'
+  JGT    .L149
+  MOV    A, 1
+  JMP    .L150
+.L149:
+  MOV    A, 0
+.L148:
+.L150:
+  ADD    SP, 1
+  POP    B
+  RET
+isalpha:
+  PUSH   LR
+  SUB    SP, 1
+  ST.B   [SP, 0], A ; c
+  CALL   islower
+  CMP    A, 0
+  JNE    .L152
+  LD.B   A, [SP, 0] ; c
+  CALL   isupper
+  CMP    A, 0
+  JEQ    .L153
+.L152:
+  MOV    A, 1
+  JMP    .L154
+.L153:
+  MOV    A, 0
+.L151:
+.L154:
+  ADD    SP, 1
+  POP    PC
+iscntrl:
+  PUSH   B
+  SUB    SP, 1
+  ST.B   [SP, 0], A ; c
+  MOV    A, 0
+  LD.B   B, [SP, 0] ; c
+  CMP    A, B
+  JGT    .L156
+  LD.B   A, [SP, 0] ; c
+  CMP    A, 32
+  JGE    .L156
+  MOV    A, 1
+  JMP    .L157
+.L156:
+  MOV    A, 0
+.L155:
+.L157:
+  ADD    SP, 1
+  POP    B
+  RET
+isdigit:
+  PUSH   B
+  SUB    SP, 1
+  ST.B   [SP, 0], A ; c
+  MOV.B  A, '0'
+  LD.B   B, [SP, 0] ; c
+  CMP.B  A, B
+  JGT    .L159
+  LD.B   A, [SP, 0] ; c
+  CMP.B  A, '9'
+  JGT    .L159
+  MOV    A, 1
+  JMP    .L160
+.L159:
+  MOV    A, 0
+.L158:
+.L160:
+  ADD    SP, 1
+  POP    B
+  RET
+isalnum:
+  PUSH   LR
+  SUB    SP, 1
+  ST.B   [SP, 0], A ; c
+  CALL   isalpha
+  CMP    A, 0
+  JNE    .L162
+  LD.B   A, [SP, 0] ; c
+  CALL   isdigit
+  CMP    A, 0
+  JEQ    .L163
+.L162:
+  MOV    A, 1
+  JMP    .L164
+.L163:
+  MOV    A, 0
+.L161:
+.L164:
+  ADD    SP, 1
+  POP    PC
+isspace:
+  SUB    SP, 1
+  ST.B   [SP, 0], A ; c
+  CMP.B  A, ' '
+  JEQ    .L166
+  LD.B   A, [SP, 0] ; c
+  CMP.B  A, '\t'
+  JEQ    .L166
+  LD.B   A, [SP, 0] ; c
+  CMP.B  A, '\n'
+  JNE    .L167
+.L166:
+  MOV    A, 1
+  JMP    .L168
+.L167:
+  MOV    A, 0
+.L165:
+.L168:
+  ADD    SP, 1
+  RET
+isxdigit:
+  PUSH   B, LR
+  SUB    SP, 1
+  ST.B   [SP, 0], A ; c
+  CALL   isdigit
+  CMP    A, 0
+  JNE    .L170
+  MOV.B  A, 'A'
+  LD.B   B, [SP, 0] ; c
+  CMP.B  A, B
+  JGT    .L173
+  LD.B   A, [SP, 0] ; c
+  CMP.B  A, 'F'
+  JLE    .L170
+.L173:
+  MOV.B  A, 'a'
+  LD.B   B, [SP, 0] ; c
+  CMP.B  A, B
+  JGT    .L171
+  LD.B   A, [SP, 0] ; c
+  CMP.B  A, 'f'
+  JGT    .L171
+.L170:
+  MOV    A, 1
+  JMP    .L172
+.L171:
+  MOV    A, 0
+.L169:
+.L172:
+  ADD    SP, 1
+  POP    B, PC
+tolower:
+  PUSH   LR
+  SUB    SP, 1
+  ST.B   [SP, 0], A ; c
+  CALL   isupper
+  CMP    A, 0
+  JEQ    .L175
+  LD.B   A, [SP, 0] ; c
+  ADD.B  A, 'a'
+  SUB.B  A, 'A'
+  JMP    .L174
+.L175:
+  LD.B   A, [SP, 0] ; c
+.L174:
+  ADD    SP, 1
+  POP    PC
+toupper:
+  PUSH   LR
+  SUB    SP, 1
+  ST.B   [SP, 0], A ; c
+  CALL   islower
+  CMP    A, 0
+  JEQ    .L177
+  LD.B   A, [SP, 0] ; c
+  SUB.B  A, 'a'
+  SUB.B  A, 'A'
+  JMP    .L176
+.L177:
+  LD.B   A, [SP, 0] ; c
+.L176:
+  ADD    SP, 1
+  POP    PC
+isgraph:
+  PUSH   B
+  SUB    SP, 1
+  ST.B   [SP, 0], A ; c
+  MOV.B  A, ' '
+  LD.B   B, [SP, 0] ; c
+  CMP.B  A, B
+  JGE    .L179
+  LD.B   A, [SP, 0] ; c
+  CMP    A, 127
+  JGE    .L179
+  MOV    A, 1
+  JMP    .L180
+.L179:
+  MOV    A, 0
+.L178:
+.L180:
+  ADD    SP, 1
+  POP    B
+  RET
+isprint:
+  PUSH   B
+  SUB    SP, 1
+  ST.B   [SP, 0], A ; c
+  MOV.B  A, ' '
+  LD.B   B, [SP, 0] ; c
+  CMP.B  A, B
+  JGT    .L182
+  LD.B   A, [SP, 0] ; c
+  CMP    A, 127
+  JGE    .L182
+  MOV    A, 1
+  JMP    .L183
+.L182:
+  MOV    A, 0
+.L181:
+.L183:
+  ADD    SP, 1
+  POP    B
+  RET
+ispunct:
+  PUSH   LR
+  SUB    SP, 1
+  ST.B   [SP, 0], A ; c
+  CALL   isgraph
+  CMP    A, 0
+  JEQ    .L185
+  LD.B   A, [SP, 0] ; c
+  CALL   isalnum
+  CMP    A, 0
+  JNE    .L185
+  MOV    A, 1
+  JMP    .L186
+.L185:
+  MOV    A, 0
+.L184:
+.L186:
+  ADD    SP, 1
+  POP    PC
+fgetc:
+  PUSH   B, C
+  SUB    SP, 5
+  ST     [SP, 0], A ; stream
+.L188:
+  LD     B, [SP, 0] ; stream
+  LD     A, [B, 4] ; .read
+  LD     B, [B, 8] ; .write
+  CMP    A, B
+  JNE    .L189
+  JMP    .L188
+.L189:
+  LD     B, [SP, 0] ; stream
+  LD     A, [B, 0] ; .buffer
+  LD     B, [B, 4] ; .read
+  LD.B   A, [A, B]
+  ST.B   [SP, 4], A ; c
+  LD     A, [SP, 0] ; stream
+  LD     B, [A, 4] ; .read
+  ADD    B, 1
+  LD     C, [A, 12] ; .size
+  MOD    B, C
+  ST     [A, 4], B ; .read
+  LD.B   A, [SP, 4] ; c
+.L187:
+  ADD    SP, 5
+  POP    B, C
+  RET
+getchar:
+  PUSH   B, C
+  SUB    SP, 1
+.L191:
+  LDI    A, =stdin
+  LD     B, [A]
+  LD     A, [B, 4] ; .read
+  LD     B, [B, 8] ; .write
+  CMP    A, B
+  JNE    .L192
+  JMP    .L191
+.L192:
+  LDI    A, =stdin
+  LD     B, [A]
+  LD     A, [B, 0] ; .buffer
+  LD     B, [B, 4] ; .read
+  LD.B   A, [A, B]
+  ST.B   [SP, 0], A ; c
+  LDI    A, =stdin
+  LD     A, [A]
+  LD     B, [A, 4] ; .read
+  ADD    B, 1
+  LD     C, [A, 12] ; .size
+  MOD    B, C
+  ST     [A, 4], B ; .read
+  LD.B   A, [SP, 0] ; c
+.L190:
+  ADD    SP, 1
+  POP    B, C
+  RET
+fgets:
+  PUSH   LR
+  SUB    SP, 17
+  ST     [SP, 0], A ; s
+  ST     [SP, 4], B ; n
+  ST     [SP, 8], C ; stream
+  MOV    A, 0
+  ST     [SP, 12], A ; i
+  LD     A, [SP, 4] ; n
+  CMP    A, 0
+  JLS    .L194
+.L195:
+  LD     A, [SP, 12] ; i
+  LD     B, [SP, 4] ; n
+  SUB    B, 1
+  CMP    A, B
+  JCS    .L196
+  LD     A, [SP, 8] ; stream
+  CALL   fgetc
+  ST.B   [SP, 16], A ; c
+  CMP.B  A, 0
+  JEQ    .L196
+  LD.B   A, [SP, 16] ; c
+  CMP.B  A, '\n'
+  JEQ    .L196
+  LD.B   A, [SP, 16] ; c
+  CMP.B  A, '\b'
+  JNE    .L198
+  LD     A, [SP, 12] ; i
+  CMP    A, 0
+  JLS    .L198
+  LD     A, [SP, 12] ; i
+  SUB    A, 1
+  ST     [SP, 12], A ; i
+  JMP    .L197
+.L198:
+  LD.B   A, [SP, 16] ; c
+  LD     B, [SP, 0] ; s
+  LD     C, [SP, 12] ; i
+  ST.B   [B, C], A
+  LD     A, [SP, 12] ; i
+  ADD    A, 1
+  ST     [SP, 12], A ; i
+.L197:
+  JMP    .L195
+.L196:
+.L194:
+  MOV.B  A, '\0'
+  LD     B, [SP, 0] ; s
+  LD     C, [SP, 12] ; i
+  ST.B   [B, C], A
+  LD     A, [SP, 0] ; s
+.L193:
+  ADD    SP, 17
+  POP    PC
+gets:
+  PUSH   C, LR
+  SUB    SP, 8
+  ST     [SP, 0], A ; s
+  ST     [SP, 4], B ; n
+  LD     A, [SP, 0] ; s
+  LD     B, [SP, 4] ; n
+  LDI    C, =stdin
+  LD     C, [C]
+  CALL   fgets
+.L199:
+  ADD    SP, 8
+  POP    C, PC
+fputc:
+  PUSH   C
+  SUB    SP, 5
+  ST.B   [SP, 0], A ; c
+  ST     [SP, 1], B ; stream
+  LD.B   A, [SP, 0] ; c
+  LD     C, [SP, 1] ; stream
+  LD     B, [C, 0] ; .buffer
+  LD     C, [C, 8] ; .write
+  ST.B   [B, C], A
+  LD     A, [SP, 1] ; stream
+  LD     B, [A, 8] ; .write
+  ADD    B, 1
+  LD     C, [A, 12] ; .size
+  MOD    B, C
+  ST     [A, 8], B ; .write
+  MOV    A, 0
+.L200:
+  ADD    SP, 5
+  POP    C
+  RET
+putchar:
+  PUSH   B, C
+  SUB    SP, 1
+  ST.B   [SP, 0], A ; c
+  LDI    B, =stdout
+  LD     C, [B]
+  LD     B, [C, 0] ; .buffer
+  LD     C, [C, 8] ; .write
+  ST.B   [B, C], A
+  MOV    A, 0
+.L201:
+  ADD    SP, 1
+  POP    B, C
+  RET
+fputs:
+  PUSH   LR
+  SUB    SP, 8
+  ST     [SP, 0], A ; s
+  ST     [SP, 4], B ; stream
+.L203:
+  LD     A, [SP, 0] ; s
+  LD.B   A, [A]
+  CMP.B  A, '\0'
+  JEQ    .L204
+  LD     A, [SP, 0] ; s
+  LD.B   A, [A]
+  LD     B, [SP, 4] ; stream
+  CALL   fputc
+  LD     A, [SP, 0] ; s
+  ADD    A, 1
+  ST     [SP, 0], A ; s
+  JMP    .L203
+.L204:
+  MOV    A, 0
+.L202:
+  ADD    SP, 8
+  POP    PC
+puts:
+  PUSH   B, LR
+  SUB    SP, 4
+  ST     [SP, 0], A ; s
+  LDI    B, =stdout
+  LD     B, [B]
+  CALL   fputs
+  MOV.B  A, '\n'
+  CALL   putchar
+  MOV    A, 0
+.L205:
+  ADD    SP, 4
+  POP    B, PC
+uprint:
+  PUSH   LR
+  SUB    SP, 4
+  ST     [SP, 0], A ; n
+  DIV    A, 10
+  CMP    A, 0
+  JEQ    .L206
+  LD     A, [SP, 0] ; n
+  DIV    A, 10
+  CALL   uprint
+.L206:
+  LD     A, [SP, 0] ; n
+  MOD    A, 10
+  ADD    A, '0'
+  CALL   putchar
+  ADD    SP, 4
+  POP    PC
+oprint:
+  PUSH   LR
+  SUB    SP, 4
+  ST     [SP, 0], A ; n
+  SHR    A, 3
+  CMP    A, 0
+  JEQ    .L207
+  LD     A, [SP, 0] ; n
+  SHR    A, 3
+  CALL   oprint
+.L207:
+  LD     A, [SP, 0] ; n
+  AND    A, 7
+  ADD    A, '0'
+  CALL   putchar
+  ADD    SP, 4
+  POP    PC
+dprint:
+  PUSH   LR
+  SUB    SP, 4
+  ST     [SP, 0], A ; n
+  CMP    A, 0
+  JGE    .L208
+  MOV.B  A, '-'
+  CALL   putchar
+  LD     A, [SP, 0] ; n
+  NEG    A, A
+  ST     [SP, 0], A ; n
+.L208:
+  LD     A, [SP, 0] ; n
+  CALL   uprint
+  ADD    SP, 4
+  POP    PC
+xprint:
+  PUSH   LR
+  SUB    SP, 5
+  ST     [SP, 0], A ; n
+  ST.B   [SP, 4], B ; uplo
+  LD     A, [SP, 0] ; n
+  SHR    A, 4
+  CMP    A, 0
+  JEQ    .L209
+  LD     A, [SP, 0] ; n
+  SHR    A, 4
+  LD.B   B, [SP, 4] ; uplo
+  CALL   xprint
+.L209:
+  LD     A, [SP, 0] ; n
+  AND    A, 15
+  CMP    A, 9
+  JLS    .L211
+  LD     A, [SP, 0] ; n
+  AND    A, 15
+  SUB    A, 10
+  LD.B   B, [SP, 4] ; uplo
+  ADD    A, B
+  CALL   putchar
+  JMP    .L210
+.L211:
+  LD     A, [SP, 0] ; n
+  AND    A, 15
+  ADD    A, '0'
+  CALL   putchar
+.L210:
+  ADD    SP, 5
+  POP    PC
+fprint:
+  PUSH   LR
+  SUB    SP, 13
+  ST     [SP, 0], A ; f
+  ST.B   [SP, 4], B ; prec
+  LD     A, [SP, 0] ; f
+  LDI    B, 0 ; 0.0
+  CMPF   A, B
+  JGE    .L212
+  MOV.B  A, '-'
+  CALL   putchar
+  LD     A, [SP, 0] ; f
+  NEGF   A, A
+  ST     [SP, 0], A ; f
+.L212:
+  LD     A, [SP, 0] ; f
+  FTI    A, A
+  ST     [SP, 5], A ; left
+  CALL   uprint
+  LD.B   A, [SP, 4] ; prec
+  CMP    A, 0
+  JLE    .L213
+  MOV.B  A, '.'
+  CALL   putchar
+  LD     A, [SP, 0] ; f
+  LD     B, [SP, 5] ; left
+  ITF    B, B
+  SUBF   A, B
+  ST     [SP, 9], A ; right
+.L214:
+  LD     A, [SP, 9] ; right
+  LDI    B, 1092616192 ; 10.0
+  MULF   A, B
+  ST     [SP, 9], A ; right
+  FTI    A, A
+  ADD    A, '0'
+  CALL   putchar
+  LD     A, [SP, 9] ; right
+  FTI    B, A
+  ITF    B, B
+  SUBF   A, B
+  ST     [SP, 9], A ; right
+  LD.B   A, [SP, 4] ; prec
+  SUB.B  A, 1
+  ST.B   [SP, 4], A ; prec
+  CMP    A, 0
+  JGT    .L214
+.L215:
+.L213:
+  ADD    SP, 13
+  POP    PC
+eprint:
+  PUSH   LR
+  SUB    SP, 9
+  ST     [SP, 0], A ; f
+  ST.B   [SP, 4], B ; prec
+  LD     A, [SP, 0] ; f
+  ITF    B, 0
+  CMPF   A, B
+  JGE    .L216
+  MOV.B  A, '-'
+  CALL   putchar
+  LD     A, [SP, 0] ; f
+  NEGF   A, A
+  ST     [SP, 0], A ; f
+.L216:
+  MOV    A, 0
+  ST     [SP, 5], A ; exp
+  LD     A, [SP, 0] ; f
+  CMPF   A, 0
+  JEQ    .L217
+.L218:
+  LD     A, [SP, 0] ; f
+  LDI    B, 1092616192 ; 10.0
+  CMPF   A, B
+  JLT    .L219
+  LD     A, [SP, 5] ; exp
+  ADD    A, 1
+  ST     [SP, 5], A ; exp
+  LD     A, [SP, 0] ; f
+  LDI    B, 1092616192 ; 10.0
+  DIVF   A, B
+  ST     [SP, 0], A ; f
+  JMP    .L218
+.L219:
+.L220:
+  LD     A, [SP, 0] ; f
+  LDI    B, 1065353216 ; 1.0
+  CMPF   A, B
+  JGE    .L221
+  LD     A, [SP, 5] ; exp
+  SUB    A, 1
+  ST     [SP, 5], A ; exp
+  LD     A, [SP, 0] ; f
+  LDI    B, 1092616192 ; 10.0
+  MULF   A, B
+  ST     [SP, 0], A ; f
+  JMP    .L220
+.L221:
+.L217:
+  LD     A, [SP, 0] ; f
+  LD.B   B, [SP, 4] ; prec
+  CALL   fprint
+  MOV.B  A, 'e'
+  CALL   putchar
+  LD     A, [SP, 5] ; exp
+  CALL   dprint
+  ADD    SP, 9
+  POP    PC
+printf:
+  PUSH   A, B, C, D
+  PUSH   B, C, LR
+  SUB    SP, 17
+  ADD    A, SP, 33 ; format
+  ST     [SP, 4], A ; ap
+  MOV    A, 0
+  ST     [SP, 12], A ; n
+  LD     A, [SP, 29] ; format
+  ST     [SP, 8], A ; c
+.L222:
+  LD     A, [SP, 8] ; c
+  LD.B   A, [A]
+  CMP.B  A, 0
+  JEQ    .L224
+  LD     A, [SP, 8] ; c
+  LD.B   A, [A]
+  CMP.B  A, '%'
+  JNE    .L226
+  LD     A, [SP, 8] ; c
+  ADD    A, 1
+  ST     [SP, 8], A ; c
+  MOV    A, 0
+  ST.B   [SP, 16], A ; precision
+  MOV.B  A, '0'
+  LD     B, [SP, 8] ; c
+  LD.B   B, [B]
+  CMP.B  A, B
+  JGT    .L227
+  LD     A, [SP, 8] ; c
+  LD.B   A, [A]
+  CMP.B  A, '9'
+  JGT    .L227
+  LD     A, [SP, 8] ; c
+  ADD    B, A, 1
+  ST     [SP, 8], B ; c
+  LD.B   A, [A]
+  SUB.B  A, '0'
+  ST.B   [SP, 16], A ; precision
+.L227:
+  LD     A, [SP, 8] ; c
+  LD.B   A, [A]
+  CMP.B  A, 'u'
+  JEQ    .L230
+  CMP.B  A, 'd'
+  JEQ    .L231
+  CMP.B  A, 'i'
+  JEQ    .L232
+  CMP.B  A, 'x'
+  JEQ    .L233
+  CMP.B  A, 'X'
+  JEQ    .L234
+  CMP.B  A, 'f'
+  JEQ    .L235
+  CMP.B  A, 'e'
+  JEQ    .L236
+  CMP.B  A, 's'
+  JEQ    .L237
+  CMP.B  A, 'c'
+  JEQ    .L238
+  CMP.B  A, 'o'
+  JEQ    .L239
+  CMP.B  A, 'n'
+  JEQ    .L240
+  JMP    .L241
+.L230:
+  LD     A, [SP, 4] ; ap
+  ADD    B, A, 4
+  ST     [SP, 4], B ; ap
+  LD     A, [A]
+  CALL   uprint
+  JMP    .L229
+.L231:
+.L232:
+  LD     A, [SP, 4] ; ap
+  ADD    B, A, 4
+  ST     [SP, 4], B ; ap
+  LD     A, [A]
+  CALL   dprint
+  JMP    .L229
+.L233:
+  LD     A, [SP, 4] ; ap
+  ADD    B, A, 4
+  ST     [SP, 4], B ; ap
+  LD     A, [A]
+  MOV.B  B, 'a'
+  CALL   xprint
+  JMP    .L229
+.L234:
+  LD     A, [SP, 4] ; ap
+  ADD    B, A, 4
+  ST     [SP, 4], B ; ap
+  LD     A, [A]
+  MOV.B  B, 'A'
+  CALL   xprint
+  JMP    .L229
+.L235:
+  LD     A, [SP, 4] ; ap
+  ADD    B, A, 4
+  ST     [SP, 4], B ; ap
+  LD     A, [A]
+  LD.B   B, [SP, 16] ; precision
+  CALL   fprint
+  JMP    .L229
+.L236:
+  LD     A, [SP, 4] ; ap
+  ADD    B, A, 4
+  ST     [SP, 4], B ; ap
+  LD     A, [A]
+  LD.B   B, [SP, 16] ; precision
+  CALL   eprint
+  JMP    .L229
+.L237:
+  LD     A, [SP, 4] ; ap
+  ADD    B, A, 4
+  ST     [SP, 4], B ; ap
+  LD     A, [A]
+  CALL   printf
+  JMP    .L229
+.L238:
+  LD     A, [SP, 4] ; ap
+  ADD    B, A, 4
+  ST     [SP, 4], B ; ap
+  LD.B   A, [A]
+  CALL   putchar
+  JMP    .L229
+.L239:
+  LD     A, [SP, 4] ; ap
+  ADD    B, A, 4
+  ST     [SP, 4], B ; ap
+  LD     A, [A]
+  CALL   oprint
+  JMP    .L229
+.L240:
+  LD     A, [SP, 12] ; n
+  LD     B, [SP, 4] ; ap
+  ADD    C, B, 4
+  ST     [SP, 4], C ; ap
+  LD     B, [B]
+  ST     [B], A
+  JMP    .L229
+.L241:
+  LD     A, [SP, 8] ; c
+  LD.B   A, [A]
+  CALL   putchar
+.L229:
+  JMP    .L225
+.L226:
+  LD     A, [SP, 8] ; c
+  LD.B   A, [A]
+  CALL   putchar
+.L225:
+.L223:
+  LD     A, [SP, 8] ; c
+  ADD    A, 1
+  ST     [SP, 8], A ; c
+  LD     A, [SP, 12] ; n
+  ADD    A, 1
+  ST     [SP, 12], A ; n
+  JMP    .L222
+.L224:
+  MOV    A, 0
+  ST     [SP, 4], A ; ap
+  ADD    SP, 17
+  POP    B, C, LR
+  ADD    SP, 16
+  RET
 div:
   PUSH   C
   SUB    SP, 16
   ST     [SP, 0], A ; num
   ST     [SP, 4], B ; den
-  ADD    C, SP, 8 ; ans
-  LD     A, [SP, 0] ; num
-  LD     B, [SP, 4] ; den
-  DIV    A, B
-  ST     [C, 0], A
-  LD     A, [SP, 0] ; num
-  LD     B, [SP, 4] ; den
-  MOD    A, B
-  ST     [C, 4], A
   ADD    A, SP, 8 ; ans
-.L145:
+  LD     B, [SP, 0] ; num
+  LD     C, [SP, 4] ; den
+  DIV    B, C
+  ST     [A, 0], B
+  LD     B, [SP, 0] ; num
+  LD     C, [SP, 4] ; den
+  MOD    B, C
+  ST     [A, 4], B
+  ADD    A, SP, 8 ; ans
+.L242:
   ADD    SP, 16
   POP    C
   RET
@@ -1474,13 +2292,13 @@ abs:
   SUB    SP, 4
   ST     [SP, 0], A ; n
   CMP    A, 0
-  JGE    .L147
+  JGE    .L244
   LD     A, [SP, 0] ; n
   NEG    A, A
-  JMP    .L146
-.L147:
+  JMP    .L243
+.L244:
   LD     A, [SP, 0] ; n
-.L146:
+.L243:
   ADD    SP, 4
   RET
 bsearch:
@@ -1495,56 +2313,56 @@ bsearch:
   LD     A, [SP, 12] ; n
   SUB    A, 1
   ST     [SP, 24], A ; high
-.L149:
+.L246:
   LD     A, [SP, 16] ; low
   LD     B, [SP, 24] ; high
   CMP    A, B
-  JGT    .L150
-  LD     B, [SP, 16] ; low
-  LD     A, [SP, 24] ; high
-  SUB    A, B
-  SHR    A, 1
-  ADD    A, B, A
+  JGT    .L247
+  LD     A, [SP, 16] ; low
+  LD     B, [SP, 24] ; high
+  SUB    B, A
+  SHR    B, 1
+  ADD    A, B
   ST     [SP, 20], A ; mid
-  LD     D, [SP, 0] ; x
-  LD     C, [SP, 4] ; v
-  LD     A, [SP, 20] ; mid
-  LD     B, [SP, 8] ; size
-  MUL    A, B
-  ADD    B, C, A ; 
-  MOV    A, D
-  CALL   D
+  LD     A, [SP, 0] ; x
+  LD     B, [SP, 4] ; v
+  LD     C, [SP, 20] ; mid
+  LD     D, [SP, 8] ; size
+  MUL    C, D
+  ADD    B, B, C ; 
+  LD     C, [SP, 36] ; cmp
+  CALL   C
   ST     [SP, 28], A ; cond
   CMP    A, 0
-  JGE    .L152
+  JGE    .L249
   LD     A, [SP, 20] ; mid
   SUB    A, 1
   ST     [SP, 24], A ; high
-  JMP    .L151
-.L152:
+  JMP    .L248
+.L249:
   LD     A, [SP, 28] ; cond
   CMP    A, 0
-  JLE    .L153
+  JLE    .L250
   LD     A, [SP, 20] ; mid
   ADD    A, 1
   ST     [SP, 16], A ; low
-  JMP    .L151
-.L153:
+  JMP    .L248
+.L250:
   LD     A, [SP, 20] ; mid
   LD     B, [SP, 8] ; size
   MUL    A, B
-  JMP    .L148
-.L151:
-  JMP    .L149
-.L150:
+  JMP    .L245
+.L248:
+  JMP    .L246
+.L247:
   MOV    A, -1
-.L148:
+.L245:
   ADD    SP, 32
   POP    LR
   ADD    SP, 4
   RET
 swap:
-  PUSH   E
+  PUSH   E, F
   SUB    SP, 30
   ST     [SP, 0], A ; v
   ST     [SP, 4], B ; size
@@ -1558,101 +2376,101 @@ swap:
   ST.B   [SP, 20], A ; tail
   MOV    A, 0
   ST     [SP, 25], A ; k
-.L154:
+.L251:
   LD     A, [SP, 25] ; k
   LD     B, [SP, 16] ; words
   CMP    A, B
-  JCS    .L156
-  LD     C, [SP, 0] ; v
-  LD     A, [SP, 8] ; i
-  LD     B, [SP, 4] ; size
-  MUL    A, B
-  ADD    A, C, A
+  JCS    .L253
+  LD     A, [SP, 0] ; v
+  LD     B, [SP, 8] ; i
+  LD     C, [SP, 4] ; size
+  MUL    B, C
+  ADD    A, B
   LD     B, [SP, 25] ; k
   ADD    A, B
   LD     A, [A]
   ST     [SP, 21], A ; t
-  LD     E, [SP, 0] ; v
-  LD     A, [SP, 12] ; j
-  LD     C, [SP, 4] ; size
-  MUL    A, C
-  ADD    A, E, A
-  LD     D, [SP, 25] ; k
-  ADD    A, D
-  LD     B, [A]
-  LD     A, [SP, 8] ; i
-  MUL    A, C
-  ADD    A, E, A
-  ADD    A, D
-  ST     [A], B
-  LD     D, [SP, 21] ; t
-  LD     C, [SP, 0] ; v
-  LD     A, [SP, 12] ; j
+  LD     A, [SP, 0] ; v
+  LD     C, [SP, 12] ; j
   LD     B, [SP, 4] ; size
-  MUL    A, B
-  ADD    A, C, A
-  LD     B, [SP, 25] ; k
+  MUL    C, B
+  ADD    D, A, C
+  LD     C, [SP, 25] ; k
+  ADD    D, C
+  LD     D, [D]
+  LD     E, [SP, 8] ; i
+  MUL    B, E, B
   ADD    A, B
+  ADD    A, C
   ST     [A], D
-.L155:
+  LD     A, [SP, 21] ; t
+  LD     B, [SP, 0] ; v
+  LD     C, [SP, 12] ; j
+  LD     D, [SP, 4] ; size
+  MUL    C, D
+  ADD    B, C
+  LD     C, [SP, 25] ; k
+  ADD    B, C
+  ST     [B], A
+.L252:
   LD     A, [SP, 25] ; k
   ADD    A, 4
   ST     [SP, 25], A ; k
-  JMP    .L154
-.L156:
+  JMP    .L251
+.L253:
   MOV    A, 0
   ST.B   [SP, 29], A ; c
-.L157:
+.L254:
   LD.B   A, [SP, 29] ; c
   LD.B   B, [SP, 20] ; tail
   CMP.B  A, B
-  JGE    .L159
-  LD     C, [SP, 0] ; v
-  LD     A, [SP, 8] ; i
-  LD     B, [SP, 4] ; size
-  MUL    A, B
-  ADD    A, C, A
+  JGE    .L256
+  LD     A, [SP, 0] ; v
+  LD     B, [SP, 8] ; i
+  LD     C, [SP, 4] ; size
+  MUL    B, C
+  ADD    A, B
   LD     B, [SP, 25] ; k
   ADD    A, B
   LD.B   B, [SP, 29] ; c
   ADD    A, B
   LD.B   A, [A]
   ST     [SP, 21], A ; t
-  LD     B, [SP, 0] ; v
-  LD     A, [SP, 12] ; j
-  LD     C, [SP, 4] ; size
-  MUL    A, C
-  ADD    A, B, A
-  LD     D, [SP, 25] ; k
-  ADD    A, D
-  LD.B   E, [SP, 29] ; c
-  ADD    A, E
-  LD.B   B, [A]
-  LD     A, [SP, 8] ; i
-  MUL    A, C
-  ADD    A, B, A
-  ADD    A, D
-  ADD    A, E
-  ST.B   [A], B
-  LD     D, [SP, 21] ; t
-  LD     C, [SP, 0] ; v
-  LD     A, [SP, 12] ; j
+  LD     A, [SP, 0] ; v
+  LD     C, [SP, 12] ; j
   LD     B, [SP, 4] ; size
-  MUL    A, B
-  ADD    A, C, A
-  LD     B, [SP, 25] ; k
+  MUL    C, B
+  ADD    D, A, C
+  LD     C, [SP, 25] ; k
+  ADD    E, D, C
+  LD.B   D, [SP, 29] ; c
+  ADD    E, D
+  LD.B   E, [E]
+  LD     F, [SP, 8] ; i
+  MUL    B, F, B
   ADD    A, B
-  LD.B   B, [SP, 29] ; c
-  ADD    A, B
-  ST.B   [A], D
-.L158:
+  ADD    A, C
+  ADD    A, D
+  ST.B   [A], E
+  LD     A, [SP, 21] ; t
+  LD     B, [SP, 0] ; v
+  LD     C, [SP, 12] ; j
+  LD     D, [SP, 4] ; size
+  MUL    C, D
+  ADD    B, C
+  LD     C, [SP, 25] ; k
+  ADD    B, C
+  LD.B   C, [SP, 29] ; c
+  ADD    B, C
+  ST.B   [B], A
+.L255:
   LD.B   A, [SP, 29] ; c
   ADD.B  A, 1
   ST.B   [SP, 29], A ; c
-  JMP    .L157
-.L159:
+  JMP    .L254
+.L256:
   ADD    SP, 30
-  POP    E
+  POP    E, F
   RET
 qsort:
   PUSH   E, LR
@@ -1664,9 +2482,9 @@ qsort:
   LD     A, [SP, 8] ; left
   LD     B, [SP, 12] ; right
   CMP    A, B
-  JLT    .L161
-  JMP    .L160
-.L161:
+  JLT    .L258
+  JMP    .L257
+.L258:
   LD     A, [SP, 0] ; v
   LD     B, [SP, 4] ; size
   LD     C, [SP, 8] ; left
@@ -1680,22 +2498,23 @@ qsort:
   LD     A, [SP, 8] ; left
   ADD    A, 1
   ST     [SP, 16], A ; i
-.L162:
+.L259:
   LD     A, [SP, 16] ; i
   LD     B, [SP, 12] ; right
   CMP    A, B
-  JGT    .L164
-  LD     D, [SP, 0] ; v
+  JGT    .L261
+  LD     B, [SP, 0] ; v
   LD     A, [SP, 16] ; i
   LD     C, [SP, 4] ; size
   MUL    A, C
-  ADD    A, D, A ; 
-  LD     B, [SP, 8] ; left
-  MUL    B, C
-  ADD    B, D, B ; 
-  CALL   D
+  ADD    A, B, A ; 
+  LD     D, [SP, 8] ; left
+  MUL    C, D, C
+  ADD    B, B, C ; 
+  LD     C, [SP, 32] ; cmp
+  CALL   C
   CMP    A, 0
-  JGE    .L165
+  JGE    .L262
   LD     A, [SP, 0] ; v
   LD     B, [SP, 4] ; size
   LD     C, [SP, 20] ; last
@@ -1703,51 +2522,51 @@ qsort:
   ST     [SP, 20], C ; last
   LD     D, [SP, 16] ; i
   CALL   swap
-.L165:
-.L163:
+.L262:
+.L260:
   LD     A, [SP, 16] ; i
   ADD    A, 1
   ST     [SP, 16], A ; i
-  JMP    .L162
-.L164:
+  JMP    .L259
+.L261:
   LD     A, [SP, 0] ; v
   LD     B, [SP, 4] ; size
   LD     C, [SP, 8] ; left
   LD     D, [SP, 20] ; last
   CALL   swap
-  LD     E, [SP, 0] ; v
+  LD     A, [SP, 0] ; v
   LD     B, [SP, 4] ; size
   LD     C, [SP, 8] ; left
-  LD     A, [SP, 20] ; last
-  SUB    D, A, 1
-  MOV    A, E
+  LD     D, [SP, 20] ; last
+  SUB    D, 1
+  LD     E, [SP, 32] ; cmp
   PUSH   E
   CALL   qsort
-  LD     E, [SP, 0] ; v
+  LD     A, [SP, 0] ; v
   LD     B, [SP, 4] ; size
-  LD     A, [SP, 20] ; last
-  ADD    C, A, 1
+  LD     C, [SP, 20] ; last
+  ADD    C, 1
   LD     D, [SP, 12] ; right
-  MOV    A, E
+  LD     E, [SP, 32] ; cmp
   PUSH   E
   CALL   qsort
-.L160:
+.L257:
   ADD    SP, 24
   POP    E, LR
   ADD    SP, 4
   RET
 rand:
   PUSH   B, C
-  LDI    A, 1103515245
-  LDI    C, =next_rand
-  LD     B, [C]
-  MUL    A, B
-  LDI    B, 12345
-  ADD    A, B
-  ST     [C], A
+  LDI    B, 1103515245
+  LDI    A, =next_rand
+  LD     C, [A]
+  MUL    B, C
+  LDI    C, 12345
+  ADD    B, C
+  ST     [A], B
   LDI    A, =next_rand
   LD     A, [A]
-.L166:
+.L263:
   POP    B, C
   RET
 srand:
@@ -1767,35 +2586,35 @@ atoi:
   ST     [SP, 8], A ; n
   MOV    A, 0
   ST     [SP, 4], A ; i
-.L168:
-  MOV.B  C, '0'
-  LD     A, [SP, 0] ; s
-  LD     B, [SP, 4] ; i
-  LD.B   A, [A, B]
-  CMP.B  C, A
-  JGT    .L170
+.L265:
+  MOV.B  A, '0'
+  LD     B, [SP, 0] ; s
+  LD     C, [SP, 4] ; i
+  LD.B   B, [B, C]
+  CMP.B  A, B
+  JGT    .L267
   LD     A, [SP, 0] ; s
   LD     B, [SP, 4] ; i
   LD.B   A, [A, B]
   CMP.B  A, '9'
-  JGT    .L170
+  JGT    .L267
   MOV    A, 10
   LD     B, [SP, 8] ; n
-  MUL    C, A, B
-  LD     A, [SP, 0] ; s
-  LD     B, [SP, 4] ; i
-  LD.B   A, [A, B]
-  SUB.B  A, '0'
-  ADD    A, C, A
+  MUL    A, B
+  LD     B, [SP, 0] ; s
+  LD     C, [SP, 4] ; i
+  LD.B   B, [B, C]
+  SUB.B  B, '0'
+  ADD    A, B
   ST     [SP, 8], A ; n
-.L169:
+.L266:
   LD     A, [SP, 4] ; i
   ADD    A, 1
   ST     [SP, 4], A ; i
-  JMP    .L168
-.L170:
+  JMP    .L265
+.L267:
   LD     A, [SP, 8] ; n
-.L167:
+.L264:
   ADD    SP, 12
   POP    B, C
   RET
@@ -1809,108 +2628,108 @@ atof:
   LD     B, [SP, 12] ; i
   LD.B   A, [A, B]
   CMP.B  A, '-'
-  JNE    .L173
+  JNE    .L270
   MOV    A, -1
-  JMP    .L172
-.L173:
-  MOV    B, 1
-.L172:
+  JMP    .L269
+.L270:
+  MOV    A, 1
+.L269:
   ST     [SP, 16], A ; sign
   LD     A, [SP, 0] ; s
   LD     B, [SP, 12] ; i
   LD.B   A, [A, B]
   CMP.B  A, '+'
-  JEQ    .L175
+  JEQ    .L272
   LD     A, [SP, 0] ; s
   LD     B, [SP, 12] ; i
   LD.B   A, [A, B]
   CMP.B  A, '-'
-  JNE    .L174
-.L175:
+  JNE    .L271
+.L272:
   LD     A, [SP, 12] ; i
   ADD    A, 1
   ST     [SP, 12], A ; i
-.L174:
+.L271:
   LDI    A, 0 ; 0.0
   ST     [SP, 4], A ; val
-.L176:
-  MOV.B  C, '0'
-  LD     A, [SP, 0] ; s
-  LD     B, [SP, 12] ; i
-  LD.B   A, [A, B]
-  CMP.B  C, A
-  JGT    .L178
+.L273:
+  MOV.B  A, '0'
+  LD     B, [SP, 0] ; s
+  LD     C, [SP, 12] ; i
+  LD.B   B, [B, C]
+  CMP.B  A, B
+  JGT    .L275
   LD     A, [SP, 0] ; s
   LD     B, [SP, 12] ; i
   LD.B   A, [A, B]
   CMP.B  A, '9'
-  JGT    .L178
+  JGT    .L275
   LDI    A, 1092616192 ; 10.0
   LD     B, [SP, 4] ; val
-  MULF   C, A, B
-  LD     A, [SP, 0] ; s
-  LD     B, [SP, 12] ; i
-  LD.B   A, [A, B]
-  SUB.B  A, '0'
-  ITF    A, A
-  ADDF   A, C, A
+  MULF   A, B
+  LD     B, [SP, 0] ; s
+  LD     C, [SP, 12] ; i
+  LD.B   B, [B, C]
+  SUB.B  B, '0'
+  ITF    B, B
+  ADDF   A, B
   ST     [SP, 4], A ; val
-.L177:
+.L274:
   LD     A, [SP, 12] ; i
   ADD    A, 1
   ST     [SP, 12], A ; i
-  JMP    .L176
-.L178:
+  JMP    .L273
+.L275:
   LD     A, [SP, 0] ; s
   LD     B, [SP, 12] ; i
   LD.B   A, [A, B]
   CMP.B  A, '.'
-  JNE    .L179
+  JNE    .L276
   LD     A, [SP, 12] ; i
   ADD    A, 1
   ST     [SP, 12], A ; i
-.L179:
+.L276:
   LDI    A, 1065353216 ; 1.0
   ST     [SP, 8], A ; pow
-.L180:
-  MOV.B  C, '0'
-  LD     A, [SP, 0] ; s
-  LD     B, [SP, 12] ; i
-  LD.B   A, [A, B]
-  CMP.B  C, A
-  JGT    .L182
+.L277:
+  MOV.B  A, '0'
+  LD     B, [SP, 0] ; s
+  LD     C, [SP, 12] ; i
+  LD.B   B, [B, C]
+  CMP.B  A, B
+  JGT    .L279
   LD     A, [SP, 0] ; s
   LD     B, [SP, 12] ; i
   LD.B   A, [A, B]
   CMP.B  A, '9'
-  JGT    .L182
+  JGT    .L279
   LDI    A, 1092616192 ; 10.0
   LD     B, [SP, 4] ; val
-  MULF   C, A, B
-  LD     A, [SP, 0] ; s
-  LD     B, [SP, 12] ; i
-  LD.B   A, [A, B]
-  SUB.B  A, '0'
-  ITF    A, A
-  ADDF   A, C, A
+  MULF   A, B
+  LD     B, [SP, 0] ; s
+  LD     C, [SP, 12] ; i
+  LD.B   B, [B, C]
+  SUB.B  B, '0'
+  ITF    B, B
+  ADDF   A, B
   ST     [SP, 4], A ; val
   LD     A, [SP, 8] ; pow
   LDI    B, 1092616192 ; 10.0
   MULF   A, B
   ST     [SP, 8], A ; pow
-.L181:
+.L278:
   LD     A, [SP, 12] ; i
   ADD    A, 1
   ST     [SP, 12], A ; i
-  JMP    .L180
-.L182:
+  JMP    .L277
+.L279:
   LD     A, [SP, 16] ; sign
   ITF    A, A
   LD     B, [SP, 4] ; val
   MULF   A, B
   LD     B, [SP, 8] ; pow
   DIVF   A, B
-.L171:
+.L268:
   ADD    SP, 20
   POP    B, C
   RET
@@ -1929,7 +2748,7 @@ morecore:
   CALL   free
   LDI    A, =freehead
   LD     A, [A]
-.L183:
+.L280:
   ADD    SP, 12
   POP    B, PC
 malloc:
@@ -1944,42 +2763,42 @@ malloc:
   LD     A, [A]
   ST     [SP, 8], A ; prevp
   CMP    A, 0
-  JNE    .L185
-  LDI    B, =base
-  ST     [SP, 8], B ; prevp
-  LDI    A, =freehead
-  ST     [A], B
+  JNE    .L282
   LDI    A, =base
-  ST     [A, 0], B ; .next
+  ST     [SP, 8], A ; prevp
+  LDI    B, =freehead
+  ST     [B], A
+  LDI    B, =base
+  ST     [B, 0], A ; .next
   MOV    A, 0
   LDI    B, =base
   ST     [B, 4], A ; .size
-.L185:
+.L282:
   LD     A, [SP, 8] ; prevp
   LD     A, [A, 0] ; .next
   ST     [SP, 4], A ; p
-.L186:
+.L283:
   LD     A, [SP, 4] ; p
   LD     A, [A, 4] ; .size
   LD     B, [SP, 12] ; units
   CMP    A, B
-  JCC    .L189
+  JCC    .L286
   LD     A, [SP, 4] ; p
   LD     A, [A, 4] ; .size
   LD     B, [SP, 12] ; units
   CMP    A, B
-  JNE    .L191
+  JNE    .L288
   LD     A, [SP, 4] ; p
   LD     A, [A, 0] ; .next
   LD     B, [SP, 8] ; prevp
   ST     [B, 0], A ; .next
-  JMP    .L190
-.L191:
-  LD     C, [SP, 4] ; p
-  LD     A, [C, 4] ; .size
-  LD     B, [SP, 12] ; units
-  SUB    A, B
-  ST     [C, 4], A ; .size
+  JMP    .L287
+.L288:
+  LD     A, [SP, 4] ; p
+  LD     B, [A, 4] ; .size
+  LD     C, [SP, 12] ; units
+  SUB    B, C
+  ST     [A, 4], B ; .size
   LD     A, [SP, 4] ; p
   LD     B, [A, 4] ; .size
   ADD    A, B
@@ -1987,37 +2806,37 @@ malloc:
   LD     A, [SP, 12] ; units
   LD     B, [SP, 4] ; p
   ST     [B, 4], A ; .size
-.L190:
+.L287:
   LD     A, [SP, 8] ; prevp
   LDI    B, =freehead
   ST     [B], A
   LD     A, [SP, 4] ; p
   ADD    A, A, 8 ; 
-  JMP    .L184
-.L189:
-  LD     B, [SP, 4] ; p
-  LDI    A, =freehead
-  LD     A, [A]
-  CMP    B, A
-  JNE    .L192
+  JMP    .L281
+.L286:
+  LD     A, [SP, 4] ; p
+  LDI    B, =freehead
+  LD     B, [B]
+  CMP    A, B
+  JNE    .L289
   LD     A, [SP, 12] ; units
   CALL   morecore
   ST     [SP, 4], A ; p
   CMP    A, 0
-  JNE    .L193
+  JNE    .L290
   MOV    A, 0
-  JMP    .L184
-.L193:
-.L192:
-.L187:
+  JMP    .L281
+.L290:
+.L289:
+.L284:
   LD     A, [SP, 4] ; p
   ST     [SP, 8], A ; prevp
   LD     A, [SP, 4] ; p
   LD     A, [A, 0] ; .next
   ST     [SP, 4], A ; p
-  JMP    .L186
-.L188:
-.L184:
+  JMP    .L283
+.L285:
+.L281:
   ADD    SP, 16
   POP    B, C, PC
 free:
@@ -2025,98 +2844,98 @@ free:
   SUB    SP, 12
   ST     [SP, 0], A ; original
   CMP    A, 0
-  JEQ    .L194
+  JEQ    .L291
   LD     A, [SP, 0] ; original
   SUB    A, 8
   ST     [SP, 4], A ; free
   LDI    A, =freehead
   LD     A, [A]
   ST     [SP, 8], A ; p
-.L195:
+.L292:
   LD     A, [SP, 8] ; p
   LD     B, [SP, 4] ; free
   CMP    A, B
-  JCS    .L198
-  LD     B, [SP, 4] ; free
-  LD     A, [SP, 8] ; p
-  LD     A, [A, 0] ; .next
-  CMP    B, A
-  JCC    .L197
-.L198:
+  JCS    .L295
+  LD     A, [SP, 4] ; free
+  LD     B, [SP, 8] ; p
+  LD     B, [B, 0] ; .next
+  CMP    A, B
+  JCC    .L294
+.L295:
   LD     A, [SP, 8] ; p
   LD     B, [A, 0] ; .next
   CMP    A, B
-  JCC    .L199
+  JCC    .L296
   LD     A, [SP, 4] ; free
   LD     B, [SP, 8] ; p
   CMP    A, B
-  JHI    .L200
-  LD     B, [SP, 4] ; free
-  LD     A, [SP, 8] ; p
-  LD     A, [A, 0] ; .next
-  CMP    B, A
-  JCS    .L199
-.L200:
-  JMP    .L197
-.L199:
-.L196:
+  JHI    .L297
+  LD     A, [SP, 4] ; free
+  LD     B, [SP, 8] ; p
+  LD     B, [B, 0] ; .next
+  CMP    A, B
+  JCS    .L296
+.L297:
+  JMP    .L294
+.L296:
+.L293:
   LD     A, [SP, 8] ; p
   LD     A, [A, 0] ; .next
   ST     [SP, 8], A ; p
-  JMP    .L195
-.L197:
+  JMP    .L292
+.L294:
   LD     A, [SP, 4] ; free
   LD     B, [A, 4] ; .size
-  ADD    B, A, B
-  LD     A, [SP, 8] ; p
-  LD     A, [A, 0] ; .next
-  CMP    B, A
-  JNE    .L202
-  LD     C, [SP, 4] ; free
-  LD     B, [C, 4] ; .size
-  LD     A, [SP, 8] ; p
-  LD     A, [A, 0] ; .next
-  LD     A, [A, 4] ; .size
-  ADD    A, B, A
-  ST     [C, 4], A ; .size
+  ADD    A, B
+  LD     B, [SP, 8] ; p
+  LD     B, [B, 0] ; .next
+  CMP    A, B
+  JNE    .L299
+  LD     A, [SP, 4] ; free
+  LD     B, [A, 4] ; .size
+  LD     C, [SP, 8] ; p
+  LD     C, [C, 0] ; .next
+  LD     C, [C, 4] ; .size
+  ADD    B, C
+  ST     [A, 4], B ; .size
   LD     A, [SP, 8] ; p
   LD     A, [A, 0] ; .next
   LD     A, [A, 0] ; .next
   LD     B, [SP, 4] ; free
   ST     [B, 0], A ; .next
-  JMP    .L201
-.L202:
+  JMP    .L298
+.L299:
   LD     A, [SP, 8] ; p
   LD     A, [A, 0] ; .next
   LD     B, [SP, 4] ; free
   ST     [B, 0], A ; .next
-.L201:
+.L298:
   LD     A, [SP, 8] ; p
   LD     B, [A, 4] ; .size
   ADD    A, B
   LD     B, [SP, 4] ; free
   CMP    A, B
-  JNE    .L204
-  LD     C, [SP, 8] ; p
-  LD     B, [C, 4] ; .size
-  LD     A, [SP, 4] ; free
-  LD     A, [A, 4] ; .size
-  ADD    A, B, A
-  ST     [C, 4], A ; .size
+  JNE    .L301
+  LD     A, [SP, 8] ; p
+  LD     B, [A, 4] ; .size
+  LD     C, [SP, 4] ; free
+  LD     C, [C, 4] ; .size
+  ADD    B, C
+  ST     [A, 4], B ; .size
   LD     A, [SP, 4] ; free
   LD     A, [A, 0] ; .next
   LD     B, [SP, 8] ; p
   ST     [B, 0], A ; .next
-  JMP    .L203
-.L204:
+  JMP    .L300
+.L301:
   LD     A, [SP, 4] ; free
   LD     B, [SP, 8] ; p
   ST     [B, 0], A ; .next
-.L203:
+.L300:
   LD     A, [SP, 8] ; p
   LDI    B, =freehead
   ST     [B], A
-.L194:
+.L291:
   ADD    SP, 12
   POP    B, C
   RET
@@ -2134,7 +2953,7 @@ realloc:
   LD     A, [SP, 0] ; p
   CALL   free
   LD     A, [SP, 8] ; d
-.L205:
+.L302:
   ADD    SP, 12
   POP    C, PC
 calloc:
@@ -2156,622 +2975,65 @@ calloc:
   ST     [SP, 24], A ; p
   MOV    A, 0
   ST     [SP, 20], A ; i
-.L207:
+.L304:
   LD     A, [SP, 20] ; i
   LD     B, [SP, 12] ; words
   CMP    A, B
-  JCS    .L209
-  MOV    C, 0
-  LD     A, [SP, 24] ; p
-  LD     B, [SP, 20] ; i
-  ADD    A, B
-  ST     [A], C
-.L208:
+  JCS    .L306
+  MOV    A, 0
+  LD     B, [SP, 24] ; p
+  LD     C, [SP, 20] ; i
+  ADD    B, C
+  ST     [B], A
+.L305:
   LD     A, [SP, 20] ; i
   ADD    A, 1
   ST     [SP, 20], A ; i
-  JMP    .L207
-.L209:
+  JMP    .L304
+.L306:
   MOV    A, 0
   ST     [SP, 28], A ; c
-.L210:
+.L307:
   LD     A, [SP, 28] ; c
   LD     B, [SP, 16] ; tail
   CMP    A, B
-  JCS    .L212
-  MOV    C, 0
-  LD     A, [SP, 24] ; p
-  LD     B, [SP, 20] ; i
-  ADD    A, B
-  LD     B, [SP, 28] ; c
-  ADD    A, B
-  ST.B   [A], C
-.L211:
+  JCS    .L309
+  MOV    A, 0
+  LD     B, [SP, 24] ; p
+  LD     C, [SP, 20] ; i
+  ADD    B, C
+  LD     C, [SP, 28] ; c
+  ADD    B, C
+  ST.B   [B], A
+.L308:
   LD     A, [SP, 28] ; c
   ADD    A, 1
   ST     [SP, 28], A ; c
-  JMP    .L210
-.L212:
+  JMP    .L307
+.L309:
   LD     A, [SP, 24] ; p
-.L206:
+.L303:
   ADD    SP, 32
   POP    C, PC
-fgetc:
-  PUSH   B, C
-  SUB    SP, 5
-  ST     [SP, 0], A ; stream
-.L214:
-  LD     A, [SP, 0] ; stream
-  LD     B, [A, 4] ; .read
-  LD     A, [A, 8] ; .write
-  CMP    B, A
-  JNE    .L215
-  JMP    .L214
-.L215:
-  LD     A, [SP, 0] ; stream
-  LD     B, [A, 0] ; .buffer
-  LD     A, [A, 4] ; .read
-  LD.B   A, [B, A]
-  ST.B   [SP, 4], A ; c
-  LD     C, [SP, 0] ; stream
-  LD     A, [C, 4] ; .read
-  ADD    A, 1
-  LD     B, [C, 12] ; .size
-  MOD    A, B
-  ST     [C, 4], A ; .read
-  LD.B   A, [SP, 4] ; c
-.L213:
-  ADD    SP, 5
-  POP    B, C
-  RET
-getchar:
-  PUSH   B, C
-  SUB    SP, 1
-.L217:
-  LDI    A, =stdin
-  LD     A, [A]
-  LD     B, [A, 4] ; .read
-  LD     A, [A, 8] ; .write
-  CMP    B, A
-  JNE    .L218
-  JMP    .L217
-.L218:
-  LDI    A, =stdin
-  LD     A, [A]
-  LD     B, [A, 0] ; .buffer
-  LD     A, [A, 4] ; .read
-  LD.B   A, [B, A]
-  ST.B   [SP, 0], A ; c
-  LDI    A, =stdin
-  LD     C, [A]
-  LD     A, [C, 4] ; .read
-  ADD    A, 1
-  LD     B, [C, 12] ; .size
-  MOD    A, B
-  ST     [C, 4], A ; .read
-  LD.B   A, [SP, 0] ; c
-.L216:
-  ADD    SP, 1
-  POP    B, C
-  RET
-fgets:
-  PUSH   LR
-  SUB    SP, 17
-  ST     [SP, 0], A ; s
-  ST     [SP, 4], B ; n
-  ST     [SP, 8], C ; stream
-  MOV    A, 0
-  ST     [SP, 12], A ; i
-  LD     A, [SP, 4] ; n
-  CMP    A, 0
-  JLS    .L220
-.L221:
-  LD     B, [SP, 12] ; i
-  LD     A, [SP, 4] ; n
-  SUB    A, 1
-  CMP    B, A
-  JCS    .L222
-  LD     A, [SP, 8] ; stream
-  CALL   fgetc
-  ST.B   [SP, 16], A ; c
-  CMP.B  A, 0
-  JEQ    .L222
-  LD.B   A, [SP, 16] ; c
-  CMP.B  A, '\n'
-  JEQ    .L222
-  LD.B   A, [SP, 16] ; c
-  CMP.B  A, '\b'
-  JNE    .L224
-  LD     A, [SP, 12] ; i
-  CMP    A, 0
-  JLS    .L224
-  LD     A, [SP, 12] ; i
-  SUB    A, 1
-  ST     [SP, 12], A ; i
-  JMP    .L223
-.L224:
-  LD.B   A, [SP, 16] ; c
-  LD     B, [SP, 0] ; s
-  LD     C, [SP, 12] ; i
-  ST.B   [B, C], A
-  LD     A, [SP, 12] ; i
-  ADD    A, 1
-  ST     [SP, 12], A ; i
-.L223:
-  JMP    .L221
-.L222:
-.L220:
-  MOV.B  A, '\0'
-  LD     B, [SP, 0] ; s
-  LD     C, [SP, 12] ; i
-  ST.B   [B, C], A
-  LD     A, [SP, 0] ; s
-.L219:
-  ADD    SP, 17
-  POP    PC
-gets:
-  PUSH   C, LR
-  SUB    SP, 8
-  ST     [SP, 0], A ; s
-  ST     [SP, 4], B ; n
-  LD     A, [SP, 0] ; s
-  LD     B, [SP, 4] ; n
-  LDI    C, =stdin
-  LD     C, [C]
-  CALL   fgets
-.L225:
-  ADD    SP, 8
-  POP    C, PC
-fputc:
-  PUSH   C
-  SUB    SP, 5
-  ST.B   [SP, 0], A ; c
-  ST     [SP, 1], B ; stream
-  LD.B   B, [SP, 0] ; c
-  LD     A, [SP, 1] ; stream
-  LD     C, [A, 0] ; .buffer
-  LD     A, [A, 8] ; .write
-  ST.B   [C, A], B
-  LD     C, [SP, 1] ; stream
-  LD     A, [C, 8] ; .write
-  ADD    A, 1
-  LD     B, [C, 12] ; .size
-  MOD    A, B
-  ST     [C, 8], A ; .write
-  MOV    A, 0
-.L226:
-  ADD    SP, 5
-  POP    C
-  RET
-putchar:
-  PUSH   B, C
-  SUB    SP, 1
-  ST.B   [SP, 0], A ; c
-  LD.B   C, [SP, 0] ; c
-  LDI    A, =stdout
-  LD     A, [A]
-  LD     B, [A, 0] ; .buffer
-  LD     A, [A, 8] ; .write
-  ST.B   [B, A], C
-  MOV    A, 0
-.L227:
-  ADD    SP, 1
-  POP    B, C
-  RET
-fputs:
-  PUSH   LR
-  SUB    SP, 8
-  ST     [SP, 0], A ; s
-  ST     [SP, 4], B ; stream
-.L229:
-  LD     A, [SP, 0] ; s
-  LD.B   A, [A]
-  CMP.B  A, '\0'
-  JEQ    .L230
-  LD     A, [SP, 0] ; s
-  LD.B   A, [A]
-  LD     B, [SP, 4] ; stream
-  CALL   fputc
-  LD     A, [SP, 0] ; s
-  ADD    A, 1
-  ST     [SP, 0], A ; s
-  JMP    .L229
-.L230:
-  MOV    A, 0
-.L228:
-  ADD    SP, 8
-  POP    PC
-puts:
-  PUSH   B, LR
-  SUB    SP, 4
-  ST     [SP, 0], A ; s
-  LDI    B, =stdout
-  LD     B, [B]
-  CALL   fputs
-  MOV.B  A, '\n'
-  CALL   putchar
-  MOV    A, 0
-.L231:
-  ADD    SP, 4
-  POP    B, PC
-uprint:
-  PUSH   LR
-  SUB    SP, 4
-  ST     [SP, 0], A ; n
-  DIV    A, 10
-  CMP    A, 0
-  JEQ    .L232
-  LD     A, [SP, 0] ; n
-  DIV    A, 10
-  CALL   uprint
-.L232:
-  LD     A, [SP, 0] ; n
-  MOD    A, 10
-  ADD    A, '0'
-  CALL   putchar
-  ADD    SP, 4
-  POP    PC
-oprint:
-  PUSH   LR
-  SUB    SP, 4
-  ST     [SP, 0], A ; n
-  SHR    A, 3
-  CMP    A, 0
-  JEQ    .L233
-  LD     A, [SP, 0] ; n
-  SHR    A, 3
-  CALL   oprint
-.L233:
-  LD     A, [SP, 0] ; n
-  AND    A, 7
-  ADD    A, '0'
-  CALL   putchar
-  ADD    SP, 4
-  POP    PC
-dprint:
-  PUSH   LR
-  SUB    SP, 4
-  ST     [SP, 0], A ; n
-  CMP    A, 0
-  JGE    .L234
-  MOV.B  A, '-'
-  CALL   putchar
-  LD     A, [SP, 0] ; n
-  NEG    A, A
-  ST     [SP, 0], A ; n
-.L234:
-  LD     A, [SP, 0] ; n
-  CALL   uprint
-  ADD    SP, 4
-  POP    PC
-xprint:
-  PUSH   LR
-  SUB    SP, 5
-  ST     [SP, 0], A ; n
-  ST.B   [SP, 4], B ; uplo
-  LD     A, [SP, 0] ; n
-  SHR    A, 4
-  CMP    A, 0
-  JEQ    .L235
-  LD     A, [SP, 0] ; n
-  SHR    A, 4
-  LD.B   B, [SP, 4] ; uplo
-  CALL   xprint
-.L235:
-  LD     A, [SP, 0] ; n
-  AND    A, 15
-  CMP    A, 9
-  JLS    .L237
-  LD     A, [SP, 0] ; n
-  AND    A, 15
-  SUB    A, 10
-  LD.B   B, [SP, 4] ; uplo
-  ADD    A, B
-  CALL   putchar
-  JMP    .L236
-.L237:
-  LD     A, [SP, 0] ; n
-  AND    A, 15
-  ADD    A, '0'
-  CALL   putchar
-.L236:
-  ADD    SP, 5
-  POP    PC
-fprint:
-  PUSH   LR
-  SUB    SP, 13
-  ST     [SP, 0], A ; f
-  ST.B   [SP, 4], B ; prec
-  LD     A, [SP, 0] ; f
-  LDI    B, 0 ; 0.0
-  CMPF   A, B
-  JGE    .L238
-  MOV.B  A, '-'
-  CALL   putchar
-  LD     A, [SP, 0] ; f
-  NEGF   A, A
-  ST     [SP, 0], A ; f
-.L238:
-  LD     A, [SP, 0] ; f
-  FTI    A, A
-  ST     [SP, 5], A ; left
-  CALL   uprint
-  LD.B   A, [SP, 4] ; prec
-  CMP    A, 0
-  JLE    .L239
-  MOV.B  A, '.'
-  CALL   putchar
-  LD     B, [SP, 0] ; f
-  LD     A, [SP, 5] ; left
-  ITF    A, A
-  SUBF   A, B, A
-  ST     [SP, 9], A ; right
-.L240:
-  LD     A, [SP, 9] ; right
-  LDI    B, 1092616192 ; 10.0
-  MULF   A, B
-  ST     [SP, 9], A ; right
-  FTI    A, A
-  ADD    A, '0'
-  CALL   putchar
-  LD     B, [SP, 9] ; right
-  FTI    A, B
-  ITF    A, A
-  SUBF   A, B, A
-  ST     [SP, 9], A ; right
-  LD.B   A, [SP, 4] ; prec
-  SUB.B  A, 1
-  ST.B   [SP, 4], A ; prec
-  CMP    A, 0
-  JGT    .L240
-.L241:
-.L239:
-  ADD    SP, 13
-  POP    PC
-eprint:
-  PUSH   LR
-  SUB    SP, 9
-  ST     [SP, 0], A ; f
-  ST.B   [SP, 4], B ; prec
-  LD     B, [SP, 0] ; f
-  ITF    A, 0
-  CMPF   B, A
-  JGE    .L242
-  MOV.B  A, '-'
-  CALL   putchar
-  LD     A, [SP, 0] ; f
-  NEGF   A, A
-  ST     [SP, 0], A ; f
-.L242:
-  MOV    A, 0
-  ST     [SP, 5], A ; exp
-  LD     A, [SP, 0] ; f
-  CMPF   A, 0
-  JEQ    .L243
-.L244:
-  LD     A, [SP, 0] ; f
-  LDI    B, 1092616192 ; 10.0
-  CMPF   A, B
-  JLT    .L245
-  LD     A, [SP, 5] ; exp
-  ADD    A, 1
-  ST     [SP, 5], A ; exp
-  LD     A, [SP, 0] ; f
-  LDI    B, 1092616192 ; 10.0
-  DIVF   A, B
-  ST     [SP, 0], A ; f
-  JMP    .L244
-.L245:
-.L246:
-  LD     A, [SP, 0] ; f
-  LDI    B, 1065353216 ; 1.0
-  CMPF   A, B
-  JGE    .L247
-  LD     A, [SP, 5] ; exp
-  SUB    A, 1
-  ST     [SP, 5], A ; exp
-  LD     A, [SP, 0] ; f
-  LDI    B, 1092616192 ; 10.0
-  MULF   A, B
-  ST     [SP, 0], A ; f
-  JMP    .L246
-.L247:
-.L243:
-  LD     A, [SP, 0] ; f
-  LD.B   B, [SP, 4] ; prec
-  CALL   fprint
-  MOV.B  A, 'e'
-  CALL   putchar
-  LD     A, [SP, 5] ; exp
-  CALL   dprint
-  ADD    SP, 9
-  POP    PC
-printf:
-  PUSH   A, B, C, D
-  PUSH   B, C, LR
-  SUB    SP, 17
-  ADD    A, SP, 33 ; format
-  ST     [SP, 4], A ; ap
-  MOV    A, 0
-  ST     [SP, 12], A ; n
-  LD     A, [SP, 29] ; format
-  ST     [SP, 8], A ; c
-.L248:
-  LD     A, [SP, 8] ; c
-  LD.B   A, [A]
-  CMP.B  A, 0
-  JEQ    .L250
-  LD     A, [SP, 8] ; c
-  LD.B   A, [A]
-  CMP.B  A, '%'
-  JNE    .L252
-  LD     A, [SP, 8] ; c
-  ADD    A, 1
-  ST     [SP, 8], A ; c
-  MOV    A, 0
-  ST.B   [SP, 16], A ; precision
-  MOV.B  B, '0'
-  LD     A, [SP, 8] ; c
-  LD.B   A, [A]
-  CMP.B  B, A
-  JGT    .L253
-  LD     A, [SP, 8] ; c
-  LD.B   A, [A]
-  CMP.B  A, '9'
-  JGT    .L253
-  LD     A, [SP, 8] ; c
-  ADD    B, A, 1
-  ST     [SP, 8], B ; c
-  LD.B   A, [A]
-  SUB.B  A, '0'
-  ST.B   [SP, 16], A ; precision
-.L253:
-  LD     A, [SP, 8] ; c
-  LD.B   A, [A]
-  CMP.B  A, 'u'
-  JEQ    .L256
-  CMP.B  A, 'd'
-  JEQ    .L257
-  CMP.B  A, 'i'
-  JEQ    .L258
-  CMP.B  A, 'x'
-  JEQ    .L259
-  CMP.B  A, 'X'
-  JEQ    .L260
-  CMP.B  A, 'f'
-  JEQ    .L261
-  CMP.B  A, 'e'
-  JEQ    .L262
-  CMP.B  A, 's'
-  JEQ    .L263
-  CMP.B  A, 'c'
-  JEQ    .L264
-  CMP.B  A, 'o'
-  JEQ    .L265
-  CMP.B  A, 'n'
-  JEQ    .L266
-  JMP    .L267
-.L256:
-  LD     A, [SP, 4] ; ap
-  ADD    B, A, 4
-  ST     [SP, 4], B ; ap
-  LD     A, [A]
-  CALL   uprint
-  JMP    .L255
-.L257:
-.L258:
-  LD     A, [SP, 4] ; ap
-  ADD    B, A, 4
-  ST     [SP, 4], B ; ap
-  LD     A, [A]
-  CALL   dprint
-  JMP    .L255
-.L259:
-  LD     A, [SP, 4] ; ap
-  ADD    B, A, 4
-  ST     [SP, 4], B ; ap
-  LD     A, [A]
-  MOV.B  B, 'a'
-  CALL   xprint
-  JMP    .L255
-.L260:
-  LD     A, [SP, 4] ; ap
-  ADD    B, A, 4
-  ST     [SP, 4], B ; ap
-  LD     A, [A]
-  MOV.B  B, 'A'
-  CALL   xprint
-  JMP    .L255
-.L261:
-  LD     A, [SP, 4] ; ap
-  ADD    B, A, 4
-  ST     [SP, 4], B ; ap
-  LD     A, [A]
-  LD.B   B, [SP, 16] ; precision
-  CALL   fprint
-  JMP    .L255
-.L262:
-  LD     A, [SP, 4] ; ap
-  ADD    B, A, 4
-  ST     [SP, 4], B ; ap
-  LD     A, [A]
-  LD.B   B, [SP, 16] ; precision
-  CALL   eprint
-  JMP    .L255
-.L263:
-  LD     A, [SP, 4] ; ap
-  ADD    B, A, 4
-  ST     [SP, 4], B ; ap
-  LD     A, [A]
-  CALL   printf
-  JMP    .L255
-.L264:
-  LD     A, [SP, 4] ; ap
-  ADD    B, A, 4
-  ST     [SP, 4], B ; ap
-  LD.B   A, [A]
-  CALL   putchar
-  JMP    .L255
-.L265:
-  LD     A, [SP, 4] ; ap
-  ADD    B, A, 4
-  ST     [SP, 4], B ; ap
-  LD     A, [A]
-  CALL   oprint
-  JMP    .L255
-.L266:
-  LD     C, [SP, 12] ; n
-  LD     A, [SP, 4] ; ap
-  ADD    B, A, 4
-  ST     [SP, 4], B ; ap
-  LD     A, [A]
-  ST     [A], C
-  JMP    .L255
-.L267:
-  LD     A, [SP, 8] ; c
-  LD.B   A, [A]
-  CALL   putchar
-.L255:
-  JMP    .L251
-.L252:
-  LD     A, [SP, 8] ; c
-  LD.B   A, [A]
-  CALL   putchar
-.L251:
-.L249:
-  LD     A, [SP, 8] ; c
-  ADD    A, 1
-  ST     [SP, 8], A ; c
-  LD     A, [SP, 12] ; n
-  ADD    A, 1
-  ST     [SP, 12], A ; n
-  JMP    .L248
-.L250:
-  MOV    A, 0
-  ST     [SP, 4], A ; ap
-  ADD    SP, 17
-  POP    B, C, LR
-  ADD    SP, 16
-  RET
 strlen:
   PUSH   B
   SUB    SP, 8
   ST     [SP, 0], A ; s
   MOV    A, 0
   ST     [SP, 4], A ; l
-.L269:
+.L311:
   LD     A, [SP, 0] ; s
   LD     B, [SP, 4] ; l
   LD.B   A, [A, B]
   CMP.B  A, '\0'
-  JEQ    .L270
+  JEQ    .L312
   LD     A, [SP, 4] ; l
   ADD    A, 1
   ST     [SP, 4], A ; l
-  JMP    .L269
-.L270:
+  JMP    .L311
+.L312:
   LD     A, [SP, 4] ; l
-.L268:
+.L310:
   ADD    SP, 8
   POP    B
   RET
@@ -2782,22 +3044,22 @@ strcpy:
   ST     [SP, 4], B ; t
   MOV    A, 0
   ST     [SP, 8], A ; i
-.L272:
-  LD     A, [SP, 4] ; t
-  LD     C, [SP, 8] ; i
-  LD.B   A, [A, C]
-  LD     B, [SP, 0] ; s
-  ST.B   [B, C], A
-  CMP.B  A, '\0'
-  JEQ    .L274
-.L273:
+.L314:
+  LD     B, [SP, 4] ; t
+  LD     A, [SP, 8] ; i
+  LD.B   B, [B, A]
+  LD     C, [SP, 0] ; s
+  ST.B   [C, A], B
+  CMP.B  B, '\0'
+  JEQ    .L316
+.L315:
   LD     A, [SP, 8] ; i
   ADD    A, 1
   ST     [SP, 8], A ; i
-  JMP    .L272
-.L274:
+  JMP    .L314
+.L316:
   LD     A, [SP, 0] ; s
-.L271:
+.L313:
   ADD    SP, 12
   POP    C
   RET
@@ -2808,26 +3070,26 @@ strncpy:
   ST     [SP, 8], C ; n
   MOV    A, 0
   ST     [SP, 12], A ; i
-.L276:
+.L318:
   LD     A, [SP, 12] ; i
   LD     B, [SP, 8] ; n
   CMP    A, B
-  JCS    .L278
-  LD     A, [SP, 4] ; t
-  LD     C, [SP, 12] ; i
-  LD.B   A, [A, C]
-  LD     B, [SP, 0] ; s
-  ST.B   [B, C], A
-  CMP.B  A, '\0'
-  JEQ    .L278
-.L277:
+  JCS    .L320
+  LD     B, [SP, 4] ; t
+  LD     A, [SP, 12] ; i
+  LD.B   B, [B, A]
+  LD     C, [SP, 0] ; s
+  ST.B   [C, A], B
+  CMP.B  B, '\0'
+  JEQ    .L320
+.L319:
   LD     A, [SP, 12] ; i
   ADD    A, 1
   ST     [SP, 12], A ; i
-  JMP    .L276
-.L278:
+  JMP    .L318
+.L320:
   LD     A, [SP, 0] ; s
-.L275:
+.L317:
   ADD    SP, 16
   RET
 strdup:
@@ -2839,7 +3101,7 @@ strdup:
   CALL   malloc
   ST     [SP, 4], A ; p
   CMP    A, 0
-  JEQ    .L280
+  JEQ    .L322
   LD     D, [SP, 4] ; p
   LD     B, [SP, 0] ; s
   MOV    A, B
@@ -2847,9 +3109,9 @@ strdup:
   ADD    C, A, 1
   MOV    A, D
   CALL   strncpy
-.L280:
+.L322:
   LD     A, [SP, 4] ; p
-.L279:
+.L321:
   ADD    SP, 8
   POP    B, C, D, PC
 strndup:
@@ -2861,14 +3123,14 @@ strndup:
   CALL   malloc
   ST     [SP, 8], A ; p
   CMP    A, 0
-  JEQ    .L282
+  JEQ    .L324
   LD     A, [SP, 8] ; p
   LD     B, [SP, 0] ; s
   LD     C, [SP, 4] ; n
   CALL   strncpy
-.L282:
+.L324:
   LD     A, [SP, 8] ; p
-.L281:
+.L323:
   ADD    SP, 12
   POP    C, PC
 strcat:
@@ -2881,7 +3143,7 @@ strcat:
   ST     [SP, 8], A ; i
   MOV    A, 0
   ST     [SP, 12], A ; j
-.L284:
+.L326:
   LD     A, [SP, 4] ; t
   LD     B, [SP, 12] ; j
   ADD    C, B, 1
@@ -2893,11 +3155,11 @@ strcat:
   ST     [SP, 8], D ; i
   ST.B   [B, C], A
   CMP.B  A, '\0'
-  JEQ    .L285
-  JMP    .L284
-.L285:
+  JEQ    .L327
+  JMP    .L326
+.L327:
   LD     A, [SP, 0] ; s
-.L283:
+.L325:
   ADD    SP, 16
   POP    C, D, PC
 strncat:
@@ -2911,11 +3173,11 @@ strncat:
   ST     [SP, 12], A ; i
   MOV    A, 0
   ST     [SP, 16], A ; j
-.L287:
+.L329:
   LD     A, [SP, 12] ; i
   LD     B, [SP, 8] ; n
   CMP    A, B
-  JCS    .L288
+  JCS    .L330
   LD     A, [SP, 4] ; t
   LD     B, [SP, 16] ; j
   ADD    C, B, 1
@@ -2927,11 +3189,11 @@ strncat:
   ST     [SP, 12], D ; i
   ST.B   [B, C], A
   CMP.B  A, '\0'
-  JEQ    .L288
-  JMP    .L287
-.L288:
+  JEQ    .L330
+  JMP    .L329
+.L330:
   LD     A, [SP, 0] ; s
-.L286:
+.L328:
   ADD    SP, 20
   POP    D, PC
 strrev:
@@ -2944,35 +3206,35 @@ strrev:
   CALL   strlen
   SUB    A, 1
   ST     [SP, 8], A ; back
-.L290:
+.L332:
   LD     A, [SP, 4] ; front
   LD     B, [SP, 8] ; back
   CMP    A, B
-  JCS    .L292
+  JCS    .L334
   LD     A, [SP, 0] ; s
   LD     B, [SP, 4] ; front
   LD.B   A, [A, B]
   ST.B   [SP, 12], A ; temp
-  LD     C, [SP, 0] ; s
-  LD     A, [SP, 8] ; back
-  LD.B   A, [C, A]
-  LD     B, [SP, 4] ; front
-  ST.B   [C, B], A
+  LD     A, [SP, 0] ; s
+  LD     B, [SP, 8] ; back
+  LD.B   B, [A, B]
+  LD     C, [SP, 4] ; front
+  ST.B   [A, C], B
   LD.B   A, [SP, 12] ; temp
   LD     B, [SP, 0] ; s
   LD     C, [SP, 8] ; back
   ST.B   [B, C], A
-.L291:
+.L333:
   LD     A, [SP, 4] ; front
   ADD    A, 1
   ST     [SP, 4], A ; front
   LD     A, [SP, 8] ; back
   SUB    A, 1
   ST     [SP, 8], A ; back
-  JMP    .L290
-.L292:
+  JMP    .L332
+.L334:
   LD     A, [SP, 0] ; s
-.L289:
+.L331:
   ADD    SP, 13
   POP    B, C, PC
 strcmp:
@@ -2982,35 +3244,35 @@ strcmp:
   ST     [SP, 4], B ; t
   MOV    A, 0
   ST     [SP, 8], A ; i
-.L294:
-  LD     A, [SP, 0] ; s
-  LD     B, [SP, 8] ; i
-  LD.B   C, [A, B]
-  LD     A, [SP, 4] ; t
-  LD.B   A, [A, B]
-  CMP.B  C, A
-  JNE    .L296
+.L336:
+  LD     B, [SP, 0] ; s
+  LD     A, [SP, 8] ; i
+  LD.B   B, [B, A]
+  LD     C, [SP, 4] ; t
+  LD.B   A, [C, A]
+  CMP.B  B, A
+  JNE    .L338
   LD     A, [SP, 0] ; s
   LD     B, [SP, 8] ; i
   LD.B   A, [A, B]
   CMP.B  A, '\0'
-  JNE    .L297
+  JNE    .L339
   MOV    A, 0
-  JMP    .L293
-.L297:
-.L295:
+  JMP    .L335
+.L339:
+.L337:
   LD     A, [SP, 8] ; i
   ADD    A, 1
   ST     [SP, 8], A ; i
-  JMP    .L294
-.L296:
-  LD     A, [SP, 0] ; s
-  LD     B, [SP, 8] ; i
-  LD.B   C, [A, B]
-  LD     A, [SP, 4] ; t
-  LD.B   A, [A, B]
-  SUB.B  A, C, A
-.L293:
+  JMP    .L336
+.L338:
+  LD     B, [SP, 0] ; s
+  LD     A, [SP, 8] ; i
+  LD.B   B, [B, A]
+  LD     C, [SP, 4] ; t
+  LD.B   A, [C, A]
+  SUB.B  A, B, A
+.L335:
   ADD    SP, 12
   POP    C
   RET
@@ -3021,39 +3283,39 @@ strncmp:
   ST     [SP, 8], C ; n
   MOV    A, 0
   ST     [SP, 12], A ; i
-.L299:
+.L341:
   LD     A, [SP, 12] ; i
   LD     B, [SP, 8] ; n
   CMP    A, B
-  JCS    .L301
-  LD     A, [SP, 0] ; s
-  LD     B, [SP, 12] ; i
-  LD.B   C, [A, B]
-  LD     A, [SP, 4] ; t
-  LD.B   A, [A, B]
-  CMP.B  C, A
-  JNE    .L301
+  JCS    .L343
+  LD     B, [SP, 0] ; s
+  LD     A, [SP, 12] ; i
+  LD.B   B, [B, A]
+  LD     C, [SP, 4] ; t
+  LD.B   A, [C, A]
+  CMP.B  B, A
+  JNE    .L343
   LD     A, [SP, 0] ; s
   LD     B, [SP, 12] ; i
   LD.B   A, [A, B]
   CMP.B  A, '\0'
-  JNE    .L302
+  JNE    .L344
   MOV    A, 0
-  JMP    .L298
-.L302:
-.L300:
+  JMP    .L340
+.L344:
+.L342:
   LD     A, [SP, 12] ; i
   ADD    A, 1
   ST     [SP, 12], A ; i
-  JMP    .L299
-.L301:
-  LD     A, [SP, 0] ; s
-  LD     B, [SP, 12] ; i
-  LD.B   C, [A, B]
-  LD     A, [SP, 4] ; t
-  LD.B   A, [A, B]
-  SUB.B  A, C, A
-.L298:
+  JMP    .L341
+.L343:
+  LD     B, [SP, 0] ; s
+  LD     A, [SP, 12] ; i
+  LD.B   B, [B, A]
+  LD     C, [SP, 4] ; t
+  LD.B   A, [C, A]
+  SUB.B  A, B, A
+.L340:
   ADD    SP, 16
   RET
 strchr:
@@ -3062,31 +3324,31 @@ strchr:
   ST.B   [SP, 4], B ; c
   MOV    A, 0
   ST     [SP, 5], A ; i
-.L304:
+.L346:
   LD     A, [SP, 0] ; s
   LD     B, [SP, 5] ; i
   LD.B   A, [A, B]
   CMP.B  A, '\0'
-  JEQ    .L306
+  JEQ    .L348
   LD     A, [SP, 0] ; s
   LD     B, [SP, 5] ; i
   LD.B   A, [A, B]
   LD.B   B, [SP, 4] ; c
   CMP.B  A, B
-  JNE    .L307
+  JNE    .L349
   LD     A, [SP, 0] ; s
   LD     B, [SP, 5] ; i
   ADD    A, A, B ; 
-  JMP    .L303
-.L307:
-.L305:
+  JMP    .L345
+.L349:
+.L347:
   LD     A, [SP, 5] ; i
   ADD    A, 1
   ST     [SP, 5], A ; i
-  JMP    .L304
-.L306:
+  JMP    .L346
+.L348:
   MOV    A, 0
-.L303:
+.L345:
   ADD    SP, 9
   RET
 memset:
@@ -3096,24 +3358,24 @@ memset:
   ST     [SP, 5], C ; n
   MOV    A, 0
   ST     [SP, 9], A ; i
-.L309:
+.L351:
   LD     A, [SP, 9] ; i
   LD     B, [SP, 5] ; n
   CMP    A, B
-  JCS    .L311
-  LD.B   C, [SP, 4] ; v
-  LD     A, [SP, 0] ; s
-  LD     B, [SP, 9] ; i
-  ADD    A, B
-  ST.B   [A], C
-.L310:
+  JCS    .L353
+  LD.B   A, [SP, 4] ; v
+  LD     B, [SP, 0] ; s
+  LD     C, [SP, 9] ; i
+  ADD    B, C
+  ST.B   [B], A
+.L352:
   LD     A, [SP, 9] ; i
   ADD    A, 1
   ST     [SP, 9], A ; i
-  JMP    .L309
-.L311:
+  JMP    .L351
+.L353:
   LD     A, [SP, 0] ; s
-.L308:
+.L350:
   ADD    SP, 13
   RET
 memcpy:
@@ -3130,50 +3392,50 @@ memcpy:
   ST.B   [SP, 16], A ; tail
   MOV    A, 0
   ST     [SP, 17], A ; i
-.L313:
+.L355:
   LD     A, [SP, 17] ; i
   LD     B, [SP, 12] ; words
   CMP    A, B
-  JCS    .L315
+  JCS    .L357
   LD     B, [SP, 4] ; t
   LD     A, [SP, 17] ; i
-  SHL    C, A, 2
-  ADD    A, B, C
-  LD     B, [A]
-  LD     A, [SP, 0] ; s
-  ADD    A, C
+  SHL    A, 2
+  ADD    B, A
+  LD     B, [B]
+  LD     C, [SP, 0] ; s
+  ADD    A, C, A
   ST     [A], B
-.L314:
+.L356:
   LD     A, [SP, 17] ; i
   ADD    A, 1
   ST     [SP, 17], A ; i
-  JMP    .L313
-.L315:
+  JMP    .L355
+.L357:
   MOV    A, 0
   ST.B   [SP, 21], A ; c
-.L316:
+.L358:
   LD.B   A, [SP, 21] ; c
   LD.B   B, [SP, 16] ; tail
   CMP.B  A, B
-  JGE    .L318
-  LD     A, [SP, 4] ; t
-  LD     C, [SP, 17] ; i
-  ADD    A, C
-  LD.B   D, [SP, 21] ; c
-  ADD    A, D
-  LD.B   B, [A]
-  LD     A, [SP, 0] ; s
-  ADD    A, C
-  ADD    A, D
-  ST.B   [A], B
-.L317:
+  JGE    .L360
+  LD     B, [SP, 4] ; t
+  LD     A, [SP, 17] ; i
+  ADD    C, B, A
+  LD.B   B, [SP, 21] ; c
+  ADD    C, B
+  LD.B   C, [C]
+  LD     D, [SP, 0] ; s
+  ADD    A, D, A
+  ADD    A, B
+  ST.B   [A], C
+.L359:
   LD.B   A, [SP, 21] ; c
   ADD.B  A, 1
   ST.B   [SP, 21], A ; c
-  JMP    .L316
-.L318:
+  JMP    .L358
+.L360:
   LD     A, [SP, 0] ; s
-.L312:
+.L354:
   ADD    SP, 22
   POP    D
   RET
@@ -3184,299 +3446,37 @@ memcmp:
   ST     [SP, 8], C ; n
   MOV    A, 0
   ST     [SP, 12], A ; i
-.L320:
+.L362:
   LD     A, [SP, 12] ; i
   LD     B, [SP, 8] ; n
   CMP    A, B
-  JCS    .L322
-  LD     A, [SP, 0] ; s
-  LD     B, [SP, 12] ; i
-  ADD    A, B
-  LD.B   C, [A]
-  LD     A, [SP, 4] ; t
-  ADD    A, B
+  JCS    .L364
+  LD     B, [SP, 0] ; s
+  LD     A, [SP, 12] ; i
+  ADD    B, A
+  LD.B   B, [B]
+  LD     C, [SP, 4] ; t
+  ADD    A, C, A
   LD.B   A, [A]
-  CMP.B  C, A
-  JEQ    .L323
-  LD     A, [SP, 0] ; s
-  LD     B, [SP, 12] ; i
-  ADD    A, B
-  LD.B   C, [A]
-  LD     A, [SP, 4] ; t
-  ADD    A, B
+  CMP.B  B, A
+  JEQ    .L365
+  LD     B, [SP, 0] ; s
+  LD     A, [SP, 12] ; i
+  ADD    B, A
+  LD.B   B, [B]
+  LD     C, [SP, 4] ; t
+  ADD    A, C, A
   LD.B   A, [A]
-  SUB.B  A, C, A
-  JMP    .L319
-.L323:
-.L321:
+  SUB.B  A, B, A
+  JMP    .L361
+.L365:
+.L363:
   LD     A, [SP, 12] ; i
   ADD    A, 1
   ST     [SP, 12], A ; i
-  JMP    .L320
-.L322:
-  MOV    A, 0
-.L319:
-  ADD    SP, 16
-  RET
-isupper:
-  PUSH   B
-  SUB    SP, 1
-  ST.B   [SP, 0], A ; c
-  MOV.B  A, 'A'
-  LD.B   B, [SP, 0] ; c
-  CMP.B  A, B
-  JGT    .L325
-  LD.B   A, [SP, 0] ; c
-  CMP.B  A, 'Z'
-  JGT    .L325
-  MOV    A, 1
-  JMP    .L326
-.L325:
-  MOV    A, 0
-.L324:
-.L326:
-  ADD    SP, 1
-  POP    B
-  RET
-islower:
-  PUSH   B
-  SUB    SP, 1
-  ST.B   [SP, 0], A ; c
-  MOV.B  A, 'a'
-  LD.B   B, [SP, 0] ; c
-  CMP.B  A, B
-  JGT    .L328
-  LD.B   A, [SP, 0] ; c
-  CMP.B  A, 'z'
-  JGT    .L328
-  MOV    A, 1
-  JMP    .L329
-.L328:
-  MOV    A, 0
-.L327:
-.L329:
-  ADD    SP, 1
-  POP    B
-  RET
-isalpha:
-  PUSH   LR
-  SUB    SP, 1
-  ST.B   [SP, 0], A ; c
-  CALL   islower
-  CMP    A, 0
-  JNE    .L331
-  LD.B   A, [SP, 0] ; c
-  CALL   isupper
-  CMP    A, 0
-  JEQ    .L332
-.L331:
-  MOV    A, 1
-  JMP    .L333
-.L332:
-  MOV    A, 0
-.L330:
-.L333:
-  ADD    SP, 1
-  POP    PC
-iscntrl:
-  PUSH   B
-  SUB    SP, 1
-  ST.B   [SP, 0], A ; c
-  MOV    A, 0
-  LD.B   B, [SP, 0] ; c
-  CMP    A, B
-  JGT    .L335
-  LD.B   A, [SP, 0] ; c
-  CMP    A, 32
-  JGE    .L335
-  MOV    A, 1
-  JMP    .L336
-.L335:
-  MOV    A, 0
-.L334:
-.L336:
-  ADD    SP, 1
-  POP    B
-  RET
-isdigit:
-  PUSH   B
-  SUB    SP, 1
-  ST.B   [SP, 0], A ; c
-  MOV.B  A, '0'
-  LD.B   B, [SP, 0] ; c
-  CMP.B  A, B
-  JGT    .L338
-  LD.B   A, [SP, 0] ; c
-  CMP.B  A, '9'
-  JGT    .L338
-  MOV    A, 1
-  JMP    .L339
-.L338:
-  MOV    A, 0
-.L337:
-.L339:
-  ADD    SP, 1
-  POP    B
-  RET
-isalnum:
-  PUSH   LR
-  SUB    SP, 1
-  ST.B   [SP, 0], A ; c
-  CALL   isalpha
-  CMP    A, 0
-  JNE    .L341
-  LD.B   A, [SP, 0] ; c
-  CALL   isdigit
-  CMP    A, 0
-  JEQ    .L342
-.L341:
-  MOV    A, 1
-  JMP    .L343
-.L342:
-  MOV    A, 0
-.L340:
-.L343:
-  ADD    SP, 1
-  POP    PC
-isspace:
-  SUB    SP, 1
-  ST.B   [SP, 0], A ; c
-  CMP.B  A, ' '
-  JEQ    .L345
-  LD.B   A, [SP, 0] ; c
-  CMP.B  A, '\t'
-  JEQ    .L345
-  LD.B   A, [SP, 0] ; c
-  CMP.B  A, '\n'
-  JNE    .L346
-.L345:
-  MOV    A, 1
-  JMP    .L347
-.L346:
-  MOV    A, 0
-.L344:
-.L347:
-  ADD    SP, 1
-  RET
-isxdigit:
-  PUSH   B, LR
-  SUB    SP, 1
-  ST.B   [SP, 0], A ; c
-  CALL   isdigit
-  CMP    A, 0
-  JNE    .L349
-  MOV.B  A, 'A'
-  LD.B   B, [SP, 0] ; c
-  CMP.B  A, B
-  JGT    .L352
-  LD.B   A, [SP, 0] ; c
-  CMP.B  A, 'F'
-  JLE    .L349
-.L352:
-  MOV.B  A, 'a'
-  LD.B   B, [SP, 0] ; c
-  CMP.B  A, B
-  JGT    .L350
-  LD.B   A, [SP, 0] ; c
-  CMP.B  A, 'f'
-  JGT    .L350
-.L349:
-  MOV    A, 1
-  JMP    .L351
-.L350:
-  MOV    A, 0
-.L348:
-.L351:
-  ADD    SP, 1
-  POP    B, PC
-tolower:
-  PUSH   LR
-  SUB    SP, 1
-  ST.B   [SP, 0], A ; c
-  CALL   isupper
-  CMP    A, 0
-  JEQ    .L354
-  LD.B   A, [SP, 0] ; c
-  ADD.B  A, 'a'
-  SUB.B  A, 'A'
-  JMP    .L353
-.L354:
-  LD.B   A, [SP, 0] ; c
-.L353:
-  ADD    SP, 1
-  POP    PC
-toupper:
-  PUSH   LR
-  SUB    SP, 1
-  ST.B   [SP, 0], A ; c
-  CALL   islower
-  CMP    A, 0
-  JEQ    .L356
-  LD.B   A, [SP, 0] ; c
-  SUB.B  A, 'a'
-  SUB.B  A, 'A'
-  JMP    .L355
-.L356:
-  LD.B   A, [SP, 0] ; c
-.L355:
-  ADD    SP, 1
-  POP    PC
-isgraph:
-  PUSH   B
-  SUB    SP, 1
-  ST.B   [SP, 0], A ; c
-  MOV.B  A, ' '
-  LD.B   B, [SP, 0] ; c
-  CMP.B  A, B
-  JGE    .L358
-  LD.B   A, [SP, 0] ; c
-  CMP    A, 127
-  JGE    .L358
-  MOV    A, 1
-  JMP    .L359
-.L358:
-  MOV    A, 0
-.L357:
-.L359:
-  ADD    SP, 1
-  POP    B
-  RET
-isprint:
-  PUSH   B
-  SUB    SP, 1
-  ST.B   [SP, 0], A ; c
-  MOV.B  A, ' '
-  LD.B   B, [SP, 0] ; c
-  CMP.B  A, B
-  JGT    .L361
-  LD.B   A, [SP, 0] ; c
-  CMP    A, 127
-  JGE    .L361
-  MOV    A, 1
   JMP    .L362
-.L361:
-  MOV    A, 0
-.L360:
-.L362:
-  ADD    SP, 1
-  POP    B
-  RET
-ispunct:
-  PUSH   LR
-  SUB    SP, 1
-  ST.B   [SP, 0], A ; c
-  CALL   isgraph
-  CMP    A, 0
-  JEQ    .L364
-  LD.B   A, [SP, 0] ; c
-  CALL   isalnum
-  CMP    A, 0
-  JNE    .L364
-  MOV    A, 1
-  JMP    .L365
 .L364:
   MOV    A, 0
-.L363:
-.L365:
-  ADD    SP, 1
-  POP    PC
+.L361:
+  ADD    SP, 16
+  RET

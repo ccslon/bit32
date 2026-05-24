@@ -29,11 +29,6 @@ class Code(Enum):
     ADDRESS = 12
     CMOV = 13  # "conditional move"
 
-MEMORY_CODES = {Code.ADDRESS, Code.LOAD, Code.STORE}
-
-ARGUMENT_CODES = {Code.BINARY, Code.TERNARY, Code.ADDRESS, Code.LOAD, Code.IMMEDIATE, Code.GLOBAL}
-
-
 class Argument:
 
     def __init__(self, value):
@@ -43,7 +38,7 @@ class Argument:
         return set()
 
     def __eq__(self, other):
-        return str(self) == str(other)
+        return isinstance(other, Argument) and self.value == other.value
 
     def __str__(self):
         return str(self.value)
@@ -51,37 +46,61 @@ class Argument:
     def __repr__(self):
         return str(self)
 
+
 class Label(Argument):
     pass
+
+
+GENERAL = 11  # number of general purpose registers
 
 class Register(Argument):
 
 
-    def live(self):
-        if self.value in {'SP', 'SR', 'ILR', 'LR', 'PC'}:
-            return set()
-        return {self}
-
     def disconnect(self, _, __):
         pass
 
-    def color(self, graph, spill, edges):
-        if self not in graph and self.value not in {'SP', 'SR', 'ILR', 'LR', 'PC'}:
-            graph[self] = Registers.index(self)
-            #graph[self] = Registers[self.reg]
+    def color(self, _, __, ___):
+        pass
+
+    def __eq__(self, other):
+        return isinstance(other, Register) and self.value == other.value
 
     def __hash__(self):
         return hash(self.value)
 
-Registers = [Register(r.name) for r in Reg]
+class Physical(Register):
+
+    def __init__(self, reg):
+        super().__init__(reg.name)
+        self.reg = reg
+
+    def live(self):
+        if self.reg < GENERAL:
+            return {self}
+        return super().live()
+
+    def color(self, graph, _, __):
+        if self not in graph and self.reg < GENERAL:
+            graph[self] = self.reg
+
+Registers = [Physical(reg) for reg in Reg]
 
 class Virtual(Register):
 
-    next_virt = 0
+    virtuals = []
 
-    def __init__(self):
-        super().__init__(f'V{Virtual.next_virt:02X}')
-        Virtual.next_virt += 1
+    @classmethod
+    def next_virtual(cls):
+        virt = Virtual(f'V{len(cls.virtuals):02X}')
+        cls.virtuals.append(virt)
+        return virt
+
+    @classmethod
+    def clear(cls):
+        cls.virtuals.clear()
+
+    def __init__(self, name):
+        super().__init__(name)
         self.virtual = True
 
     def live(self):
@@ -95,7 +114,7 @@ class Virtual(Register):
     def color(self, colors, spill, edges):
         if self.virtual:
             used_colors = {colors[edge] for edge in edges if edge in colors}
-            for color in range(11):
+            for color in range(GENERAL):
                 if color not in used_colors:
                     colors[self] = color
                     break
@@ -197,10 +216,6 @@ class Instruction(Object):
     def precolor(self, _):
         pass
 
-    def max_used(self):
-        """Find max register used by this instuction."""
-        return 0
-
 
 class Push(Instruction):
     """Class for push instruction objects."""
@@ -289,24 +304,14 @@ class Call(Instruction):
         for i in range(self.arguments):
             colors[Registers[i]] = i
 
-
-    def max_used(self):
-        """Find max register used by this instuction."""
-        if isinstance(self.target, Reg):
-            return self.target
-        return 0
-
     def display(self):
         """Display call instruction as string."""
         return f'{"CALL": <{JUST}} {self.target}'
 
-class Operation(Instruction):
-    """Base class for operation instructions."""
+class Definition(Instruction):
 
-    def __init__(self, labels, op, size, target):
+    def __init__(self, labels, target):
         super().__init__(labels)
-        self.op = op
-        self.size = size
         self.target = Registers[target] if isinstance(target, Reg) else target
 
     def defined(self):
@@ -319,6 +324,16 @@ class Operation(Instruction):
             if reg != self.target:
                 graph[self.target].add(reg)
                 graph[reg].add(self.target)
+
+
+class Operation(Definition):
+    """Base class for operation instructions."""
+
+    def __init__(self, labels, op, size, target):
+        super().__init__(labels, target)
+        self.op = op
+        self.size = size
+
 
 class CMov(Operation):
     """Class for conditional move instruction objects."""
@@ -348,13 +363,6 @@ class Unary(Operation):
             self.source = source
         else:
             self.source = Argument(source)
-        '''
-        virtual
-        physical
-        label
-        number
-        character
-        '''
 
     def defined(self):
         if self.op in {Op.CMP, Op.CMPF}:
@@ -388,9 +396,6 @@ class Move(Unary):
             return True
         return False
 
-    def obsolete(self):
-        return self.target == self.source
-
 
 class LeftMove(Move):
 
@@ -419,7 +424,7 @@ class Binary(Unary):
 
     def __init__(self, labels, op, size, target, source2, source):
         super().__init__(labels, op, size, target, source)
-        self.source2 = Registers[source2] if isinstance(source2, Reg) else source2  # TODO?
+        self.source2 = Registers[source2] if isinstance(source2, Reg) else source2
 
     def used(self):
         return self.source.live() | self.source2.live()
@@ -431,14 +436,13 @@ class Binary(Unary):
         return f'{self.op.name+str(self.size): <{JUST}} {self.target}, {self.source2}, {self.source}'
 
 
-class Address(Instruction):
+class Address(Definition):
     """Class for address instruction objects."""
 
     code = Code.ADDRESS
 
     def __init__(self, labels, target, base, offset, marked, comment):
-        super().__init__(labels)
-        self.target = target
+        super().__init__(labels, target)
         self.base = Registers[base] if isinstance(base, Reg) else base
         self.offset = offset if isinstance(offset, Register) or offset is None else Argument(offset)
         self.marked = marked
@@ -449,25 +453,10 @@ class Address(Instruction):
         if self.marked:
             self.offset.value += adjustment
 
-    def defined(self):
-        return self.target.live()
-
     def used(self):
         if self.offset is None:
             return self.base.live()
         return self.base.live() | self.offset.live()
-
-    def populate(self, graph):
-        if self.target not in graph:
-            graph[self.target] = set()
-        for reg in self.live_out:
-            if reg != self.target:
-                graph[self.target].add(reg)
-                graph[reg].add(self.target)
-
-    def max_used(self):
-        """Find max register used by this instuction."""
-        return max(self.target, Reg.max_reg(self.base))
 
     def display(self):
         """Display address instruction as string."""
@@ -509,57 +498,29 @@ class Store(Load):
                                         f' ; {self.comment}' if self.comment else '')
 
 
-class LoadImmediate(Instruction):
+class LoadImmediate(Definition):
     """Class for load-immediate instruction objects."""
 
     code = Code.IMMEDIATE
 
     def __init__(self, labels, target, source, comment):
-        super().__init__(labels)
-        self.target = target
+        super().__init__(labels, target)
         self.source = Argument(source)
         self.comment = f' ; {comment}' if comment else comment
-
-    def defined(self):
-        return self.target.live()
-
-    def populate(self, graph):
-        if self.target not in graph:
-            graph[self.target] = set()
-        for reg in self.live_out:
-            if reg != self.target:
-                graph[self.target].add(reg)
-                graph[reg].add(self.target)
-
-    def max_used(self):
-        """Find max register used by this instuction."""
-        return self.target
 
     def display(self):
         """Display load-immediate instruction as string."""
         return f'{"LDI": <{JUST}} {self.target}, {self.source}{self.comment}'
 
 
-class LoadGlobal(Instruction):
+class LoadGlobal(Definition):
     """Class for load-global instruction objects."""
 
     code = Code.GLOBAL
 
     def __init__(self, labels, target, name):
-        super().__init__(labels)
-        self.target = target
-        self.name = Label(name)  # TODO do we need Label object for name here?
-
-    def defined(self):
-        return self.target.live()
-
-    def populate(self, graph):
-        if self.target not in graph:
-            graph[self.target] = set()
-        for reg in self.live_out:
-            if reg != self.target:
-                graph[self.target].add(reg)
-                graph[reg].add(self.target)
+        super().__init__(labels, target)
+        self.name = name
 
     def display(self):
         """Display load-global instruction as string."""
@@ -570,9 +531,6 @@ class Ret(Instruction):
     """Class for return instruction objects."""
 
     code = Code.RET
-
-    def __init__(self, labels):
-        super().__init__(labels)
 
     def display(self):
         """Display return instruction as string."""

@@ -85,11 +85,10 @@ class FunctionInfo:
     space: int = 0
     returns: bool = False
     calls: bool = False
-    max_arguments: int = 0
 
     def __iter__(self):
         """For unpacking."""
-        return iter((self.returns, self.calls, self.max_arguments, self.space))
+        return iter((self.returns, self.calls, self.space))
 
 
 class Scope:
@@ -216,7 +215,6 @@ class CParser(Parser):
             arguments.append(self.assignment())
             while self.accept(','):
                 arguments.append(self.assignment())
-        self.function.max_arguments = min(max(self.function.max_arguments, len(arguments)), 4)
         return arguments
 
     def unary(self):

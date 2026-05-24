@@ -12,14 +12,14 @@ sumfs:
   LD     B, [SP, 0] ; n
   CMP    A, B
   JGE    .L3
-  LD     D, [SP, 8] ; s
-  LD     B, [SP, 12] ; i
-  MOV    A, B
+  LD     B, [SP, 8] ; s
+  LD     D, [SP, 12] ; i
+  MOV    A, D
   LD     C, [SP, 4] ; f
-  SHL    B, 2
-  LD     B, [C, B]
-  CALL   B
-  ADD    A, D, A
+  SHL    D, 2
+  LD     C, [C, D]
+  CALL   C
+  ADD    A, B, A
   ST     [SP, 8], A ; s
 .L2:
   LD     A, [SP, 12] ; i
@@ -71,15 +71,15 @@ sum:
 main:
   PUSH   B, LR
   SUB    SP, 20
-  ADD    B, SP, 0 ; funcs
-  LDI    A, =sqr
-  ST     [B, 0], A
-  LDI    A, =sqr
-  ST     [B, 4], A
-  LDI    A, =sqr
-  ST     [B, 8], A
-  LDI    A, =sqr
-  ST     [B, 12], A
+  ADD    A, SP, 0 ; funcs
+  LDI    B, =sqr
+  ST     [A, 0], B
+  LDI    B, =sqr
+  ST     [A, 4], B
+  LDI    B, =sqr
+  ST     [A, 8], B
+  LDI    B, =sqr
+  ST     [A, 12], B
   MOV    A, 4
   ADD    B, SP, 0 ; funcs
   CALL   sumfs

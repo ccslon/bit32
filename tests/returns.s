@@ -16,10 +16,10 @@ print_int:
   ST     [SP, 0], A ; num
   MOV    B, 10
   CALL   div
-  ADD    C, SP, 4 ; ans
-  LD     B, [A, 0]
-  ST     [C, 0], B
+  ADD    B, SP, 4 ; ans
+  LD     C, [A, 0]
+  ST     [B, 0], C
   LD     A, [A, 4]
-  ST     [C, 4], A
+  ST     [B, 4], A
   ADD    SP, 12
   POP    B, C, PC

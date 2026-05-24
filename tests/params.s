@@ -55,14 +55,15 @@ params5:
   ST     [SP, 12], D ; d
   MOV    A, 10
   ST     [SP, 16], A ; i
-  LD     C, [SP, 0] ; a
-  LD     A, [SP, 4] ; b
-  ADD    A, C, A
+  LD     A, [SP, 0] ; a
+  LD     B, [SP, 4] ; b
+  ADD    A, B
   LD     B, [SP, 8] ; c
   ADD    A, B
   LD     B, [SP, 12] ; d
   ADD    A, B
-  ADD    A, C
+  LD     B, [SP, 20] ; e
+  ADD    A, B
 .L5:
   ADD    SP, 20
   ADD    SP, 4
@@ -77,15 +78,17 @@ params6:
   ST     [SP, 11], A ; i
   MOV.B  A, 'c'
   ST.B   [SP, 15], A ; l
-  LD     C, [SP, 0] ; a
-  LD.H   D, [SP, 4] ; b
-  ADD    A, C, D
+  LD     A, [SP, 0] ; a
+  LD.H   B, [SP, 4] ; b
+  ADD    A, B
   LD.B   B, [SP, 6] ; c
   ADD    A, B
   LD     B, [SP, 7] ; d
   ADD    A, B
-  ADD    A, C
-  ADD    A, D
+  LD     B, [SP, 16] ; e
+  ADD    A, B
+  LD     B, [SP, 20] ; f
+  ADD    A, B
 .L6:
   ADD    SP, 16
   ADD    SP, 8

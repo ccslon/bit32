@@ -16,15 +16,15 @@ class Local(Variable):
 
     def address(self, emitter):
         """Generate address code for local variable."""
-        return self.type.address(emitter, self, Reg.SP)
+        return self.type.address(emitter, Reg.SP, self)
 
     def reduce(self, emitter):
         """Generate code for local variable."""
-        return self.type.reduce(emitter, self, Reg.SP)
+        return self.type.reduce(emitter, Reg.SP, self)
 
     def store(self, emitter, source):
         """Generate code for storing a variable."""
-        return self.type.store(emitter, source, self, Reg.SP)
+        return self.type.store(emitter, source, Reg.SP, self)
 
 
 class Attribute(Variable):
@@ -39,11 +39,11 @@ class Attribute(Variable):
 
     def reduce(self, emitter, base):
         """Generate code for attributes."""
-        return self.type.reduce(emitter, self, base)
+        return self.type.reduce(emitter, base, self)
 
     def store(self, emitter, source, base):
         """Generate code for storing an attribute."""
-        return self.type.store(emitter, source, self, base)
+        return self.type.store(emitter, source, base, self)
 
 
 class Global(Variable):
@@ -261,10 +261,10 @@ class Dereference(Unary):
         base = self.address(emitter)
         return emitter.emit_load(self.width, base)
 
-    def store(self, emitter, target):
+    def store(self, emitter, source):
         """Generate code for storing a dereference."""
         base = self.address(emitter)
-        return emitter.emit_store(self.width, target, base)
+        return emitter.emit_store(self.width, source, base)
 
     def call(self, emitter, args):
         """Generate code for function pointers."""
@@ -403,7 +403,7 @@ class Logic(BinaryOp):
             sublabel = emitter.next_label()
             self.left.compare(emitter, label)
             self.right.compare(emitter, label)
-            target = emitter.emit_logic(label, sublabel)            
+            target = emitter.emit_logic(label, sublabel)
             emitter.append_label(sublabel)
             return target
         if self.op is Op.OR:
@@ -413,7 +413,7 @@ class Logic(BinaryOp):
             self.left.inverse_compare(emitter, label)
             self.right.compare(emitter, sublabel)
             emitter.append_label(label)
-            target = emitter.emit_logic(sublabel, subsublabel)  
+            target = emitter.emit_logic(sublabel, subsublabel)
             emitter.append_label(subsublabel)
             return target
 
@@ -453,14 +453,6 @@ class Conditional(Expression):
         """Determine if conditional is constant."""
         return self.test.is_constant() and self.true.is_constant() and self.false.is_constant()
 
-    def hard_calls(self):
-        """Determine if conditional node "hard calls"."""
-        return self.test.hard_calls() or self.true.hard_calls() or self.false.hard_calls()
-
-    def soft_calls(self):
-        """Determine if conditional node "soft calls"."""
-        return self.test.soft_calls() or self.true.soft_calls() or self.false.soft_calls()
-
     def evaluate(self):
         """Evaluate conditional operator."""
         return self.true.evaluate() if self.test.evaluate() else self.false.evaluate()
@@ -476,8 +468,7 @@ class Conditional(Expression):
         if self.test.is_constant():
             if self.test.evaluate():
                 return self.true.reduce(emitter)
-            else:
-                return self.false.reduce(emitter)
+            return self.false.reduce(emitter)
         label = emitter.next_label()
         sublabel = emitter.next_label()
         self.test.compare(emitter, sublabel)
@@ -485,8 +476,8 @@ class Conditional(Expression):
         emitter.emit_jump(Cond.AL, label)
         emitter.append_label(sublabel)
         false = self.false.reduce_branch(emitter, label)
+        emitter.emit_phi(self.width, true, false)
         emitter.append_label(label)
-        false.value = true.value
         return true
 
     def reduce_branch(self, emitter, root):  # TODO test
@@ -497,7 +488,7 @@ class Conditional(Expression):
         emitter.emit_jump(Cond.AL, root)
         emitter.append_label(sublabel)
         false = self.false.reduce_branch(emitter, root)
-        false.value = true.value
+        emitter.emit_phi(self.width, true, false)
         return true
 
 
@@ -545,16 +536,16 @@ class SubScript(Binary):
     def address(self, emitter):
         """Generate address code for array access."""
         return emitter.emit_address(self.left.type.reduce_array(emitter, self.left),
-                                    self.right.reduce_subscript(emitter, self.left.type.of.size()), False)
+                                    self.right.reduce_subscript(emitter, self.left.type.of.size()))
 
     def reduce(self, emitter):
         """Generate code for array access."""
         return emitter.emit_load(self.width,
-                          self.left.type.reduce_array(emitter, self.left),
-                          self.right.reduce_subscript(emitter, self.left.type.of.size()))
+                                 self.left.type.reduce_array(emitter, self.left),
+                                 self.right.reduce_subscript(emitter, self.left.type.of.size()))
 
     def store(self, emitter, source):
         """Generate code for storing to an array."""
         return emitter.emit_store(self.width, source,
-                           self.left.type.reduce_array(emitter, self.left),
-                           self.right.reduce_subscript(emitter, self.left.type.of.size()))
+                                  self.left.type.reduce_array(emitter, self.left),
+                                  self.right.reduce_subscript(emitter, self.left.type.of.size()))

@@ -75,7 +75,6 @@ class TestCompiler(TestCase):
         self.generated_equals_expected('structs')
 
     def test_array(self):
-        self.maxDiff = None
         self.generated_equals_expected('arrays')
 
     def test_global_struct(self):
@@ -173,10 +172,12 @@ class TestCompiler(TestCase):
         for preproc in processed:
             stds |= preproc.std_included
         preproc = CPreProcessor()
-        for std in stds & {'ctype', 'errno', 'math', 'stdio', 'stdlib', 'string'}:
+        for std in sorted(stds & {'ctype', 'errno', 'math', 'stdio', 'stdlib', 'string'}):
             preproc.process(f'ccompiler/std/{std}.c')
             root = parse(preproc.output())
             root.generate(emitter)
+        # with open('tests/assign/assign.s', 'w+') as file:
+        #     file.write(str(emitter))
         with open('tests/assign/assign.s') as file:
             expected = file.read()
         self.assertEqual(str(emitter), expected)

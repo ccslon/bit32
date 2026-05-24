@@ -89,29 +89,29 @@ main:
   SUB    SP, 15
   MOV.B  A, 'c'
   CALL   charToken
-  ADD    C, SP, 0 ; t0
-  LD.B   B, [A, 0]
-  ST.B   [C, 0], B
+  ADD    B, SP, 0 ; t0
+  LD.B   C, [A, 0]
+  ST.B   [B, 0], C
   LD     A, [A, 1]
-  ST     [C, 1], A
+  ST     [B, 1], A
   ADD    A, SP, 0 ; t0
   CALL   printToken
   MOV    A, 5
   CALL   intToken
-  ADD    C, SP, 5 ; t1
-  LD.B   B, [A, 0]
-  ST.B   [C, 0], B
+  ADD    B, SP, 5 ; t1
+  LD.B   C, [A, 0]
+  ST.B   [B, 0], C
   LD     A, [A, 1]
-  ST     [C, 1], A
+  ST     [B, 1], A
   ADD    A, SP, 5 ; t1
   CALL   printToken
   LDI    A, =.S4
   CALL   strToken
-  ADD    C, SP, 10 ; t2
-  LD.B   B, [A, 0]
-  ST.B   [C, 0], B
+  ADD    B, SP, 10 ; t2
+  LD.B   C, [A, 0]
+  ST.B   [B, 0], C
   LD     A, [A, 1]
-  ST     [C, 1], A
+  ST     [B, 1], A
   ADD    A, SP, 10 ; t2
   CALL   printToken
 .L8:

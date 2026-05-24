@@ -2,8 +2,6 @@
 #include <string.h>
 #include <stdio.h>
 
-int g;
-
 void fizzbuzz(int m) {
     int n;
     char buffer[sizeof "fizzbuzz"];

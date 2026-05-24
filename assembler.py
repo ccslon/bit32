@@ -9,7 +9,7 @@ from typing import NamedTuple
 from operator import add, sub, mul, floordiv, mod, lshift, rshift
 import re
 from bit32 import (Size, Flag, Reg, Op, Cond, Byte, Char, Half, Word, Jump, Interrupt, Unary,
-                   Binary, Ternary, Load, PushPop, LoadImmediate, unescape)
+                   Binary, Load, PushPop, LoadImmediate, unescape)
 
 
 RE_SIZE = r'B|H|W'
@@ -115,30 +115,22 @@ class Emitter:
         """Emit interrupt instruction."""
         self.new_instruction(Interrupt, condition, True, label)
 
-    def emit_unary(self, op, condition, flag, size, destination):
-        """Emit unary instruction."""
-        if op not in {Op.NOT, Op.NEG, Op.NEGF}:
-            self.assembler.error(f'{op.name} is not a unary operator')
-        self.new_instruction(Unary, condition, flag, size, op, destination)
-
-    def emit_binary(self, op, condition, flag, size, destination, source, immediate):
+    def emit_unary(self, op, condition, flag, size, destination, source, immediate):
         """Emit binary instruction."""
         if immediate and isinstance(source, int) and not (-128 <= source < 256):
             if op is Op.MOV:
                 self.emit_load_immediate(condition, size, destination, source)
                 return
             self.assembler.error(f'{source} does not fit within 8 bits. Use LDI instruction')
-        self.new_instruction(Binary, condition, flag, size, immediate, op, source, destination)
+        self.new_instruction(Unary, condition, flag, size, immediate, op, source, destination)
 
-    def emit_ternary(self, op, condition, flag, size, destination, source, source2, immediate):
+    def emit_binary(self, op, condition, flag, size, destination, source, source2, immediate):
         """Emit ternary instruction."""
-        if op in {Op.NOT, Op.NEG, Op.NEGF}:
-            self.assembler.error(f'{op.name} is a unary operation only')
-        if op in {Op.MOV, Op.MVN, Op.CMN, Op.CMP, Op.TST, Op.TEQ, Op.CMPF}:
+        if op in {Op.MOV, Op.MVN, Op.CMN, Op.CMP, Op.TST, Op.TEQ, Op.CMPF, Op.NOT, Op.NEG, Op.NEGF}:
             self.assembler.error(f'{op.name} only takes 2 arguments but 3 were given')
         if immediate and isinstance(source, int) and not (-128 <= source < 256):
             self.assembler.error(f'{source} does not fit within 8 bits. Use LDI instruction')
-        self.new_instruction(Ternary, condition, flag, size, immediate, op, source2, source, destination)
+        self.new_instruction(Binary, condition, flag, size, immediate, op, source2, source, destination)
 
     def emit_load(self, condition, size, destination, base, offset, immediate):
         """Emit load instruction."""
@@ -350,7 +342,7 @@ class Assembler:
             if self.peek(Lex.NAME):
                 emitter.emit_jump(cond, self.label())
             elif self.peek(Lex.REG):
-                emitter.emit_binary(Op.MOV, cond, False, Size.WORD, Reg.PC, self.reg(), False)
+                emitter.emit_unary(Op.MOV, cond, False, Size.WORD, Reg.PC, self.reg(), False)
             else:
                 self.error('JMP instruction expects label or register')
         elif op == 'LD':
@@ -403,39 +395,37 @@ class Assembler:
             emitter.emit_load_immediate(cond, size, target, self.label() if self.accept('=') else self.expression())
         elif op == 'CALL':
             if self.peek(Lex.REG):
-                emitter.emit_ternary(Op.ADD, cond, False, Size.WORD, Reg.LR, Reg.PC, 2*Size.WORD, True)
-                emitter.emit_binary(Op.MOV, cond, False, Size.WORD, Reg.PC, self.reg(), False)
+                emitter.emit_binary(Op.ADD, cond, False, Size.WORD, Reg.LR, Reg.PC, 2*Size.WORD, True)
+                emitter.emit_unary(Op.MOV, cond, False, Size.WORD, Reg.PC, self.reg(), False)
             else:
                 emitter.emit_call(cond, self.label())
         elif op == 'RET':
-            emitter.emit_binary(Op.MOV, cond, False, Size.WORD, Reg.PC, Reg.LR, False)
+            emitter.emit_unary(Op.MOV, cond, False, Size.WORD, Reg.PC, Reg.LR, False)
         elif op == 'IRET':
-            emitter.emit_binary(Op.MOV, Cond.AL, False, Size.WORD, Reg.PC, Reg.ILR, False)
+            emitter.emit_unary(Op.MOV, Cond.AL, False, Size.WORD, Reg.PC, Reg.ILR, False)
         elif op == 'HALT':
-            emitter.emit_binary(Op.OR, cond, False, Size.WORD, Reg.SR, Flag.HALT, True)
+            emitter.emit_binary(Op.OR, cond, False, Size.WORD, Reg.SR, Reg.SR, Flag.HALT, True)
         elif op == 'SWI':
             emitter.emit_interrupt(cond, self.label())
         else:
             op = Op[op]
             flag = bool(flag)
             target = self.reg()
-            if self.accept(','):
-                if self.peek(Lex.REG):
-                    source = self.reg()
-                    if self.accept(','):
-                        if self.peek(Lex.REG):
-                            imm = False
-                            source2 = self.reg()
-                        else:
-                            imm = True
-                            source2 = self.expression()
-                        emitter.emit_ternary(op, cond, flag, size, target, source, source2, imm)
+            self.expect(',')
+            if self.peek(Lex.REG):
+                source = self.reg()
+                if self.accept(','):
+                    if self.peek(Lex.REG):
+                        imm = False
+                        source2 = self.reg()
                     else:
-                        emitter.emit_binary(op, cond, flag, size, target, source, False)
+                        imm = True
+                        source2 = self.expression()
+                    emitter.emit_binary(op, cond, flag, size, target, source, source2, imm)
                 else:
-                    emitter.emit_binary(op, cond, flag, size, target, self.expression(), True)
+                    emitter.emit_unary(op, cond, flag, size, target, source, False)
             else:
-                emitter.emit_unary(op, cond, flag, size, target)
+                emitter.emit_unary(op, cond, flag, size, target, self.expression(), True)
 
     def data(self, emitter):
         """
@@ -547,7 +537,7 @@ class Color(IntEnum):
 
 
 # ANSI 8-bit color mode (look it up)
-HIGHLIGHTS = {    
+HIGHLIGHTS = {
     r'\b-?(0x[0-9A-F]+|0b[01]+|\d+)\b': Color.ORANGE,  # const
     r"'(\\'|\\?[^'])'": Color.GREEN,  # char
     r'"(\\"|[^"])*"': Color.GREEN,  # string

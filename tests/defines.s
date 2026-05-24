@@ -14,7 +14,7 @@ test:
   LD     A, [SP, 0] ; i
   JMP    .L3
 .L4:
-  LD     V04, [SP, 4] ; minN
+  LD     A, [SP, 4] ; minN
 .L3:
   ST     [SP, 4], A ; minN
   ADD    A, 1

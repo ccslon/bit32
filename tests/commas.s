@@ -17,11 +17,11 @@ strrev:
   LD     B, [SP, 4] ; front
   LD.B   A, [A, B]
   ST.B   [SP, 12], A ; temp
-  LD     C, [SP, 0] ; s
-  LD     A, [SP, 8] ; back
-  LD.B   A, [C, A]
-  LD     B, [SP, 4] ; front
-  ST.B   [C, B], A
+  LD     A, [SP, 0] ; s
+  LD     B, [SP, 8] ; back
+  LD.B   B, [A, B]
+  LD     C, [SP, 4] ; front
+  ST.B   [A, C], B
   LD.B   A, [SP, 12] ; temp
   LD     B, [SP, 0] ; s
   LD     C, [SP, 8] ; back

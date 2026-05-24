@@ -4,8 +4,8 @@ Created on Sat Sep  7 01:02:16 2024
 
 @author: Colin
 """
-from .instructions import (Code, Register, Registers, Virtual, String, Space, Global, Data, Push, Pop,
-                           Call, Ret, LoadGlobal, Address, Load, Store, LoadImmediate, Unary, Binary,
+from .instructions import (Code, Register, Registers, GENERAL, Virtual, String, Space, Global, Data,
+                           Push, Pop, Call, Ret, LoadGlobal, Address, Load, Store, LoadImmediate, Unary, Binary,
                            LeftMove, RightMove, Jump, CMov)
 from bit32 import Reg, Size, Cond, Op, escape_chr
 
@@ -25,7 +25,7 @@ from bit32 import Reg, Size, Cond, Op, escape_chr
 [x] real case?
 
 [x] Register Allocation
-    [] connect everything (ongoing)
+    [x] connect everything (ongoing)
     [x] add Number (Argument)
     [] add blocks
     [x] peephole optimization
@@ -35,21 +35,33 @@ from bit32 import Reg, Size, Cond, Op, escape_chr
         [x] add left and right move
     [x] color
     [x] max reg
-    
+
     [x] sort graph
     [x] numbers -> Argument
     [x] __hash__ and __eq__
     [x] .is_...
-    
 
-[] Common subexpression elimination
+
+[x] Common subexpression elimination
     [x] add table and signatures
-    [] figure out kill. Kill in SubScript.store?
+
+[] Refactor
+    [x] fix unary vs binary vs ternary in assembler
+    [x] refactor Nodes
+    [x] refactor Arguments
+    [x] refactor Instructions
+    [x] fix conditionals
+    [x] fix abandonded labels. add blocks?
+    [] coverage
+    [] remove unused
+    [] document
 
 [] make optimization levels
     [] peephole = 1
     [] CSE = 2
     [] both = 3
+
+select instructions -> coalesce -> peephole -> color -> peephole again
 '''
 
 POWERS_OF_2 = {2**n: n for n in range(8+1)}
@@ -62,27 +74,20 @@ class Emitter:
 
     def clear(self):
         """Reset the emitter."""
-        self.n_labels = 0
-        self.if_jump_end = []
+        self.next_label_id = 0
         self.loop = []
         self.labels = []
         self.instructions = []
         self.data = []
         self.strings = []
-        self.virtuals = []
         self.table = {}
-
-    def next_virtual(self):
-        v = Virtual()
-        self.virtuals.append(v)
-        return v
 
     def begin_loop(self):
         """
         Begin loop or switch block.
 
         Head and tail labels are created for the current loop/switch block
-        that are used for continue and break instructions.
+        that are used as targets for continue and break instructions.
         """
         self.loop.append((self.next_label(), self.next_label()))
 
@@ -100,8 +105,8 @@ class Emitter:
 
     def next_label(self):
         """Create a new unique label."""
-        label = self.n_labels
-        self.n_labels += 1
+        label = self.next_label_id
+        self.next_label_id += 1
         return f'.L{label}'
 
     def append_label(self, label):
@@ -110,7 +115,6 @@ class Emitter:
 
     def add(self, instruction):
         """Append the given instruction to the current list of instructions."""
-        # print(instruction)
         self.instructions.append(instruction)
         if self.labels:
             self.table.clear()
@@ -151,12 +155,12 @@ class Emitter:
                 and inst1.target == inst2.source
                 and not isinstance(inst1.source, Register)):
                 '''
-                MOV A, n    {...} {A, ...}
-                ITF C, A    {A, ...} {C, ...}
-                = ITF C, n  {...} {C, ...}
+                MOV A, n
+                ITF C, A
+                = ITF C, n
                 '''
                 inst2.labels += inst1.labels
-                inst2.source = inst1.source                
+                inst2.source = inst1.source
                 inst2.live_in = inst1.live_in
             elif (inst1.code is Code.ADDRESS
                   and inst2.code in {Code.ADDRESS, Code.LOAD, Code.STORE}
@@ -166,9 +170,9 @@ class Emitter:
                   and not isinstance(inst2.offset, Register)):
                 '''
                 Address collapse
-                ADD A, B, n         {B} {A}
-                LD C, [A, m]        {A} {C}
-                = LD C, [B, n+m]    {B} {C}
+                ADD A, B, n
+                LD C, [A, m]
+                = LD C, [B, n+m]
                 '''
                 inst2.labels += inst1.labels
                 inst2.base = inst1.base
@@ -198,11 +202,18 @@ class Emitter:
             # eliminate redundant jumps
             inst1 = self.instructions[i]
             inst2 = self.instructions[i+1]
-            '''
-            JMP label
-            label: ...
-            '''
             if inst1.code is Code.JUMP and inst1.target.value in inst2.labels:
+                '''
+                JMP label
+                label: ...
+                '''
+                inst2.labels += inst1.labels
+            elif (inst1.code is Code.UNARY
+                  and inst1.op is Op.MOV
+                  and inst1.target == inst1.source):
+                '''
+                MOV A, A
+                '''
                 inst2.labels += inst1.labels
             elif (inst1.code is Code.STORE
                   and inst2.code is Code.LOAD
@@ -213,7 +224,7 @@ class Emitter:
                 '''
                 ST [A, B], C
                 LD C, [A, B]
-                '''                
+                '''
                 new.append(inst1)
                 i += 1
             else:
@@ -229,13 +240,13 @@ class Emitter:
             inst.live_out = live
             inst.live_in = inst.used() | (inst.live_out - inst.defined())
             live = inst.live_in
-    
+
     def build_graph(self):
         graph = {}
         for inst in self.instructions:
             inst.populate(graph)
         return graph
-    
+
     def coalesce(self, graph):
         changed = False
         for inst in self.instructions:
@@ -245,25 +256,24 @@ class Emitter:
 
     def color(self, graph, registers):
         # sort graph
-        # print(graph)
         graph = {
             node: edge
             for node, edge in sorted(
                     sorted(
                         graph.items(),
-                        key=lambda i: str(i[0])),
-                    key=lambda i: len(i[1]))
+                        key=lambda i: i[0].value),
+                    key=lambda i: len(i[1]),
+                    reverse=True)
         }
         stack = []
         spill = []
         for node, edges in reversed(graph.items()):
             if len(edges) < registers:  # Leave 1 for spill?
-                stack.append((node, edges))                
+                stack.append((node, edges))
                 node.disconnect(graph, edges)
             else:
                 spill.append(node)
         # Assign registers
-        # print(stack)
         colors = {}
         for inst in self.instructions:
             inst.precolor(colors)
@@ -273,38 +283,29 @@ class Emitter:
         return colors, spill
 
     def allocate_registers(self):
+        # coalesce loop
         changed = True
         while changed:
             self.calculate_liveliness()
-            # for inst in self.instructions:
-            #     print(inst, inst.live_in, inst.live_out)
             graph = self.build_graph()
             changed = self.coalesce(graph)
         # peephole optimize
         self.optimize_body()
-        # # build graph again
+        # build graph again
         graph = self.build_graph()
-        colors, spill = self.color(graph, 11)
-        # print(colors)
+        # color graph
+        colors, spill = self.color(graph, GENERAL)
+        assert not spill, str(spill)
         max_reg = max(colors.values()) if colors else -1
-        for virt in self.virtuals:
+        # devirtualize registers
+        for virt in Virtual.virtuals:
             if virt in colors:
                 virt.devirtualize(Registers[colors[virt]])
-        new = []
-        abandonded = []
-        for inst in self.instructions:
-            if inst.obsolete():
-                abandonded += inst.labels
-            else:
-                inst.labels += abandonded
-                abandonded.clear()
-                new.append(inst)
-        # self.instructions = [inst for inst in self.instructions if not inst.obsolete()]
-        self.instructions = new
         return max_reg
 
     def begin_body(self, definition):
         """Begin the body of a function."""
+        Virtual.clear()
         if definition.returns or definition.type.return_type.width:
             self.return_label = self.next_label()
         self.temp = self.instructions
@@ -367,6 +368,11 @@ class Emitter:
         if regs:
             self.add(Pop(self.labels, regs))
 
+    def emit_jump(self, cond, target):
+        """Emit jump instruction object."""
+        self.add(Jump(self.labels, cond, target))
+        self.table.clear()
+
     def emit_call(self, proc, args):
         """Emit call instruction object."""
         self.add(Call(self.labels, proc, min(args, 4)))
@@ -376,56 +382,12 @@ class Emitter:
         """Emit return instruction object."""
         self.add(Ret(self.labels))
 
-    def emit_attribute(self, base, offset, comment):
-        """Emit address instruction object. Specifically for attributes."""
-        return self.emit_address(base, offset, False, comment)
-
-    def emit_address(self, base, offset, marked, comment=''):
-        """Emit address instruction object."""
-        target = self.next_virtual()
-        self.add(Address(self.labels, target, base, offset, marked, comment))
-        return target
-
-    def emit_load(self, size, base, offset=None, marked=False, comment=''):
-        """Emit load instruction object."""
-        t = (Code.LOAD, base, offset)
-        if not self.labels and t in self.table:
-            return self.table[t]
-        target = self.next_virtual()
-        self.add(Load(self.labels, size, target, base, offset, marked, comment))
-        self.table[t] = target
-        return target
-
-    def emit_store(self, size, target, base, offset=None, marked=False, comment=''):
-        """Emit store instruction object."""
-        self.add(Store(self.labels, size, target, base, offset, marked, comment))
-        self.table.clear()
-        return target
-
-    def emit_load_global(self, name):
-        """Emit load-global instruction object."""
-        if not self.labels and name in self.table:
-            return self.table[name]
-        target = self.next_virtual()
-        self.add(LoadGlobal(self.labels, target, name))
-        self.table[name] = target
-        return target
-
-    def emit_load_immediate(self, value, comment=''):
-        """Emit load-immediate instruction object."""
-        if not self.labels and value in self.table:
-            return self.table[value]
-        target = self.next_virtual()
-        self.add(LoadImmediate(self.labels, target, value, comment))
-        self.table[value] = target
-        return target
-
     def emit_unary(self, op, size, source):
         """Emit unary ALU instruction object."""
         t = (Code.UNARY, op, size, source)
         if not self.labels and t in self.table:
             return self.table[t]
-        target = self.next_virtual()
+        target = Virtual.next_virtual()
         self.add(Unary(self.labels, op, size, target, source))
         self.table[t] = target
         return target
@@ -438,52 +400,96 @@ class Emitter:
         t = (Code.BINARY, op, size, left, right)
         if not self.labels and t in self.table:
             return self.table[t]
-        target = self.next_virtual()
+        target = Virtual.next_virtual()
         self.add(Binary(self.labels, op, size, target, left, right))
         self.table[t] = target
         return target
 
     def emit_left_move(self, size, target, source):
-        self.add(LeftMove(self.labels,size, target, source))
+        self.add(LeftMove(self.labels, size, target, source))
 
     def emit_right_move(self, size, source):
-        target = self.next_virtual()
+        target = Virtual.next_virtual()
         self.add(RightMove(self.labels, size, target, source))
         return target
 
-    def emit_jump(self, cond, target):
-        """Emit jump instruction object."""
-        self.add(Jump(self.labels, cond, target))
-        self.table.clear()
-
     def emit_cmov(self, cond, inv):
         """Emit cmov instruction object."""
-        target = self.next_virtual()
+        target = Virtual.next_virtual()
         self.add(CMov(self.labels, cond, target, 1))
         self.add(CMov(self.labels, inv, target, 0))
         return target
 
+    def emit_stack_allocation(self, space):
+        self.add(Binary(self.labels, Op.SUB, Size.WORD, Reg.SP, Reg.SP, space))
+
+    def emit_stack_deallocation(self, space):
+        self.add(Binary(self.labels, Op.ADD, Size.WORD, Reg.SP, Reg.SP, space))
+
+    def emit_attribute(self, base, offset, comment):
+        """Emit address instruction object. Specifically for attributes."""
+        return self.emit_address(base, offset, False, comment)
+
+    def emit_address(self, base, offset, marked=False, comment=''):
+        """Emit address instruction object."""
+        target = Virtual.next_virtual()
+        self.add(Address(self.labels, target, base, offset, marked, comment))
+        return target
+
+    def emit_load(self, size, base, offset=None, marked=False, comment=''):
+        """Emit load instruction object."""
+        t = (Code.LOAD, base, offset, marked)
+        if not self.labels and t in self.table:
+            return self.table[t]
+        target = Virtual.next_virtual()
+        self.add(Load(self.labels, size, target, base, offset, marked, comment))
+        self.table[t] = target
+        return target
+
+    def emit_store(self, size, target, base, offset=None, marked=False, comment=''):
+        """Emit store instruction object."""
+        self.add(Store(self.labels, size, target, base, offset, marked, comment))
+        self.table.clear()
+        return target
+
+    def emit_table_jump(self, base, offset):
+        self.add(Load(self.labels, Size.WORD, Reg.PC, base, offset, False, ''))
+
+    def emit_load_global(self, name):
+        """Emit load-global instruction object."""
+        t = (Code.GLOBAL, name)
+        if not self.labels and t in self.table:
+            return self.table[t]
+        target = Virtual.next_virtual()
+        self.add(LoadGlobal(self.labels, target, name))
+        self.table[t] = target
+        return target
+
+    def emit_load_immediate(self, value, comment=''):
+        """Emit load-immediate instruction object."""
+        t = (Code.IMMEDIATE, value)
+        if not self.labels and t in self.table:
+            return self.table[t]
+        target = Virtual.next_virtual()
+        self.add(LoadImmediate(self.labels, target, value, comment))
+        self.table[t] = target
+        return target
+
     def emit_logic(self, label, sublabel):
-        target = self.next_virtual()
+        target = Virtual.next_virtual()
         self.add(Unary(self.labels, Op.MOV, Size.WORD, target, 1))
         self.emit_jump(Cond.AL, sublabel)
         self.append_label(label)
         self.add(Unary(self.labels, Op.MOV, Size.WORD, target, 0))
         return target
 
-    def emit_table_load(self, base, offset):
-        self.add(Load(self.labels, Size.WORD, Registers[Reg.PC], base, offset, False, ''))
-
-    def emit_stack_allocation(self, space):
-        self.add(Binary(self.labels, Op.SUB, Size.WORD, Reg.SP, Reg.SP, space))
-    
-    def emit_stack_deallocation(self, space):
-        self.add(Binary(self.labels, Op.ADD, Size.WORD, Reg.SP, Reg.SP, space))
-
     def emit_stack_string_array(self, string, base):
         for i, c in enumerate(string):
-            self.add(Unary(self.labels, Op.MOV, Size.BYTE, Registers[0], f"'{escape_chr(c)}'"))
-            self.add(Store(self.labels, Size.BYTE, Registers[0], base, i, False, ''))
+            self.add(Unary(self.labels, Op.MOV, Size.BYTE, Reg.A, f"'{escape_chr(c)}'"))
+            self.add(Store(self.labels, Size.BYTE, Reg.A, base, i, False, ''))
+
+    def emit_phi(self, size, true, false):
+        self.add(Unary(self.labels, Op.MOV, size, true, false))
 
     def __str__(self):
         """Get string representaion of all emmitted objects."""

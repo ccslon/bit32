@@ -6,8 +6,6 @@ Created on Sat Mar  1 11:43:13 2025
 """
 from collections import UserDict, UserList
 from bit32 import Op, Cond, Size, Reg
-from .emitter import Virtual
-
 
 class Frame(UserDict):
     """
@@ -66,33 +64,9 @@ class Expression(CNode):
         Recurse property of expressions.
         This is used to determine if a subtree only contains constant values.
         Subtrees that are constant can be evaluated at compile time. They also
-        and other allow for other compile time optimizations.
+        allow for other compile time optimizations.
         """
         return False  # default is false
-
-    def hard_calls(self):
-        """
-        Determine if subexpression "hard calls".
-
-        Recurse property of expressions.
-        This is used in register allocation. The rules of register allocation
-        change when a subexpression involves calling a function.
-        A "hard call" is when there is any instances of call nodes in the
-        subexpression.
-        """
-        raise NotImplementedError(self.__class__.__name__)
-
-    def soft_calls(self):
-        """
-        Determine if subexpression "soft calls".
-
-        Recurse property of expressions.
-        This is used in register allocation. A "soft call" is when the subtree
-        involves calling a function but in a way that does not break the
-        calling convention and this compiler's rules of register allocation.
-        The criteria for a node to soft call is based on the node.
-        """
-        raise NotImplementedError(self.__class__.__name__)
 
     def reduce(self, emitter):
         """Generate code to "reduce" the expression into a single register."""
@@ -154,14 +128,6 @@ class Variable(Expression):
         self.name = name
         self.marked = False
 
-    def hard_calls(self):
-        """Variables do not hard call."""
-        return False
-
-    def soft_calls(self):
-        """Variables do not soft call."""
-        return False
-
     def call(self, emitter, args):
         """Generate default call behavior."""
         emitter.emit_call(self.name, args)
@@ -177,14 +143,6 @@ class Constant(Expression):
     def is_constant(self):
         """Constants are constant."""
         return True
-
-    def hard_calls(self):
-        """Constants do not hard call."""
-        return False
-
-    def soft_calls(self):
-        """Constants do not soft call."""
-        return False
 
     def evaluate(self):
         """Evaluate this node in the case of a constant expression."""
@@ -206,14 +164,6 @@ class Unary(Expression):
         """Determine if subtree is constant."""
         return self.value.is_constant()
 
-    def hard_calls(self):
-        """Determine if subtree hard calls."""
-        return self.value.hard_calls()
-
-    def soft_calls(self):
-        """Determine if subtree soft calls."""
-        return self.value.soft_calls()
-
     def fold(self):
         """Fold this unary operator into a single constant node."""
         return self.type.get_node(self.evaluate())
@@ -231,14 +181,6 @@ class Binary(Expression):
         """Determine if subtree is const."""
         return self.left.is_constant() and self.right.is_constant()
 
-    def hard_calls(self):
-        """Determine if subtree hard calls."""
-        return self.left.hard_calls() or self.right.hard_calls()
-
-    def soft_calls(self):
-        """Determine if subtree soft calls."""
-        return self.left.hard_calls() or self.right.hard_calls()  # self.left.soft_calls() ?
-
     def fold(self):
         """Fold this binary operator into a single constant node."""
         return self.type.get_node(self.evaluate())
@@ -252,14 +194,6 @@ class Access(Expression):
         self.struct = struct
         self.attribute = attribute
 
-    def hard_calls(self):
-        """Determine if subtree hard calls."""
-        return self.struct.hard_calls()
-
-    def soft_calls(self):
-        """Determine if subtree soft calls."""
-        return self.struct.soft_calls()
-
 
 class Definition(CNode):
     """Class for function definition nodes."""
@@ -269,28 +203,22 @@ class Definition(CNode):
         self.name = name
         self.parameters = ctype.parameters
         self.block = block
-        self.returns, self.calls, self.max_arguments, self.space = info
+        self.returns, self.calls, self.space = info
 
     def global_generate(self, emitter):
         """Generate all of the code for the function."""
-        Virtual.next_virt = 0
         emitter.begin_body(self)
         # mark stack locals
         self.mark_stack_locals()
         # generate function body
         self.block.generate(emitter)
-
-        # find max register used in body        
+        # find max register used in body
         max_reg = emitter.allocate_registers()
-        # for inst in emitter.instructions:
-        #     max_reg = max(max_reg, inst.max_used())
-
         # calculate list of register to push onto the stack
         push = list(map(Reg, range(max(bool(self.type.return_type.width),
                                        len(self.parameters[:4])),
                                    max_reg+1)))
         pop = push.copy()
-
         self.adjust_offsets(emitter, push)
         emitter.end_body()
         emitter.append_label(self.name.lexeme)

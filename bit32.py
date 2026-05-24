@@ -310,22 +310,6 @@ class Interrupt(Instruction):
 class Unary(Instruction):
     """Class for unary ALU instructions."""
 
-    def __init__(self, cond, flag, size, op, rd):
-        super().__init__()
-        self[31:28] = cond
-        self[27] = flag
-        self[26:24] = Code.ALU
-        self[23:22] = size >> 1
-        self[21:17] = op
-        self[16:12] = None
-        self[11:8] = rd
-        self[7:4] = rd
-        self[3:0] = rd
-
-
-class Binary(Instruction):
-    """Class for binary ALU instructions."""
-
     def __init__(self, cond, flag, size, imm, op, src, rd):
         super().__init__()
         self[31:28] = cond
@@ -348,8 +332,8 @@ class Binary(Instruction):
         self[3:0] = rd
 
 
-class Ternary(Instruction):
-    """Class for ternary ALU instructions."""
+class Binary(Instruction):
+    """Class for binary ALU instructions."""
 
     def __init__(self, cond, flag, size, imm, op, src, rs, rd):
         super().__init__()

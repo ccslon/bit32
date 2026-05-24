@@ -3,10 +3,10 @@ get:
   SUB    SP, 8
   ST     [SP, 0], A ; g
   ST     [SP, 4], B ; i
-  LD     B, [SP, 0] ; g
-  LD     A, [SP, 4] ; i
-  SHL    A, 2
-  LD     A, [B, A]
+  LD     A, [SP, 0] ; g
+  LD     B, [SP, 4] ; i
+  SHL    B, 2
+  LD     A, [A, B]
 .L0:
   ADD    SP, 8
   RET
@@ -15,11 +15,11 @@ set:
   ST     [SP, 0], A ; g
   ST     [SP, 4], B ; i
   ST     [SP, 8], C ; t
-  LD     B, [SP, 8] ; t
-  LD     C, [SP, 0] ; g
-  LD     A, [SP, 4] ; i
-  SHL    A, 2
-  ST     [C, A], B
+  LD     A, [SP, 8] ; t
+  LD     B, [SP, 0] ; g
+  LD     C, [SP, 4] ; i
+  SHL    C, 2
+  ST     [B, C], A
   ADD    SP, 12
   RET
 getchar:
@@ -47,10 +47,10 @@ getarray:
   PUSH   B
   SUB    SP, 4
   ST     [SP, 0], A ; i
-  LDI    B, =array
-  LD     A, [SP, 0] ; i
-  SHL    A, 2
-  LD     A, [B, A]
+  LDI    A, =array
+  LD     B, [SP, 0] ; i
+  SHL    B, 2
+  LD     A, [A, B]
 .L2:
   ADD    SP, 4
   POP    B
@@ -60,10 +60,11 @@ setarray:
   SUB    SP, 8
   ST     [SP, 0], A ; i
   ST     [SP, 4], B ; t
-  LDI    C, =array
-  LD     A, [SP, 0] ; i
-  SHL    A, 2
-  ST     [C, A], B
+  LD     A, [SP, 4] ; t
+  LDI    B, =array
+  LD     C, [SP, 0] ; i
+  SHL    C, 2
+  ST     [B, C], A
   ADD    SP, 8
   POP    C
   RET
@@ -79,10 +80,11 @@ setstack:
   SUB    SP, 48
   ST     [SP, 0], A ; i
   ST     [SP, 4], B ; t
-  ADD    C, SP, 8 ; a
-  LD     A, [SP, 0] ; i
-  SHL    A, 2
-  ST     [C, A], B
+  LD     A, [SP, 4] ; t
+  ADD    B, SP, 8 ; a
+  LD     C, [SP, 0] ; i
+  SHL    C, 2
+  ST     [B, C], A
 .L4:
   ADD    SP, 48
   POP    C

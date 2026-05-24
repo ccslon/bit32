@@ -25,12 +25,12 @@ loop1:
   LD     A, [SP, 0] ; i
   CMP    A, 5
   JGE    .L2
-  LD     C, [SP, 4] ; s
+  LD     A, [SP, 4] ; s
   LDI    B, =data
-  LD     A, [SP, 0] ; i
-  SHL    A, 1
-  LD.H   A, [B, A]
-  ADD    A, C, A
+  LD     C, [SP, 0] ; i
+  SHL    C, 1
+  LD.H   B, [B, C]
+  ADD    A, B
   ST     [SP, 4], A ; s
 .L1:
   LD     A, [SP, 0] ; i
@@ -52,12 +52,12 @@ loop2:
   LD     A, [SP, 0] ; i
   CMP    A, 5
   JGE    .L5
-  LD     C, [SP, 4] ; s
+  LD     A, [SP, 4] ; s
   LDI    B, =data
-  LD     A, [SP, 0] ; i
-  SHL    A, 1
-  LD.H   A, [B, A]
-  ADD    A, C, A
+  LD     C, [SP, 0] ; i
+  SHL    C, 1
+  LD.H   B, [B, C]
+  ADD    A, B
   ST     [SP, 4], A ; s
 .L4:
   LD     A, [SP, 0] ; i
