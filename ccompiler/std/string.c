@@ -17,8 +17,8 @@ char* strncpy(char* s, const char* t, size_t n) {
         ;
     return s;
 }
+#include <stdlib.h>
 char* strdup(const char* s) {
-    void* malloc(unsigned);
     char* p = malloc(strlen(s)+1);
     if (p != (void*)0)
         strncpy(p, s, strlen(s)+1);

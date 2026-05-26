@@ -115,10 +115,10 @@ void eprint(float f, char prec) {
     putchar('e');
     dprint(exp);
 }
-#define va_arg(ap, type) (*(type*)ap++)
+#include <stdarg.h>
 void printf(const char* format, ...) {
-    int* ap;
-    (ap = (int*)(&format + 1));
+    va_list ap;
+    va_start(ap, format);
     const char* c;
     unsigned n = 0;
     for (c = format; *c; c++, n++) {
@@ -167,6 +167,5 @@ void printf(const char* format, ...) {
             putchar(*c);
         }
     }
-    (ap = (int*)0);
+    va_end(ap);
 }
-#undef va_arg

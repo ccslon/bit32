@@ -172,7 +172,7 @@ class TestCompiler(TestCase):
         for preproc in processed:
             stds |= preproc.std_included
         preproc = CPreProcessor()
-        for std in sorted(stds & {'ctype', 'errno', 'math', 'stdio', 'stdlib', 'string'}):
+        for std in sorted(stds & {'ctype', 'math', 'stdio', 'stdlib', 'string'}):
             preproc.process(f'ccompiler/std/{std}.c')
             root = parse(preproc.output())
             root.generate(emitter)

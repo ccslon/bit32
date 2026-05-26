@@ -29,12 +29,15 @@ class Code(Enum):
     ADDRESS = 12
     CMOV = 13  # "conditional move"
 
+
 class Argument:
+    """Base class for arguments in instructions."""
 
     def __init__(self, value):
         self.value = value
 
     def live(self):
+        """Is the argument a part of the live range? Defualt is no."""
         return set()
 
     def __eq__(self, other):
@@ -48,18 +51,21 @@ class Argument:
 
 
 class Label(Argument):
+    """Class for labels as arguments"""
     pass
 
 
 GENERAL = 11  # number of general purpose registers
 
 class Register(Argument):
-
+    """Base class for registers."""
 
     def disconnect(self, _, __):
+        """Disconnect this register from neighbors. Defualt is do nothing."""
         pass
 
     def color(self, _, __, ___):
+        """Color this register."""
         pass
 
     def __eq__(self, other):
@@ -68,35 +74,42 @@ class Register(Argument):
     def __hash__(self):
         return hash(self.value)
 
+
 class Physical(Register):
+    """Class for physical registers."""
 
     def __init__(self, reg):
         super().__init__(reg.name)
         self.reg = reg
 
     def live(self):
+        """Is this register a part of the live range? Only general purpose register are."""
         if self.reg < GENERAL:
             return {self}
         return super().live()
 
     def color(self, graph, _, __):
+        """Color this physical register if not already."""
         if self not in graph and self.reg < GENERAL:
             graph[self] = self.reg
 
 Registers = [Physical(reg) for reg in Reg]
 
 class Virtual(Register):
+    """Class for virtual register that will later be lowered into physical registers."""
 
-    virtuals = []
+    virtuals = []  # keep track off all created virtual registers.
 
     @classmethod
     def next_virtual(cls):
+        """Create next virtual register."""
         virt = Virtual(f'V{len(cls.virtuals):02X}')
         cls.virtuals.append(virt)
         return virt
 
     @classmethod
     def clear(cls):
+        """Clear all virtual registers and start at 0."""
         cls.virtuals.clear()
 
     def __init__(self, name):
@@ -104,14 +117,17 @@ class Virtual(Register):
         self.virtual = True
 
     def live(self):
+        """Virtual registers are always a part of the live range."""
         return {self}
 
     def disconnect(self, graph, edges):
+        """Disconnect this virtual from its neighbors."""
         if self.virtual:
             for edge in edges:
                 graph[edge].remove(self)
 
     def color(self, colors, spill, edges):
+        """Color this virtual register or otherwise spill."""
         if self.virtual:
             used_colors = {colors[edge] for edge in edges if edge in colors}
             for color in range(GENERAL):
@@ -122,6 +138,7 @@ class Virtual(Register):
                 spill.append(self)
 
     def devirtualize(self, reg):
+        """Lower to physical register."""
         if self.virtual:
             self.value = reg.value
             self.virtual = False
@@ -199,21 +216,23 @@ class Instruction(Object):
         pass
 
     def defined(self):
+        """Return the set of registers this instruction defines (default is none)."""
         return set()
 
     def used(self):
+        """Return the set of registers this instruction uses (default is none)."""
         return set()
 
     def populate(self, _):
+        """Populate the graph with registers (default is no action)."""
         pass
 
     def coalesce(self, _):
-        return False
-
-    def obsolete(self):
+        """Determines if this instruction can be coalesced (default is no)."""
         return False
 
     def precolor(self, _):
+        """Precolor the colors with registers (default is no action)."""
         pass
 
 
@@ -227,6 +246,7 @@ class Push(Instruction):
         self.push = push
 
     def used(self):
+        """Return the used register for this push."""
         return self.push[0].live()
 
     def display(self):
@@ -244,6 +264,7 @@ class Pop(Instruction):
         self.pop = pop
 
     def used(self):
+        """Return the used register for this pop."""
         return self.pop[0].live()
 
     def display(self):
@@ -262,6 +283,7 @@ class Jump(Instruction):
         self.target = Label(target) if isinstance(target, str) else target
 
     def used(self):
+        """Return the used register for this jump."""
         return self.target.live()
 
     def display(self):
@@ -280,27 +302,31 @@ class Call(Instruction):
         self.arguments = arguments
 
     def defined(self):
+        """Return the defined register. A function's return value should always be in A."""
         return {Registers[0]}
 
     def used(self):
+        """Return the used registers for the function's arguments."""
         return {Registers[i] for i in range(self.arguments)} | self.target.live()
 
     def populate(self, graph):
-        for virt in self.live_in:
-            if virt not in graph:
-                graph[virt] = set()
+        """Populate the graph with registers."""
+        for reg in self.live_in:
+            if reg not in graph:
+                graph[reg] = set()
             for i in range(self.arguments):
-                if virt != Registers[i]:
-                    graph[virt].add(Registers[i])
-                    graph[Registers[i]].add(virt)
-        for virt in self.live_out:
-            if virt not in graph:
-                graph[virt] = set()
-            if virt != Registers[0]:
-                graph[virt].add(Registers[0])
-                graph[Registers[0]].add(virt)
+                if reg != Registers[i]:
+                    graph[reg].add(Registers[i])
+                    graph[Registers[i]].add(reg)
+        for reg in self.live_out:
+            if reg not in graph:
+                graph[reg] = set()
+            if reg != Registers[0]:
+                graph[reg].add(Registers[0])
+                graph[Registers[0]].add(reg)
 
     def precolor(self, colors):
+        """Precolor the colors with registers."""
         for i in range(self.arguments):
             colors[Registers[i]] = i
 

@@ -38,10 +38,12 @@ int main() {
     IntMap_set(env, "c", 7);
     // IntMap_set(env, "foo", 10);
     puts("Testing123");
+    // exec("1+1");
     exec("a+b*c");
     exec("(a+b)*c");
     exec("x = a + 1");
     exec("x");
+    exec("3-4");
     puts("Welcome");
     loop();
     freeIntMap(env);

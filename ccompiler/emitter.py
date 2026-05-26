@@ -270,9 +270,9 @@ class Emitter:
         for node, edges in reversed(graph.items()):
             if len(edges) < registers:  # Leave 1 for spill?
                 stack.append((node, edges))
-                node.disconnect(graph, edges)
             else:
                 spill.append(node)
+            node.disconnect(graph, edges)
         # Assign registers
         colors = {}
         for inst in self.instructions:

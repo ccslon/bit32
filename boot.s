@@ -66,6 +66,8 @@ interrupt_handler:
 stdin:  .word .stdin
 stdout: .word .stdout
 
+errno: .word 0
+
 ; int setjmp(jmp_buf);
 setjmp:
     ; ST [A, 0], A ; Not needed
