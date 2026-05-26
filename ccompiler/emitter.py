@@ -45,26 +45,32 @@ from bit32 import Reg, Size, Cond, Op, escape_chr
 [x] Common subexpression elimination
     [x] add table and signatures
 
-[] Refactor
+[x] Refactor
     [x] fix unary vs binary vs ternary in assembler
     [x] refactor Nodes
     [x] refactor Arguments
     [x] refactor Instructions
     [x] fix conditionals
     [x] fix abandonded labels. add blocks?
-    [] coverage
-    [] remove unused
-    [] document
+    [x] coverage
+    [x] remove unused
+    [x] document
 
 [] make optimization levels
     [] peephole = 1
     [] CSE = 2
     [] both = 3
 
+[x] fix struct/array __iter__
+[x] fix union init list
+[] var arg macros
+[] refactor instruction display
+[] add more to stds
+
 select instructions -> coalesce -> peephole -> color -> peephole again
 '''
 
-POWERS_OF_2 = {2**n: n for n in range(8+1)}
+POWERS_OF_2 = {2**n: n for n in range(8)}
 
 class Emitter:
     """Class for emitting bit32 objects."""
@@ -235,6 +241,7 @@ class Emitter:
         self.instructions = new
 
     def calculate_liveliness(self):
+        """Calculate liveliness for each instruction."""
         live = set()
         for inst in reversed(self.instructions):
             inst.live_out = live
@@ -242,12 +249,14 @@ class Emitter:
             live = inst.live_in
 
     def build_graph(self):
+        """Populate inference graph."""
         graph = {}
         for inst in self.instructions:
             inst.populate(graph)
         return graph
 
     def coalesce(self, graph):
+        """Coalesce move instructions."""
         changed = False
         for inst in self.instructions:
             if inst.coalesce(graph):
@@ -255,19 +264,20 @@ class Emitter:
         return changed
 
     def color(self, graph, registers):
+        """Color each register."""
         # sort graph
         graph = {
             node: edge
             for node, edge in sorted(
                     sorted(
                         graph.items(),
-                        key=lambda i: i[0].value),
-                    key=lambda i: len(i[1]),
-                    reverse=True)
+                        key=lambda i: i[0].value,
+                        reverse=True),
+                    key=lambda i: len(i[1]))
         }
         stack = []
         spill = []
-        for node, edges in reversed(graph.items()):
+        for node, edges in graph.items():
             if len(edges) < registers:  # Leave 1 for spill?
                 stack.append((node, edges))
             else:
@@ -283,13 +293,14 @@ class Emitter:
         return colors, spill
 
     def allocate_registers(self):
-        # coalesce loop
+        """Allocate registers and return max register used."""
+        # coalescing loop
         changed = True
         while changed:
             self.calculate_liveliness()
             graph = self.build_graph()
             changed = self.coalesce(graph)
-        # peephole optimize
+        # peephole optimize body
         self.optimize_body()
         # build graph again
         graph = self.build_graph()
@@ -393,6 +404,7 @@ class Emitter:
         return target
 
     def emit_compare(self, op, size, left, right):
+        """Emit compare instruction object."""
         self.add(Unary(self.labels, op, size, left, right))
 
     def emit_binary(self, op, size, left, right):
@@ -406,9 +418,11 @@ class Emitter:
         return target
 
     def emit_left_move(self, size, target, source):
+        """Emit left move instruction object."""
         self.add(LeftMove(self.labels, size, target, source))
 
     def emit_right_move(self, size, source):
+        """Emit right move instruction object."""
         target = Virtual.next_virtual()
         self.add(RightMove(self.labels, size, target, source))
         return target
@@ -421,9 +435,11 @@ class Emitter:
         return target
 
     def emit_stack_allocation(self, space):
+        """Emit stack allocation instruction object."""
         self.add(Binary(self.labels, Op.SUB, Size.WORD, Reg.SP, Reg.SP, space))
 
     def emit_stack_deallocation(self, space):
+        """Emit stack deallocation instruction object."""
         self.add(Binary(self.labels, Op.ADD, Size.WORD, Reg.SP, Reg.SP, space))
 
     def emit_attribute(self, base, offset, comment):
@@ -453,6 +469,7 @@ class Emitter:
         return target
 
     def emit_table_jump(self, base, offset):
+        """Emit instruction object from jump table. Specifically for switch statements."""
         self.add(Load(self.labels, Size.WORD, Reg.PC, base, offset, False, ''))
 
     def emit_load_global(self, name):
@@ -476,6 +493,7 @@ class Emitter:
         return target
 
     def emit_logic(self, label, sublabel):
+        """Emit instruction objects for logical operators."""
         target = Virtual.next_virtual()
         self.add(Unary(self.labels, Op.MOV, Size.WORD, target, 1))
         self.emit_jump(Cond.AL, sublabel)
@@ -484,11 +502,13 @@ class Emitter:
         return target
 
     def emit_stack_string_array(self, string, base):
+        """Emit instruction objects specifically for stack string arrays."""
         for i, c in enumerate(string):
             self.add(Unary(self.labels, Op.MOV, Size.BYTE, Reg.A, f"'{escape_chr(c)}'"))
             self.add(Store(self.labels, Size.BYTE, Reg.A, base, i, False, ''))
 
     def emit_phi(self, size, true, false):
+        """Emit "phi" instruction object specifically for conditional expressions."""
         self.add(Unary(self.labels, Op.MOV, size, true, false))
 
     def __str__(self):

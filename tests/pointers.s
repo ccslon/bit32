@@ -27,7 +27,7 @@ bar:
   CALL   print
   LD     A, [SP, 0] ; str
   LD     B, [SP, 4] ; i
-  ADD    A, A, B ; 
+  ADD    A, A, B
   CALL   print
   ADD    SP, 8
   POP    PC

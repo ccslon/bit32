@@ -335,15 +335,18 @@ class Call(Instruction):
         return f'{"CALL": <{JUST}} {self.target}'
 
 class Definition(Instruction):
+    """Base class for instruction objects that define a target."""
 
     def __init__(self, labels, target):
         super().__init__(labels)
         self.target = Registers[target] if isinstance(target, Reg) else target
 
     def defined(self):
+        """Return the register this instruction defines."""
         return self.target.live()
 
     def populate(self, graph):
+        """Populate the graph with the target register."""
         if self.target not in graph:
             graph[self.target] = set()
         for reg in self.live_out:
@@ -353,7 +356,7 @@ class Definition(Instruction):
 
 
 class Operation(Definition):
-    """Base class for operation instructions."""
+    """Base class for operation instruction objects."""
 
     def __init__(self, labels, op, size, target):
         super().__init__(labels, target)
@@ -391,11 +394,13 @@ class Unary(Operation):
             self.source = Argument(source)
 
     def defined(self):
+        """Comparison unary instructions do not define any registers."""
         if self.op in {Op.CMP, Op.CMPF}:
             return set()
         return super().defined()
 
     def used(self):
+        """Comparison unary instructions use the target register."""
         if self.op in {Op.CMP, Op.CMPF}:
             return self.target.live() | self.source.live()
         return self.source.live()
@@ -406,11 +411,12 @@ class Unary(Operation):
 
 
 class Move(Unary):
-
+    """Base class for coalescable Move instructions."""
     def __init__(self, labels, size, target, source):
         super().__init__(labels, Op.MOV, size, target, source)
 
     def coalesce(self, graph):
+        """Attempt to coalesce this move isntruction."""
         reg = self.get_physical()
         virt = self.get_virtual()
         if virt.virtual and reg not in graph[virt]:  # if they don't interfere
@@ -424,22 +430,26 @@ class Move(Unary):
 
 
 class LeftMove(Move):
-
+    """Class for "left" move instructions objects"""
 
     def get_physical(self):
+        """Get the physical register."""
         return self.target
 
     def get_virtual(self):
+        """Get the virtual register."""
         return self.source
 
 
 class RightMove(Move):
-
+    """Class for "right" move instruction objects."""
 
     def get_physical(self):
+        """Get the physical register."""
         return self.source
 
     def get_virtual(self):
+        """Get the virtual register."""
         return self.target
 
 
@@ -453,6 +463,7 @@ class Binary(Unary):
         self.source2 = Registers[source2] if isinstance(source2, Reg) else source2
 
     def used(self):
+        """Return the used registers."""
         return self.source.live() | self.source2.live()
 
     def display(self):
@@ -480,17 +491,18 @@ class Address(Definition):
             self.offset.value += adjustment
 
     def used(self):
+        """Get the used registers."""
         if self.offset is None:
             return self.base.live()
         return self.base.live() | self.offset.live()
 
     def display(self):
         """Display address instruction as string."""
-        return f'{"ADD": <{JUST}} {self.target}, {self.base}, {self.offset} ; {self.comment}'
+        return f'{"ADD": <{JUST}} {self.target}, {self.base}, {self.offset}' + (f' ; {self.comment}' if self.comment else '')
 
 
 class Load(Address):
-    """Class for load/store instruction objects."""
+    """Class for load instruction objects."""
 
     code = Code.LOAD
 
@@ -508,6 +520,7 @@ class Load(Address):
 
 
 class Store(Load):
+    """Class for store instruction objects."""
 
     code = Code.STORE
 

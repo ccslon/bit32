@@ -29,7 +29,7 @@ stack_int:
   ST     [B, 4], C
   MOV    C, 6
   ST     [B, 8], C
-  ADD    A, 24
+  ADD    A, A, 24
   MOV    B, 7
   ST     [A, 0], B
   MOV    B, 8
@@ -67,7 +67,7 @@ list_cat:
   ST     [B, 0], C
   MOV    C, 10
   ST.B   [B, 4], C
-  ADD    A, 5
+  ADD    A, A, 5
   LDI    B, =.S1
   ST     [A, 0], B
   MOV    B, 6
@@ -83,7 +83,7 @@ stack_person:
   ST     [A, 0], B
   MOV    B, 27
   ST.B   [A, 4], B
-  ADD    A, 5
+  ADD    A, A, 5
   LDI    B, =.S3
   ST     [A, 0], B
   MOV    B, 15
@@ -100,17 +100,17 @@ list_person:
   ST     [B, 0], C
   MOV    C, 27
   ST.B   [B, 4], C
-  ADD    B, 5
+  ADD    B, B, 5
   LDI    C, =.S3
   ST     [B, 0], C
   MOV    C, 15
   ST.B   [B, 4], C
-  ADD    A, 10
+  ADD    A, A, 10
   LDI    B, =.S4
   ST     [A, 0], B
   MOV    B, 24
   ST.B   [A, 4], B
-  ADD    A, 5
+  ADD    A, A, 5
   LDI    B, =.S5
   ST     [A, 0], B
   MOV    B, 15

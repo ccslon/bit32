@@ -28,11 +28,6 @@ class Size(IntEnum):
     HALF = H = 2  # 2 bytes
     WORD = W = 4  # 4 bytes
 
-    @classmethod
-    def get(cls, name):
-        """Get an size enum based on the given name. Default to Word."""
-        return cls[name.upper()] if name else cls.WORD
-
     def __str__(self):
         """Get size string representation."""
         return f'.{self.name[0]}' if self != Size.WORD else ''
@@ -68,11 +63,6 @@ class Reg(IntEnum):
     ILR = 13    # interrupt link register
     LR = 14     # link register
     PC = 15     # program counter
-
-    @classmethod
-    def max_reg(cls, reg):
-        """Ignore register if not scratch register."""
-        return reg if reg < Reg.SP else cls.A
 
     def __str__(self):
         """Get register string representation."""
@@ -135,11 +125,6 @@ class Cond(IntEnum):
     GT = 13
     GE = 14
     AL = 15
-
-    @classmethod
-    def get(cls, name):
-        """Get an condition enum based on the given name. Default to Always."""
-        return cls[name.upper()] if name else cls.AL
 
     def jump(self):
         """Get special formatting for Jump instructions."""

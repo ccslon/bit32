@@ -12,7 +12,7 @@ from .cnodes import Frame, Translation, Definition, VariadicDefinition
 from .cexpressions import (Local, Attribute, Global, Number, Decimal, Character, String,
                            AddressOf, Dereference, SizeOf, Cast, Post, UnaryOp, Not, Pre,
                            BinaryOp, Compare, Logic, Dot, SubScript, Arrow,  Conditional)
-from .ctypes import Type, Void, Float, Int, Short, Char, Pointer, Struct, Union, Array, Function
+from .ctypes import Type, Void, Float, Int, Short, Char, Pointer, List, Struct, Union, Array, Function
 from .cstatements import (Statement, If, Case, Switch, While, Do, For, Continue, Break, Goto, Label, Return, Compound,
                           Comma, Call, VariadicCall, InitAssignment, Assignment, InitListAssignment, InitStringArray)
 r'''( |\t)+$'''  # To delete weird whitespace spyder adds
@@ -550,25 +550,27 @@ class CParser(Parser):
                 self.expect(']')
         return ctype, name
 
-    def initializer_list(self, parser):
+    def initializer_list(self, ctype, parser):
         """
         INITIALIZER_LIST -> [INITIALIZER {',' INITIALIZER}]
         """
         initializer_list = []
         if not self.peek('}'):
+            types = iter(ctype)
             while True:
-                initializer_list.append(self.initializer(parser))
+                etype, _ = next(types)
+                initializer_list.append(self.initializer(etype, parser))
                 if self.peek('}'):
                     break
                 self.expect(',')
         return initializer_list
 
-    def initializer(self, parser):
+    def initializer(self, ctype, parser):
         """
         INITIALIZER -> '{' INITIALIZER_LIST '}'|ASSIGNMENT|CONSTANT
         """
         if self.accept('{'):
-            initializer = self.initializer_list(parser)
+            initializer = self.initializer_list(ctype, parser)
             self.expect('}')
         else:
             initializer = parser()
@@ -808,10 +810,10 @@ class CParser(Parser):
             if isinstance(ctype, Function):
                 self.error('Cannot assign a value to a function type')
             token = next(self)
-            initializer = self.initializer(parser)
+            initializer = self.initializer(ctype, parser)
             if isinstance(initializer, String) and isinstance(ctype, Array):
                 init_decl = InitStringArray(token, init_decl, initializer)
-            elif isinstance(initializer, list) and isinstance(ctype, Array | Struct):
+            elif isinstance(initializer, list) and isinstance(ctype, List):
                 init_decl = InitListAssignment(token, init_decl, initializer)
             else:
                 init_decl = InitAssignment(token, init_decl, initializer)

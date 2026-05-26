@@ -326,7 +326,7 @@ class InitListAssignment(Statement):
     def generate(self, emitter):
         """Generate code for initial list assignment."""
         base = self.left.address(emitter)
-        for (offset, ctype), element in zip(self.left.type, self.right):
+        for (ctype, offset), element in zip(self.left.type, self.right):
             ctype.list_generate(emitter, element, base, offset)
 
     def global_generate(self, emitter):

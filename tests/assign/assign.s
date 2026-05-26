@@ -48,7 +48,6 @@ current: .word 0
 .S25: "Expected %c\n\0"
 .S26: "Expected NUM, VAR, or (\n\0"
 .S27: "Can only assign to variables\0"
-errno: .word 0
 next_rand: .word 0
 base: .space 8
 freehead: .word 0

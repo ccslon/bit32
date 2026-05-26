@@ -408,15 +408,16 @@ class Pointer(Int):
 class List:
     """Base class for types that can list initialized."""
 
-    def list_generate(self, emitter, right, base, offset):
+    def list_generate(self, emitter, source, base, offset):
         """Generate code for initialization lists."""
-        base = emitter.emit_binary(Op.ADD, Size.WORD, base, offset)
-        for (offset, ctype), element in zip(self, right):
+        # base = emitter.emit_binary(Op.ADD, Size.WORD, base, offset)
+        base = emitter.emit_address(base, offset)
+        for (ctype, offset), element in zip(self, source):
             ctype.list_generate(emitter, element, base, offset)
 
-    def global_data(self, emitter, expr, data):
+    def global_data(self, emitter, source, data):
         """Generate code for global data."""
-        for (_, ctype), etype in zip(self, expr):
+        for (ctype, _), etype in zip(self, source):
             ctype.global_data(emitter, etype, data)
         return data
 
@@ -447,8 +448,10 @@ class Array(List, Value):
 
     def __iter__(self):
         """Iterate through array."""
+        while self.length is None:
+            yield self.of, None
         for i in range(self.length):
-            yield i*self.of.size(), self.of
+            yield self.of, self.of.size() * i
 
     def __eq__(self, other):  # TODO test
         """Determine if given type is equal to this array type."""
@@ -460,7 +463,7 @@ class Array(List, Value):
 
 
 class Record(Value):
-
+    """Base class for records."""
 
     def __init__(self, name, frame):
         super().__init__()
@@ -484,7 +487,7 @@ class Struct(List, Record):
         """Generate code for storing a struct."""
         base = self.address(emitter, base, var)
         frame = {}
-        for offset, ctype in self:
+        for ctype, offset in self:
             # I forget what this loop does. I think it has to do with absorbed unions
             if offset in frame:
                 if ctype.size() > frame[offset].size():
@@ -506,7 +509,7 @@ class Struct(List, Record):
     def __iter__(self):
         """Iterate through struct."""
         for attr in self.frame.values():
-            yield attr.offset, attr.type
+            yield attr.type, attr.offset
 
     def __eq__(self, other):
         """Determine if the given type is equal to this struct type."""
@@ -527,10 +530,15 @@ class UnionFrame(Frame):
         self.data[name] = attr
 
 
-class Union(Record):
+class Union(List, Record):
     """Class for union type."""
 
     FrameType = UnionFrame
+
+    def __iter__(self):
+        """Iterate through struct."""
+        attr = max(self.frame.values(), key=lambda a: a.type.size())
+        yield attr.type, attr.offset
 
 
 class Function(Value):

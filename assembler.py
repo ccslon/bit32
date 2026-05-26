@@ -334,8 +334,8 @@ class Assembler:
         """
         op, flag, cond, size = next(self).match.group('op', 'flag', 'cond', 'size')
         op = op.upper()
-        cond = Cond.get(cond)
-        size = Size.get(size)
+        cond = Cond[cond.upper()] if cond else Cond.AL
+        size = Size[size.upper()] if size else Size.WORD
         if op == 'NOP':
             emitter.emit_jump(Cond.NV, 0)
         elif op in {'J', 'JMP'}:

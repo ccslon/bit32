@@ -66,7 +66,7 @@ getarray2:
   LDI    A, =array
   LD     B, [SP, 0] ; i
   MUL    B, 40
-  ADD    A, A, B ; 
+  ADD    A, A, B
   LD     B, [SP, 4] ; j
   SHL    B, 2
   LD     A, [A, B]
@@ -82,7 +82,7 @@ setarray2:
   LDI    B, =array
   LD     C, [SP, 0] ; i
   MUL    C, 40
-  ADD    B, B, C ; 
+  ADD    B, B, C
   LD     C, [SP, 4] ; j
   SHL    C, 2
   ST     [B, C], A
@@ -95,7 +95,7 @@ getstack:
   ADD    A, SP, 8 ; a
   LD     B, [SP, 0] ; i
   MUL    B, 20
-  ADD    A, A, B ; 
+  ADD    A, A, B
   LD     B, [SP, 4] ; j
   SHL    B, 2
   LD     A, [A, B]
@@ -111,7 +111,7 @@ getstack:
   ADD    B, SP, 12 ; a
   LD     C, [SP, 0] ; i
   MUL    C, 20
-  ADD    B, B, C ; 
+  ADD    B, B, C
   LD     C, [SP, 4] ; j
   SHL    C, 2
   ST     [B, C], A
