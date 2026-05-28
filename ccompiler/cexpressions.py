@@ -90,7 +90,7 @@ class Number(Constant):
     def reduce_number(self, emitter):
         """Reduce to number constant if applicable. See Expression class."""
         if -128 <= self.value < 256:
-            return self.data(emitter)
+            return self.value
         return emitter.emit_load_immediate(twos_compliment(self.value, 32))  # TODO test this branch
 
     def reduce_subscript(self, emitter, size):

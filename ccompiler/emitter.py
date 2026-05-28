@@ -64,7 +64,7 @@ from bit32 import Reg, Size, Cond, Op, escape_chr
 [x] fix struct/array __iter__
 [x] fix union init list
 [] var arg macros
-[] refactor instruction display
+[] refactor instruction display?
 [] add more to stds
 
 select instructions -> coalesce -> peephole -> color -> peephole again

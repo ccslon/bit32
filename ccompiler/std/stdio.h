@@ -9,6 +9,7 @@ typedef struct {
 } FILE;
 extern FILE* stdin;
 extern FILE* stdout;
+extern FILE* stderr;
 char fgetc(FILE*);
 #define getc() (fgetc(stdin))
 char getchar();

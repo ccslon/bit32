@@ -66,6 +66,7 @@ interrupt_handler:
 stdin:  .word .stdin
 stdout: .word .stdout
 
+stderr: .word .stdout
 errno: .word 0
 
 ; int setjmp(jmp_buf);

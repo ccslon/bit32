@@ -157,7 +157,6 @@ class TestCompiler(TestCase):
             expected = file.read()
         self.assertEqual(str(preproc), expected)
 
-
     def test_assign(self):
         processed = []
         for file in ['assign', 'lexer', 'nodes', 'parser', 'intmap']:
@@ -181,6 +180,7 @@ class TestCompiler(TestCase):
         with open('tests/assign/assign.s') as file:
             expected = file.read()
         self.assertEqual(str(emitter), expected)
+
 
 if __name__ == '__main__':
     main()
