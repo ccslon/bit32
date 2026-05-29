@@ -15,19 +15,17 @@ class Code(Enum):
     """Enum for code instruction types."""
 
     JUMP = 0
-    UNARY = 1
-    BINARY = 2
-    TERNARY = 3
-    LOAD = 4
-    STORE = 5
-    IMMEDIATE = 6
-    GLOBAL = 7
-    CALL = 8
-    RET = 9
-    PUSH = 10
-    POP = 11
-    ADDRESS = 12
-    CMOV = 13  # "conditional move"
+    CALL = 1
+    RET = 2
+    UNARY = 3
+    BINARY = 4
+    ADDRESS = 5
+    LOAD = 6
+    STORE = 7
+    PUSH = 8
+    POP = 9
+    IMMEDIATE = 10
+    GLOBAL = 11
 
 
 class Argument:
@@ -204,8 +202,6 @@ class Global(Data):
 class Instruction(Object):
     """Base class for bit32 instruction objects."""
 
-    code = None
-
     def __init__(self, labels):
         super().__init__(labels)
         self.live_in = None
@@ -235,11 +231,16 @@ class Instruction(Object):
         """Precolor the colors with registers (default is no action)."""
         pass
 
+    @property
+    def op_str(self):
+        """Get the formatted op string for this instructions."""
+        return str(self.op).ljust(JUST)
 
 class Push(Instruction):
     """Class for push instruction objects."""
 
     code = Code.PUSH
+    op = 'PUSH'
 
     def __init__(self, labels, push):
         super().__init__(labels)
@@ -251,13 +252,14 @@ class Push(Instruction):
 
     def display(self):
         """Display push instruction as string."""
-        return f'{"PUSH": <{JUST}} {", ".join(str(reg) for reg in self.push)}'
+        return f'{self.op_str} {", ".join(str(reg) for reg in self.push)}'
 
 
 class Pop(Instruction):
     """Class for pop instruction objects."""
 
     code = Code.POP
+    op = 'POP'
 
     def __init__(self, labels, pop):
         super().__init__(labels)
@@ -269,7 +271,7 @@ class Pop(Instruction):
 
     def display(self):
         """Display pop instruction as string."""
-        return f'{"POP": <{JUST}} {", ".join(reg.name for reg in self.pop)}'
+        return f'{self.op_str} {", ".join(reg.name for reg in self.pop)}'
 
 
 class Jump(Instruction):
@@ -286,15 +288,21 @@ class Jump(Instruction):
         """Return the used register for this jump."""
         return self.target.live()
 
+    @property
+    def op_str(self):
+        """Get the formatted op string for jumps."""
+        return f'J{self.condition.jump()}'.ljust(JUST)
+
     def display(self):
         """Display jump instruction as string."""
-        return f'{"J"+self.condition.jump(): <{JUST}} {self.target}'
+        return f'{self.op_str} {self.target}'
 
 
 class Call(Instruction):
     """Class for call instruction objects."""
 
     code = Code.CALL
+    op = 'CALL'
 
     def __init__(self, labels, target, arguments):
         super().__init__(labels)
@@ -332,7 +340,7 @@ class Call(Instruction):
 
     def display(self):
         """Display call instruction as string."""
-        return f'{"CALL": <{JUST}} {self.target}'
+        return f'{self.op_str} {self.target}'
 
 class Definition(Instruction):
     """Base class for instruction objects that define a target."""
@@ -364,21 +372,6 @@ class Operation(Definition):
         self.size = size
 
 
-class CMov(Operation):
-    """Class for conditional move instruction objects."""
-
-    code = Code.CMOV
-
-    def __init__(self, labels, condition, target, source):
-        super().__init__(labels, Op.MOV, Size.WORD, target)
-        self.condition = condition
-        self.source = Argument(source)
-
-    def display(self):
-        """Display cmov instruction as string."""
-        return f'{"MOV"+str(self.condition): <{JUST}} {self.target}, {self.source}'
-
-
 class Unary(Operation):
     """Class for unary ALU instruction objects."""
 
@@ -405,10 +398,27 @@ class Unary(Operation):
             return self.target.live() | self.source.live()
         return self.source.live()
 
+    @property
+    def op_str(self):
+        """Get the formatted op string for ALU operations."""
+        return f'{self.op.name}{self.size}'.ljust(JUST)
+
     def display(self):
         """Display binary instruction as string."""
-        return f'{self.op.name+str(self.size): <{JUST}} {self.target}, {self.source}'
+        return f'{self.op_str} {self.target}, {self.source}'
 
+
+class CMov(Unary):
+    """Class for conditional move instruction objects."""
+
+    def __init__(self, labels, condition, target, source):
+        super().__init__(labels, Op.MOV, Size.WORD, target, source)  # TODO I think these should have a size
+        self.condition = condition
+
+    @property
+    def op_str(self):
+        """Get the formatted op string for cmovs."""
+        return f'{self.op}{self.condition}'.ljust(JUST)
 
 class Move(Unary):
     """Base class for coalescable Move instructions."""
@@ -470,13 +480,14 @@ class Binary(Unary):
         """Display ternary instruction as string."""
         if self.target == self.source2:
             return super().display()
-        return f'{self.op.name+str(self.size): <{JUST}} {self.target}, {self.source2}, {self.source}'
+        return f'{self.op_str} {self.target}, {self.source2}, {self.source}'
 
 
 class Address(Definition):
     """Class for address instruction objects."""
 
     code = Code.ADDRESS
+    op = 'ADD'
 
     def __init__(self, labels, target, base, offset, marked, comment):
         super().__init__(labels, target)
@@ -496,9 +507,15 @@ class Address(Definition):
             return self.base.live()
         return self.base.live() | self.offset.live()
 
+    @property
+    def comment_str(self):
+        return f' ; {self.comment}' if self.comment else ''
+
     def display(self):
         """Display address instruction as string."""
-        return f'{"ADD": <{JUST}} {self.target}, {self.base}, {self.offset}' + (f' ; {self.comment}' if self.comment else '')
+        if self.target == self.base:
+            return f'{self.op_str} {self.target}, {self.offset}{self.comment_str}'
+        return f'{self.op_str} {self.target}, {self.base}, {self.offset}{self.comment_str}'
 
 
 class Load(Address):
@@ -510,13 +527,16 @@ class Load(Address):
         super().__init__(labels, target, base, offset, marked, comment)
         self.size = size
 
+    @property
+    def op_str(self):
+        """Get the formatted op string for loads."""
+        return f'LD{self.size}'.ljust(JUST)
+
     def display(self):
         """Display load instruction as string."""
-        return '{} {}, [{}{}]{}'.format(f'{"LD"+str(self.size): <{JUST}}',
-                                        self.target,
-                                        self.base,
+        return '{} {}, [{}{}]{}'.format(self.op_str, self.target, self.base,
                                         f', {self.offset}' if self.offset is not None else '',
-                                        f' ; {self.comment}' if self.comment else '')
+                                        self.comment_str)
 
 
 class Store(Load):
@@ -529,18 +549,22 @@ class Store(Load):
             return self.base.live() | self.target.live()
         return self.base.live() | self.offset.live() | self.target.live()
 
+    @property
+    def op_str(self):
+        """Get the formatted op string for stores."""
+        return f'ST{self.size}'.ljust(JUST)
+
     def display(self):
-        return '{} [{}{}], {}{}'.format(f'{"ST"+str(self.size): <{JUST}}',
-                                        self.base,
+        return '{} [{}{}], {}{}'.format(self.op_str, self.base,
                                         f', {self.offset}' if self.offset is not None else '',
-                                        self.target,
-                                        f' ; {self.comment}' if self.comment else '')
+                                        self.target, self.comment_str)
 
 
 class LoadImmediate(Definition):
     """Class for load-immediate instruction objects."""
 
     code = Code.IMMEDIATE
+    op = 'LDI'
 
     def __init__(self, labels, target, source, comment):
         super().__init__(labels, target)
@@ -549,13 +573,14 @@ class LoadImmediate(Definition):
 
     def display(self):
         """Display load-immediate instruction as string."""
-        return f'{"LDI": <{JUST}} {self.target}, {self.source}{self.comment}'
+        return f'{self.op_str} {self.target}, {self.source}{self.comment}'
 
 
 class LoadGlobal(Definition):
     """Class for load-global instruction objects."""
 
     code = Code.GLOBAL
+    op = 'LDI'
 
     def __init__(self, labels, target, name):
         super().__init__(labels, target)
@@ -563,7 +588,7 @@ class LoadGlobal(Definition):
 
     def display(self):
         """Display load-global instruction as string."""
-        return f'{"LDI": <{JUST}} {self.target}, ={self.name}'
+        return f'{self.op_str} {self.target}, ={self.name}'
 
 
 class Ret(Instruction):

@@ -105,7 +105,7 @@ class Expander(Parser):
         elif self.accept('('):
             self.accept(Lex.SPACE)
             args = {}
-            vargs = []
+            va_args = []
             if not self.accept(')'):
                 for i, param in enumerate(macro.parameters):
                     if i > 0:
@@ -124,14 +124,14 @@ class Expander(Parser):
                         if self.peek(')'):
                             break
                         self.expect(',')
-                    vargs.extend(self.tokens[start:self.index])
+                    va_args.extend(self.tokens[start:self.index])
                 self.expect(')')
             def stringize(lexeme):
                 if lexeme in args:
                     return ''.join(str(arg.lexeme) for arg in args[lexeme])
                 return lexeme
             expanded_args = {}
-            expanded_vargs = None
+            expanded_va_args = None
             for ttype, lexeme in macro.body:
                 if ttype is Lex.STRINGIZE:
                     expanded.append(Token(Lex.STRING, stringize(lexeme), name.line))
@@ -142,9 +142,9 @@ class Expander(Parser):
                         expanded_args[lexeme] = Expander(self.defined).parse(args[lexeme])
                     expanded.extend(expanded_args[lexeme])
                 elif lexeme == '__VA_ARGS__' and macro.variadic:
-                    if expanded_vargs is None:
-                        expanded_vargs = Expander(self.defined).parse(vargs)
-                    expanded.extend(expanded_vargs)
+                    if expanded_va_args is None:
+                        expanded_va_args = Expander(self.defined).parse(va_args)
+                    expanded.extend(expanded_va_args)
                 else:
                     expanded.append(Token(ttype, lexeme, name.line))
             if self.index < len(self.tokens) and not self.peek(Lex.SPACE):  # To preserve token boudaries
