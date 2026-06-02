@@ -44,11 +44,8 @@ def ccompile(files, oflag='out', Eflag=False, Sflag=False, fflag=True):
             output = str(emitter)
             display(output)
         else:
-            stds = set()
-            for preproc in processed:
-                stds |= preproc.std_included
             preproc = CPreProcessor()
-            for std in stds & {'ctype', 'math', 'stdio', 'stdlib', 'string'}:
+            for std in ['ctype', 'math', 'stdio', 'stdlib', 'string']:
                 try:
                     preproc.process(f'ccompiler/std/{std}.c')
                     root = parse(preproc.output())

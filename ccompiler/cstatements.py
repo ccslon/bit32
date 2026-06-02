@@ -387,7 +387,7 @@ class Call(Expression, Statement):
                         + f' "{function.name}"' if isinstance(function, Variable) else '')
         for i, (param, arg) in enumerate(zip(function.type.parameters, arguments)):
             if param.type != arg.type:
-                token.error(f'Argument #{i+1} of "{function.token.lexeme}" {param.type} != {arg.type}')
+                token.error(f'Argument #{i+1} of "{function.name}" {param.type} != {arg.type}')
         super().__init__(function.type.return_type)
         self.function = function
         self.arguments = arguments

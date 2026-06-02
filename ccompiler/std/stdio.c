@@ -53,51 +53,51 @@ int puts(const char* s) {
     putchar('\n');
     return 0;
 }
-void uprint(unsigned n) {
+void uprint(FILE* stream, unsigned n) {
     if (n / 10)
-        uprint(n / 10);
-    putchar(n % 10 + '0');
+        uprint(stream, n / 10);
+    fputc(n % 10 + '0', stream);
 }
-void oprint(unsigned n) {
+void oprint(FILE* stream, unsigned n) {
     if (n / 8)
-        oprint(n / 8);
-    putchar(n % 8 + '0');
+        oprint(stream, n / 8);
+    putchar(n % 8 + '0', stream);
 }
-void dprint(int n) {
+void dprint(FILE* stream, int n) {
     if (n < 0) {
-        putchar('-');
+        fputc('-', stream);
         n = -n;
     }
-    uprint(n);
+    uprint(stream, n);
 }
-void xprint(unsigned n, char uplo) {
+void xprint(FILE* stream, unsigned n, char uplo) {
     if (n / 16)
-        xprint(n / 16, uplo);
+        xprint(stream, n / 16, uplo);
     if (n % 16 > 9)
-        putchar(n % 16 - 10 + uplo);
+        fputc(n % 16 - 10 + uplo, stream);
     else
-        putchar(n % 16 + '0');        
+        fputc(n % 16 + '0', stream);
 }
-void fprint(float f, char prec) {
+void fprint(FILE* stream, float f, char prec) {
     if (f < 0.0) {
-        putchar('-');
+        fputc('-', stream);
         f = -f;
     }
     unsigned left = f;
-    uprint(left);
+    uprint(stream, left);
     if (prec > 0) {
-        putchar('.');
+        fputc('.', stream);
         float right = f - left;
         do {
             right *= 10.0;
-            putchar((int)right + '0');
+            fputc((int)right + '0', stream);
             right -= (int)right;
         } while (--prec > 0);
     }
 }
-void eprint(float f, char prec) {
+void eprint(FILE* stream, float f, char prec) {
     if (f < 0) {
-        putchar('-');
+        fputc('-', stream);
         f = -f;
     }
     int exp = 0;
@@ -111,16 +111,14 @@ void eprint(float f, char prec) {
             f *= 10.0;
         }
     }    
-    fprint(f, prec);
-    putchar('e');
-    dprint(exp);
+    fprint(stream, f, prec);
+    fputc('e', stream);
+    dprint(stream, exp);
 }
 #include <stdarg.h>
-void printf(const char* format, ...) {
-    va_list ap;
-    va_start(ap, format);
+int vfprintf(FILE* stream, const char* format, va_list ap) {
     const char* c;
-    unsigned n = 0;
+    size_t n = 0;
     for (c = format; *c; c++, n++) {
         if (*c == '%') {
             c++;
@@ -130,42 +128,76 @@ void printf(const char* format, ...) {
             }
             switch (*c) {
                 case 'u':
-                    uprint(va_arg(ap, unsigned));
+                    uprint(stream, va_arg(ap, unsigned));
                     break;
                 case 'd':
                 case 'i':
-                    dprint(va_arg(ap, int));
+                    dprint(stream, va_arg(ap, int));
                     break;
                 case 'x':
-                    xprint(va_arg(ap, unsigned), 'a');
+                    xprint(stream, va_arg(ap, unsigned), 'a');
                     break;
                 case 'X':
-                    xprint(va_arg(ap, unsigned), 'A');
+                    xprint(stream, va_arg(ap, unsigned), 'A');
                     break;
                 case 'f':
-                    fprint(va_arg(ap, float), precision);
+                    fprint(stream, va_arg(ap, float), precision);
                     break;
                 case 'e':
-                    eprint(va_arg(ap, float), precision);
+                    eprint(stream, va_arg(ap, float), precision);
                     break;
                 case 's':
-                    printf(va_arg(ap, char*));
+                    fprintf(stream, va_arg(ap, char*));
                     break;
                 case 'c':
-                    putchar(va_arg(ap, char));
+                    fputc(va_arg(ap, char), stream);
                     break;
                 case 'o':
-                    oprint(va_arg(ap, unsigned));
+                    oprint(stream, va_arg(ap, unsigned));
                     break;
                 case 'n':
                     *va_arg(ap, unsigned*) = n;
                     break;
                 default:
-                    putchar(*c);
+                    fputc(*c, stream);
             }
         } else {
-            putchar(*c);
+            fputc(*c, stream);
         }
     }
+    return 0;
+}
+int vprintf(const char* format, va_list ap) {
+    return vfprintf(stdout, format, ap);    
+}
+int vsnprintf(char* s, size_t n, const char* format, va_list ap) {
+    int ret, strlen(char*);
+    FILE fake = {s, 0, 0, n};
+    ret = vfprintf(&fake, format, ap);
+    s[n-1] = '\0';
+    return ret;
+}
+int fprintf(FILE* stream, const char* format, ...) {
+    int ret;
+    va_list ap;
+    va_start(ap, format);
+    ret = vfprintf(stream, format, ap);
     va_end(ap);
+    return ret;
+}
+int printf(const char* format, ...) {
+    int ret;
+    va_list ap;
+    va_start(ap, format);
+    ret = vprintf(format, ap);
+    va_end(ap);
+    return ret;
+}
+int snprintf(char* s, size_t n, const char* format, ...) {
+    int ret;
+    va_list ap;
+    va_start(ap, format);
+    ret = vsnprintf(s, n, format, ap);
+    va_end(ap);
+    return ret;
 }

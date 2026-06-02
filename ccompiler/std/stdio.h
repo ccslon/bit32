@@ -20,10 +20,10 @@ int fputc(char, FILE*);
 int putchar(char c) ;
 int fputs(const char*, FILE*);
 int puts(const char*);
-void uprint(unsigned);
-void oprint(unsigned);
-void dprint(int);
-void xprint(unsigned, char);
-void fprint(float, char);
-void eprint(float, char);
-void printf(const char*, ...);
+#include "va_list.h"
+int vfprintf(FILE*, const char*, va_list);
+int vprintf(const char*, va_list);
+int vsnprintf(char*, size_t, const char*, va_list);
+int fprintf(FILE*, const char*, ...);
+int printf(const char*, ...);
+int snprintf(char*, size_t, const char*, ...);

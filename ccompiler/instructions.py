@@ -418,7 +418,7 @@ class CMov(Unary):
     @property
     def op_str(self):
         """Get the formatted op string for cmovs."""
-        return f'{self.op}{self.condition}'.ljust(JUST)
+        return f'{self.op.name}{self.condition}'.ljust(JUST)
 
 class Move(Unary):
     """Base class for coalescable Move instructions."""
