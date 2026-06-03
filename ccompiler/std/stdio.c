@@ -6,6 +6,11 @@ char fgetc(FILE* stream) {
     stream->read = (stream->read + 1) % stream->size;
     return c;
 }
+char ungetc(char c, FILE* stream) {
+    stream->read = stream->read == 0 ? stream->size - 1 : stream->read - 1;
+    stream->buffer[stream->read] = c;
+    return c;
+}
 char getchar() {
     while (stdin->read == stdin->write)
         ;
@@ -116,6 +121,7 @@ void eprint(FILE* stream, float f, char prec) {
     dprint(stream, exp);
 }
 #include <stdarg.h>
+#include <ctype.h>
 int vfprintf(FILE* stream, const char* format, va_list ap) {
     const char* c;
     size_t n = 0;
@@ -123,8 +129,8 @@ int vfprintf(FILE* stream, const char* format, va_list ap) {
         if (*c == '%') {
             c++;
             char precision = 0; 
-            if ('0' <= *c && *c <= '9') {
-                precision = *c++ - '0';
+            while (isdigit(*c)) {
+                precision = 10 * precision + (*c++ - '0');
             }
             switch (*c) {
                 case 'u':
@@ -165,16 +171,16 @@ int vfprintf(FILE* stream, const char* format, va_list ap) {
             fputc(*c, stream);
         }
     }
-    return 0;
+    return n;
 }
 int vprintf(const char* format, va_list ap) {
     return vfprintf(stdout, format, ap);    
 }
 int vsnprintf(char* s, size_t n, const char* format, va_list ap) {
-    int ret, strlen(char*);
+    int ret;
     FILE fake = {s, 0, 0, n};
     ret = vfprintf(&fake, format, ap);
-    s[n-1] = '\0';
+    fputc('\0', &fake);
     return ret;
 }
 int fprintf(FILE* stream, const char* format, ...) {
@@ -200,4 +206,168 @@ int snprintf(char* s, size_t n, const char* format, ...) {
     ret = vsnprintf(s, n, format, ap);
     va_end(ap);
     return ret;
+}
+unsigned uscan(FILE* stream) {
+    char c;
+    unsigned u = 0;
+    while (isspace(c = fgetc(stream)))
+        ;
+    while (c = fgetc(stream) && isdigit(c))
+        u = 10 * u + (c - '0');
+    return u;
+}
+int dscan(FILE* stream) {
+    char c;
+    int d, sign;
+    while (isspace(c = fgetc(stream)))
+        ;
+    sign = c == '-' ? -1 : 1;
+    if (c == '-' || c == '+')
+        c = fgetc(stream);
+    for (d = 0; isdigit(c); c = fgetc(stream))
+        d = 10 * d + (c - '0');
+    return sign * d
+}
+unsigned oscan(FILE* stream) {
+    char c;
+    unsigned o;
+    while (isspace(c = fgetc(stream)))
+        ;
+    while (c = fgetc(stream) && '0' <= c && c <= '7')
+        o = 8 * o + (o - '0');
+    return o;
+}
+unsigned xscan(FILE* stream) {
+    char c;
+    unsigned x;
+    while (isspace(c = fgetc(stream)))
+        ;
+    if (c == '0') {
+        c = fgetc(stream);
+        if (!(c == 'x' || c == 'X'))
+            return EOF;
+    }
+    while (c = fgetc(stream) && isxdigit(c))
+        if (isdigit(c))
+            c = 16 * x + (c - '0');
+        else
+            c = 16 * x + (10 + c - (isupper(c) ? 'A' : 'a'));
+    return x;            
+}
+int iscan(FILE* stream) {
+    char c;
+    int i;
+    while (isspace(c = fgetc(stream)))
+        ;
+    if (c == '0') {
+        c = fgetc(stream);
+        if (c == 'x' || c == 'X')
+            return xscan(stream);
+        return oscan(stream);
+    }
+    return dscan(stream);
+}
+float fscan(FILE* stream) {
+    char c;
+    float sign, f = 0, pow;
+    while (isspace(c = fgetc(stream)))
+        ;
+    sign = c == '-' ? -1 : 1;
+    while (c = fgetc(stream) && isdigit(c))
+        f = 10 * f + (c - '0');
+    if (c != '.')
+        return sign * f;
+    pow = 1;
+    while (c = fgetc(stream) && isdigit(c)) {
+        f = 10 * f + (c - 10);
+        pow *= 10;
+    }
+    return sign * f / pow;
+}
+float escan(FILE* stream) {
+    char c;
+    float e = fscan(stream);
+    c = fgetc(stream);
+    if (c != 'e' && c != 'E')
+        return e;
+    int exp = dscan(stream);
+    while (; exp < 0; exp++)
+        e /= 10;
+    while (; exp > 0; exp--)
+        e *= 10;
+    return e;
+}
+char cscan(FILE* stream) {
+    while (isspace(c = fgetc(stream)))
+        ;
+    return c;
+}
+char* sscan(char* s, FILE* stream) {
+    char c;
+    while (isspace(c = fgetc(stream)))
+        ;
+    for (; c && !isspace(c); c = fgetc(stream), s++)
+        *s = c;
+    *s = '\0';
+}
+
+void signore(FILE* stream) {
+    char c;
+    while (isspace(c = fgetc(stream)))
+        ;
+    for (; c && !isspace(c); c = fgetc(stream))
+        ;
+}
+
+int vfscanf(FILE* stream, const char* format, va_list ap) {
+    const char* c;
+    int n = 0;
+    for (c = format; *c; c++) {
+        if (*c == '%') {
+            c++;
+            if (*c == '*') {
+
+            }
+            char width;
+            if (isdigit(*c)) {
+                width = 0;
+                while (isdigit(*c)) 
+                    width = 10 * width + (*c++ - '0');
+            } else
+                width = -1;
+            else {
+                switch (*c++) {
+                    case 'u':
+                        *va_arg(ap, unsigned*) = uscan(stream);
+                        break;
+                    case 'd':
+                        *va_arg(ap, int*) = dscan(stream);
+                        break;
+                    case 'i':
+                        *va_arg(ap, int*) = iscan(stream);
+                        break;
+                    case 'f':
+                        *va_arg(ap, float*) = fscan(stream);
+                        break;
+                    case 'e':
+                    case 'E':
+                        *va_args(ap, float*) = escan(stream);
+                        break;
+                    case 'c':
+                        *va_arg(ap, char*) = cscan(stream);
+                        break;
+                    case 's':
+                        sscan(va_arg(ap, char*), stream);               
+                        break;
+                    
+                }
+                n++;
+            }            
+        } else if (isspace(c))
+            ; // ignore
+        else
+            if (c != fgetc(stream))
+                return EOF;
+    }
+    return n;
 }

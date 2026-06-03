@@ -50,7 +50,7 @@ main:
   PUSH   B, LR
   SUB    SP, 4
   LDI    A, =cats
-  ADD    A, A, 18
+  ADD    A, 18
   ST     [SP, 0], A ; cat1
   LDI    A, =.S3
   LD     B, [SP, 0] ; cat1
@@ -59,7 +59,7 @@ main:
   LD     B, [SP, 0] ; cat1
   ST.B   [B, 4], A ; .age
   LDI    A, =owners
-  ADD    A, A, 0
+  ADD    A, 0
   LD     B, [SP, 0] ; cat1
   ST     [B, 5], A ; .owner
   LD     A, [SP, 0] ; cat1

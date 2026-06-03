@@ -20,14 +20,13 @@ char* strncpy(char* s, const char* t, size_t n) {
 #include <stdlib.h>
 char* strdup(const char* s) {
     char* p = malloc(strlen(s)+1);
-    if (p != (void*)0)
+    if (p != NULL)
         strncpy(p, s, strlen(s)+1);
     return p;
 }
 char* strndup(const char* s, size_t n) {
-    void* malloc(unsigned);
     char* p = malloc(n);
-    if (p != (void*)0)
+    if (p != NULL)
         strncpy(p, s, n);
     return p;
 }

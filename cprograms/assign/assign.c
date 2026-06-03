@@ -3,8 +3,6 @@
 #include <string.h>
 
 #include "intmap.h"
-// #include "lexer.h"
-// #include "nodes.h"
 #include "parser.h"
 
 jmp_buf jmp;

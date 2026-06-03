@@ -1,4 +1,4 @@
-#include "stdlib.h"
+#include <stdlib.h>
 div_t div(int num, int den) {
     div_t ans = {num / den, num % den};
     return ans;
@@ -61,28 +61,42 @@ int rand() {
 void srand(int seed) {
     next_rand = seed;
 }
+#include <ctype.h>
 int atoi(const char* s) {
-    int i, n = 0;
-    for (i = 0; '0' <= s[i] && s[i] <= '9'; ++i)
+    int sign, i, n;    
+    for (i = 0; isspace(s[i]); i++)
+        ;
+    sign = s[i] == '-' ? -1 : 1;
+    if (s[i] == '-' || s[i] == '+')
+        i++;
+    for (n = 0; isdigit(s[i]); i++)
         n = 10 * n + (s[i] - '0');
-    return n;
+    return sign * n;
 }
 float atof(const char* s) {
-    float val, pow;
-    int i = 0, sign;
+    float f, pow;
+    int i, sign;
+    for (i = 0; isspace(s[i]); i++)
+        ;
     sign = s[i] == '-' ? -1 : 1;
-    if (s[i] == '+' || s[i] == '-') 
+    if (s[i] == '-' || s[i] == '+')
         i++;
-    for (val = 0.0; '0' <= s[i] && s[i] <= '9'; i++)
-        val = 10.0 * val + (s[i] - '0');
+    for (f = 0.0; isdigit(s[i]); i++)
+        f = 10.0 * f + (s[i] - '0');
     if (s[i] == '.')
         i++;
-    for (pow = 1.0; '0' <= s[i] && s[i] <= '9'; i++) {
-        val = 10.0 * val + (s[i] - '0');
+    for (pow = 1.0; isdigit(s[i]); i++) {
+        f = 10.0 * f + (s[i] - '0');
         pow *= 10.0;
     }
-    return sign * val / pow;
+    return sign * f / pow;
 }
+typedef struct Header {
+    struct Header* next;
+    unsigned size;
+} Header;
+extern Header* freehead;
+void* getheap(int);
 Header base;
 Header *freehead = NULL;
 Header* morecore(size_t n) {
