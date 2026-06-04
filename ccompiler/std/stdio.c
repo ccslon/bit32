@@ -335,34 +335,32 @@ int vfscanf(FILE* stream, const char* format, va_list ap) {
                     width = 10 * width + (*c++ - '0');
             } else
                 width = -1;
-            else {
-                switch (*c++) {
-                    case 'u':
-                        *va_arg(ap, unsigned*) = uscan(stream);
-                        break;
-                    case 'd':
-                        *va_arg(ap, int*) = dscan(stream);
-                        break;
-                    case 'i':
-                        *va_arg(ap, int*) = iscan(stream);
-                        break;
-                    case 'f':
-                        *va_arg(ap, float*) = fscan(stream);
-                        break;
-                    case 'e':
-                    case 'E':
-                        *va_args(ap, float*) = escan(stream);
-                        break;
-                    case 'c':
-                        *va_arg(ap, char*) = cscan(stream);
-                        break;
-                    case 's':
-                        sscan(va_arg(ap, char*), stream);               
-                        break;
-                    
-                }
-                n++;
-            }            
+            switch (*c++) {
+                case 'u':
+                    *va_arg(ap, unsigned*) = uscan(stream);
+                    break;
+                case 'd':
+                    *va_arg(ap, int*) = dscan(stream);
+                    break;
+                case 'i':
+                    *va_arg(ap, int*) = iscan(stream);
+                    break;
+                case 'f':
+                    *va_arg(ap, float*) = fscan(stream);
+                    break;
+                case 'e':
+                case 'E':
+                    *va_args(ap, float*) = escan(stream);
+                    break;
+                case 'c':
+                    *va_arg(ap, char*) = cscan(stream);
+                    break;
+                case 's':
+                    sscan(va_arg(ap, char*), stream);               
+                    break;
+                
+            }
+            n++;     
         } else if (isspace(c))
             ; // ignore
         else
