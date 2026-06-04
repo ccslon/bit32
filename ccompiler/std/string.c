@@ -15,6 +15,7 @@ char* strncpy(char* s, const char* t, size_t n) {
     size_t i;
     for (i = 0; i < n && (s[i] = t[i]) != '\0'; i++) 
         ;
+    s[i] = '\0';
     return s;
 }
 #include <stdlib.h>
@@ -37,10 +38,17 @@ char* strcat(char* s, const char* t) {
     return s;
 }
 char* strncat(char* s, const char* t, size_t n) {
+    if (n == 0) return s;
     size_t i = strlen(s), j = 0;
-    while(i < n && (s[i++] = t[j++]) != '\0')
+    while(i < n-1 && (s[i++] = t[j++]) != '\0')
         ;
+    s[i] = '\0';
     return s;
+}
+#define BUF 8
+int main() {
+    char buf[BUF] = "Hello";
+    strncat(buf, "world", BUF);
 }
 char* strrev(char* s) {
     size_t front, back;
@@ -70,7 +78,7 @@ char* strchr(const char* s, char c) {
     for (i = 0; s[i] != '\0'; i++)
         if (s[i] == c)
             return &s[i];
-    return (char*)0;
+    return NULL;
 }
 void* memset(void* s, unsigned char v, size_t n) {
     size_t i;
