@@ -1,7 +1,14 @@
 #include <string.h>
+#include <stdlib.h>
 size_t strlen(const char* s) {
     size_t l = 0;
     while (s[l] != '\0')
+        l++;
+    return l;
+}
+size_t strnlen(const char* s, size_t n) {
+    size_t l = 0;
+    while (l < n && s[l] != '\0')
         l++;
     return l;
 }
@@ -18,12 +25,8 @@ char* strncpy(char* s, const char* t, size_t n) {
     s[i] = '\0';
     return s;
 }
-#include <stdlib.h>
 char* strdup(const char* s) {
-    char* p = malloc(strlen(s)+1);
-    if (p != NULL)
-        strncpy(p, s, strlen(s)+1);
-    return p;
+    return strndup(s, strlen(s)+1);
 }
 char* strndup(const char* s, size_t n) {
     char* p = malloc(n);
@@ -39,16 +42,11 @@ char* strcat(char* s, const char* t) {
 }
 char* strncat(char* s, const char* t, size_t n) {
     if (n == 0) return s;
-    size_t i = strlen(s), j = 0;
+    size_t i = strnlen(s, n), j = 0;
     while(i < n-1 && (s[i++] = t[j++]) != '\0')
         ;
     s[i] = '\0';
     return s;
-}
-#define BUF 8
-int main() {
-    char buf[BUF] = "Hello";
-    strncat(buf, "world", BUF);
 }
 char* strrev(char* s) {
     size_t front, back;

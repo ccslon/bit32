@@ -226,7 +226,7 @@ int dscan(FILE* stream) {
         c = fgetc(stream);
     for (d = 0; isdigit(c); c = fgetc(stream))
         d = 10 * d + (c - '0');
-    return sign * d
+    return sign * d;
 }
 unsigned oscan(FILE* stream) {
     char c;
@@ -291,13 +291,14 @@ float escan(FILE* stream) {
     if (c != 'e' && c != 'E')
         return e;
     int exp = dscan(stream);
-    while (; exp < 0; exp++)
+    for (; exp < 0; exp++)
         e /= 10;
-    while (; exp > 0; exp--)
+    for (; exp > 0; exp--)
         e *= 10;
     return e;
 }
 char cscan(FILE* stream) {
+    char c;
     while (isspace(c = fgetc(stream)))
         ;
     return c;
@@ -350,17 +351,16 @@ int vfscanf(FILE* stream, const char* format, va_list ap) {
                     break;
                 case 'e':
                 case 'E':
-                    *va_args(ap, float*) = escan(stream);
+                    *va_arg(ap, float*) = escan(stream);
                     break;
                 case 'c':
                     *va_arg(ap, char*) = cscan(stream);
                     break;
                 case 's':
                     sscan(va_arg(ap, char*), stream);               
-                    break;
-                
+                    break;                   
             }
-            n++;     
+            n++;
         } else if (isspace(c))
             ; // ignore
         else

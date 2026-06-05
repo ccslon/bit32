@@ -158,6 +158,7 @@ class Emitter:
                 and inst1.op is Op.MOV
                 and inst2.code is Code.UNARY
                 and inst2.op is Op.ITF
+                and inst1.target not in inst2.live_out
                 and inst1.target == inst2.source
                 and not isinstance(inst1.source, Register)):
                 '''
@@ -228,8 +229,8 @@ class Emitter:
                   and inst1.base == inst2.base
                   and inst1.offset == inst2.offset):
                 '''
-                ST [A, B], C
-                LD C, [A, B]
+                ST [B, C], A
+                LD A, [B, C]
                 '''
                 new.append(inst1)
                 i += 1
