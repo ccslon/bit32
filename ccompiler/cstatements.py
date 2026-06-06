@@ -385,6 +385,9 @@ class Call(Expression, Statement):
         if len(arguments) < len(function.type.parameters):
             token.error('Not enough arguments provided for function call'
                         + f' "{function.name}"' if isinstance(function, Variable) else '')
+        if not function.type.variadic and len(arguments) > len(function.type.parameters):
+            token.error('Too many arguments provided for function call'
+                        + f' "{function.name}"' if isinstance(function, Variable) else '')
         for i, (param, arg) in enumerate(zip(function.type.parameters, arguments)):
             if param.type != arg.type:
                 token.error(f'Argument #{i+1} of "{function.name}" {param.type} != {arg.type}')
