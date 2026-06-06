@@ -772,11 +772,16 @@ class CParser(Parser):
                     self.function = FunctionInfo(ctype.return_type, name.lexeme)
                     self.stack_parameters = Frame()
                     self.begin_scope()
-                    for param in ctype.parameters[:4]:
-                        self.scope.locals[param.name] = param
-                    for param in ctype.parameters[4:]:
-                        self.stack_parameters[param.name] = param
-                    DefinitionType = VariadicDefinition if ctype.variadic else Definition
+                    if ctype.variadic:
+                        DefinitionType = VariadicDefinition
+                        for param in ctype.parameters:
+                            self.stack_parameters[param.name] = param
+                    else:
+                        DefinitionType = Definition
+                        for param in ctype.parameters[:4]:
+                            self.scope.locals[param.name] = param
+                        for param in ctype.parameters[4:]:
+                            self.stack_parameters[param.name] = param
                     compound = self.compound()
                     self.end_scope()
                     self.expect('}')
