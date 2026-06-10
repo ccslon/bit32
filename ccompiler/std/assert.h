@@ -1,6 +1,6 @@
 #define ASSERT_H
 #ifdef NDEBUG
-#include <stdio.h>
+void puts(const char*);
 void abort();
 #define __ASSERT_H_STR(s) #s
 #define __ASSERT_H_STRX(x) __ASSERT_H_STR(x)
