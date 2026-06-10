@@ -13,14 +13,11 @@ size_t strnlen(const char* s, size_t n) {
     return l;
 }
 char* strcpy(char* s, const char* t) {
-    size_t i;
-    for (i = 0; (s[i] = t[i]) != '\0'; i++) 
-        ;
-    return s;
+    return strncpy(s, t, strlen(t)+1);
 }
 char* strncpy(char* s, const char* t, size_t n) {
     size_t i;
-    for (i = 0; i < n && (s[i] = t[i]) != '\0'; i++) 
+    for (i = 0; i < n-1 && (s[i] = t[i]) != '\0'; i++) 
         ;
     s[i] = '\0';
     return s;
@@ -35,10 +32,7 @@ char* strndup(const char* s, size_t n) {
     return p;
 }
 char* strcat(char* s, const char* t) {
-    size_t i = strlen(s), j = 0;
-    while((s[i++] = t[j++]) != '\0')
-        ;
-    return s;
+    return strncat(s, t, strlen(s)+strlen(t)+1);
 }
 char* strncat(char* s, const char* t, size_t n) {
     if (n == 0) return s;
@@ -49,8 +43,11 @@ char* strncat(char* s, const char* t, size_t n) {
     return s;
 }
 char* strrev(char* s) {
+    return strnrev(s, strlen(s)+1);
+}
+char* strnrev(char* s, size_t n) {
     size_t front, back;
-    for (front = 0, back = strlen(s)-1; front < back; front++, back--) {
+    for (front = 0, back = strnlen(s, n)-1; front < back; front++, back--) {
         char temp = s[front];
         s[front] = s[back];
         s[back] = temp;
@@ -58,11 +55,9 @@ char* strrev(char* s) {
     return s;
 }
 int strcmp(const char* s, const char* t) {
-    int i;
-    for (i = 0; s[i] == t[i]; i++)
-        if (s[i] == '\0')
-            return 0;
-    return s[i] - t[i];
+    size_t l = strlen(s);
+    size_t m = strlen(t);
+    return strncmp(s, t, l > m ? l : m);
 }
 int strncmp(const char* s, const char* t, size_t n) {
     size_t i;
@@ -94,6 +89,9 @@ void* memcpy(void* s, const void* t, size_t n) {
     for (c = 0; c < tail; c++)
         *(char*)(s+i+c) = *(char*)(t+i+c);
     return s;
+}
+void* memmove(void* s, const void* t, size_t n) {
+    return memcpy(s, t, n);
 }
 size_t memcmp(const void* s, const void* t, size_t n) {
     size_t i;
