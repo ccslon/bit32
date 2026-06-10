@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <ctype.h>
 div_t div(int num, int den) {
     div_t ans = {num / den, num % den};
     return ans;
@@ -61,7 +62,6 @@ int rand() {
 void srand(int seed) {
     next_rand = seed;
 }
-#include <ctype.h>
 int atoi(const char* s) {
     int sign, i, n;    
     for (i = 0; isspace(s[i]); i++)
@@ -81,13 +81,14 @@ float atof(const char* s) {
     sign = s[i] == '-' ? -1 : 1;
     if (s[i] == '-' || s[i] == '+')
         i++;
-    for (f = 0.0; isdigit(s[i]); i++)
-        f = 10.0 * f + (s[i] - '0');
-    if (s[i] == '.')
-        i++;
-    for (pow = 1.0; isdigit(s[i]); i++) {
-        f = 10.0 * f + (s[i] - '0');
-        pow *= 10.0;
+    for (f = 0; isdigit(s[i]); i++)
+        f = 10 * f + (s[i] - '0');
+    if (s[i] != '.')
+        return sign * f;
+    i++;
+    for (pow = 1; isdigit(s[i]); i++) {
+        f = 10 * f + (s[i] - '0');
+        pow *= 10;
     }
     return sign * f / pow;
 }
