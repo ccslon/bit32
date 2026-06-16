@@ -131,6 +131,7 @@ class CParser(Parser):
         self.scope = Scope()
         self.stack = []
         self.function = None
+        self.stack_parameters = {}
         super().__init__()
 
     def parse(self, tokens):

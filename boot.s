@@ -7,11 +7,13 @@ IN = 0x80000001
     MOV SP, STACK_INIT
     CALL main
     HALT
+
 ; char in();
 in:
     MOV A, IN
     LD.B A, [A]
     RET
+
 ; void out(char);
 out:
     PUSH B
@@ -19,55 +21,25 @@ out:
     ST.B [B], A
     POP B
     RET
-STDIN_BUFFER_SIZE = 32
-interrupt_handler:
+
+.interrupt:
     OR SR, 0b00100000 ; disable interrupts
-    PUSH LR, A, B, C, D, SR
-    SUB SP, 1
-    MOV.B A, 0
-    ST.B [SP, 0], A
-    LDI B, =.stdin_buf
-    LDI C, =.stdin_write
-.loop_head:
-    LD.B A, [SP, 0]
-    CMP.B A, 8
-    JGE .interrupt_end
-    CALL in
-    CMP.B A, '\0'
-    JEQ .interrupt_end
-    CALL out
-    LD D, [C]
-    ST.B [B, D], A
-    ADD D, 1
-    AND D, STDIN_BUFFER_SIZE - 1
-    ST [C], D
-.loop_tail:
-    LD.B A, [SP, 0]
-    ADD.B A, 1
-    ST.B [SP, 0], A
-    JMP .loop_head
-.interrupt_end:
-    ADD SP, 1
-    POP LR, A, B, C, D, SR
+    PUSH LR, SR
+    CALL interrupt
+    POP LR, SR
     AND SR, 0b11011111 ; enable interrupts
     IRET
 
-.stdin_buf:     .space STDIN_BUFFER_SIZE
-.stdin:         .word .stdin_buf
-.stdin_read:    .word 0
-.stdin_write:   .word 0
-.stdin_size:    .word STDIN_BUFFER_SIZE
-.stdout:
-                .word OUT ; buffer
-                .word 0      ; read
-                .word 0      ; write
-                .word 1      ; size
 
-stdin:  .word .stdin
-stdout: .word .stdout
+stdin:  .word _stdin
 
-stderr: .word .stdout
-errno: .word 0
+stdout: .word _stdout
+
+stderr: .word _stderr
+
+errno:  .word 0
+
+heap: .word .heap_start
 
 ; int setjmp(jmp_buf);
 setjmp:
@@ -109,18 +81,6 @@ longjmp:
     LD LR, [A, 56]
     ; LD PC, [A, 60] ; Not needed
     LD A, [A, 0]
-    RET
-
-.heap: .word .heap_start
-; void* morecore(int);
-getheap:
-    PUSH B, C, D
-    LDI B, =.heap
-    LD C, [B]
-    ADD D, A, C
-    ST [B], D
-    MOV A, C
-    POP B, C, D
     RET
 
 abort:

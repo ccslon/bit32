@@ -53,7 +53,7 @@ void loop() {
 	char buf[BUF_SIZE];
 	while(1) {
         buf[0] = '\0';
-		fgets(buf, BUF_SIZE, stdin);
+		gets(buf, BUF_SIZE);
 		if (strcmp(buf, "quit") == 0) {
 			return;
 		}

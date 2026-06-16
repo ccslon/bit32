@@ -367,7 +367,8 @@ class Pointer(Int):
         if self.interval > 1:
             if right.is_constant():
                 if op is Op.ADD:
-                    return emitter.emit_address(left.reduce(emitter), right.fold().evaluate() * self.interval)
+                    offset = right.fold().evaluate() 
+                    return emitter.emit_address(left.reduce(emitter), offset * self.interval, False, f'+{offset}')
                 return emitter.emit_binary(op, Size.WORD, left.reduce(emitter), right.fold().evaluate() * self.interval)
             left = left.reduce(emitter)
             right = right.reduce(emitter)

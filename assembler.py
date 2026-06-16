@@ -518,7 +518,7 @@ def link(objects):
         data = Type(*args)
         contents.append(data.little_end())
         i += Type.size
-    print('Interrupt Vector:', '0x'+Interrupt(Cond.AL, False, targets['interrupt_handler']).hex())
+    print('Interrupt Vector:', '0x'+Interrupt(Cond.AL, False, targets['.interrupt']).hex())
     print(repl('\nSuccess!', Color.GREEN), len(contents), 'items.', i, 'bytes')
     return contents
 
@@ -592,6 +592,8 @@ def assemble(program, name='out'):
 
 if __name__ == '__main__':
     assembly = '''
+    interrupt:
+        RET
     main:
     loop:
         JMP loop

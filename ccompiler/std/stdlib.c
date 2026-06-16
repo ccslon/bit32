@@ -96,10 +96,14 @@ typedef struct Header {
     struct Header* next;
     unsigned size;
 } Header;
-extern Header* freehead;
-void* getheap(int);
 Header base;
 Header *freehead = NULL;
+extern void* heap;
+void* getheap(size_t n) {
+    void* temp = heap;
+    heap += n;
+    return temp;
+}
 Header* morecore(size_t n) {
     void* core;
     Header* header;

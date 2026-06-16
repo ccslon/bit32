@@ -9,7 +9,7 @@ from operator import (add, sub, mul, floordiv, truediv, mod,
                       eq, ne, gt, lt, ge, le)
 from bit32 import Size, Op, Reg, Cond, twos_compliment, floating_point, escape_chr
 from .cnodes import Expression, Variable, Constant, Unary, Binary, Access, Statement
-from .ctypes import Type, Void, Char, Int, Float, Pointer, Array
+from .ctypes import Type, Void, Char, Int, Float, Pointer, Array, Function
 
 class Local(Variable):
     """Class for local variables and parameters."""
@@ -48,6 +48,18 @@ class Attribute(Variable):
 
 class Global(Variable):
     """Class for global variables."""
+
+    def is_constant(self):
+        """Statically defined variables are considered constant."""
+        return isinstance(self.type, Function | Array) # Struct | Union | Pointer?
+
+    def fold(self):
+        """Fold this global into its address."""
+        return self
+    
+    def data(self, _):
+        """Get this global's address as data."""
+        return self.name
 
     def address(self, emitter):
         """Generate address code for global variables."""
@@ -124,6 +136,7 @@ class Decimal(Constant):
 
     def reduce_float(self, emitter):
         return self.reduce(emitter)
+
 
 class Character(Constant):
     """Class for character literals."""
