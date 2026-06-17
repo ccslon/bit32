@@ -100,9 +100,7 @@ Header base;
 Header *freehead = NULL;
 extern void* heap;
 void* getheap(size_t n) {
-    void* temp = heap;
-    heap += n;
-    return temp;
+    return (heap += n);
 }
 Header* morecore(size_t n) {
     void* core;
