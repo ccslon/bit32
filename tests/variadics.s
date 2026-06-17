@@ -2,44 +2,44 @@
 printf:
   PUSH   A, B, C, D
   PUSH   B, C, LR
-  SUB    SP, 17
-  ADD    A, SP, 33 ; format
-  ST     [SP, 4], A ; ap
+  SUB    SP, 13
+  ADD    A, SP, 29 ; format+1
+  ST     [SP, 0], A ; ap
   MOV    A, 0
-  ST     [SP, 12], A ; n
-  LD     A, [SP, 29] ; format
-  ST     [SP, 8], A ; c
+  ST     [SP, 8], A ; n
+  LD     A, [SP, 25] ; format
+  ST     [SP, 4], A ; c
 .L0:
-  LD     A, [SP, 8] ; c
+  LD     A, [SP, 4] ; c
   LD.B   A, [A]
   CMP.B  A, 0
   JEQ    .L2
-  LD     A, [SP, 8] ; c
+  LD     A, [SP, 4] ; c
   LD.B   A, [A]
   CMP.B  A, '%'
   JNE    .L4
-  LD     A, [SP, 8] ; c
+  LD     A, [SP, 4] ; c
   ADD    A, 1
-  ST     [SP, 8], A ; c
+  ST     [SP, 4], A ; c
   MOV    A, 0
-  ST.B   [SP, 16], A ; precision
+  ST.B   [SP, 12], A ; precision
   MOV.B  A, '0'
-  LD     B, [SP, 8] ; c
+  LD     B, [SP, 4] ; c
   LD.B   B, [B]
   CMP.B  A, B
   JGT    .L5
-  LD     A, [SP, 8] ; c
+  LD     A, [SP, 4] ; c
   LD.B   A, [A]
   CMP.B  A, '9'
   JGT    .L5
-  LD     A, [SP, 8] ; c
+  LD     A, [SP, 4] ; c
   ADD    B, A, 1
-  ST     [SP, 8], B ; c
+  ST     [SP, 4], B ; c
   LD.B   A, [A]
   SUB.B  A, '0'
-  ST.B   [SP, 16], A ; precision
+  ST.B   [SP, 12], A ; precision
 .L5:
-  LD     A, [SP, 8] ; c
+  LD     A, [SP, 4] ; c
   LD.B   A, [A]
   CMP.B  A, 'u'
   JEQ    .L8
@@ -65,104 +65,104 @@ printf:
   JEQ    .L18
   JMP    .L19
 .L8:
-  LD     A, [SP, 4] ; ap
+  LD     A, [SP, 0] ; ap
   ADD    B, A, 4
-  ST     [SP, 4], B ; ap
+  ST     [SP, 0], B ; ap
   LD     A, [A]
   CALL   uprint
   JMP    .L7
 .L9:
 .L10:
-  LD     A, [SP, 4] ; ap
+  LD     A, [SP, 0] ; ap
   ADD    B, A, 4
-  ST     [SP, 4], B ; ap
+  ST     [SP, 0], B ; ap
   LD     A, [A]
   CALL   dprint
   JMP    .L7
 .L11:
-  LD     A, [SP, 4] ; ap
+  LD     A, [SP, 0] ; ap
   ADD    B, A, 4
-  ST     [SP, 4], B ; ap
+  ST     [SP, 0], B ; ap
   LD     A, [A]
   MOV.B  B, 'a'
   CALL   xprint
   JMP    .L7
 .L12:
-  LD     A, [SP, 4] ; ap
+  LD     A, [SP, 0] ; ap
   ADD    B, A, 4
-  ST     [SP, 4], B ; ap
+  ST     [SP, 0], B ; ap
   LD     A, [A]
   MOV.B  B, 'A'
   CALL   xprint
   JMP    .L7
 .L13:
-  LD     A, [SP, 4] ; ap
+  LD     A, [SP, 0] ; ap
   ADD    B, A, 4
-  ST     [SP, 4], B ; ap
+  ST     [SP, 0], B ; ap
   LD     A, [A]
-  LD.B   B, [SP, 16] ; precision
+  LD.B   B, [SP, 12] ; precision
   CALL   fprint
   JMP    .L7
 .L14:
-  LD     A, [SP, 4] ; ap
+  LD     A, [SP, 0] ; ap
   ADD    B, A, 4
-  ST     [SP, 4], B ; ap
+  ST     [SP, 0], B ; ap
   LD     A, [A]
-  LD.B   B, [SP, 16] ; precision
+  LD.B   B, [SP, 12] ; precision
   CALL   eprint
   JMP    .L7
 .L15:
-  LD     A, [SP, 4] ; ap
+  LD     A, [SP, 0] ; ap
   ADD    B, A, 4
-  ST     [SP, 4], B ; ap
+  ST     [SP, 0], B ; ap
   LD     A, [A]
   CALL   printf
   JMP    .L7
 .L16:
-  LD     A, [SP, 4] ; ap
+  LD     A, [SP, 0] ; ap
   ADD    B, A, 4
-  ST     [SP, 4], B ; ap
+  ST     [SP, 0], B ; ap
   LD.B   A, [A]
   CALL   putchar
   JMP    .L7
 .L17:
-  LD     A, [SP, 4] ; ap
+  LD     A, [SP, 0] ; ap
   ADD    B, A, 4
-  ST     [SP, 4], B ; ap
+  ST     [SP, 0], B ; ap
   LD     A, [A]
   CALL   oprint
   JMP    .L7
 .L18:
-  LD     A, [SP, 12] ; n
-  LD     B, [SP, 4] ; ap
+  LD     A, [SP, 8] ; n
+  LD     B, [SP, 0] ; ap
   ADD    C, B, 4
-  ST     [SP, 4], C ; ap
+  ST     [SP, 0], C ; ap
   LD     B, [B]
   ST     [B], A
   JMP    .L7
 .L19:
-  LD     A, [SP, 8] ; c
+  LD     A, [SP, 4] ; c
   LD.B   A, [A]
   CALL   putchar
 .L7:
   JMP    .L3
 .L4:
-  LD     A, [SP, 8] ; c
+  LD     A, [SP, 4] ; c
   LD.B   A, [A]
   CALL   putchar
 .L3:
 .L1:
-  LD     A, [SP, 8] ; c
+  LD     A, [SP, 4] ; c
   ADD    A, 1
-  ST     [SP, 8], A ; c
-  LD     A, [SP, 12] ; n
+  ST     [SP, 4], A ; c
+  LD     A, [SP, 8] ; n
   ADD    A, 1
-  ST     [SP, 12], A ; n
+  ST     [SP, 8], A ; n
   JMP    .L0
 .L2:
   MOV    A, 0
-  ST     [SP, 4], A ; ap
-  ADD    SP, 17
+  ST     [SP, 0], A ; ap
+  ADD    SP, 13
   POP    B, C, LR
   ADD    SP, 16
   RET
