@@ -333,11 +333,6 @@ class Call(Instruction):
                 graph[reg].add(Registers[0])
                 graph[Registers[0]].add(reg)
 
-    def precolor(self, colors):
-        """Precolor the colors with registers."""
-        for i in range(self.arguments):
-            colors[Registers[i]] = i
-
     def display(self):
         """Display call instruction as string."""
         return f'{self.op_str} {self.target}'
@@ -427,16 +422,22 @@ class Move(Unary):
 
     def coalesce(self, graph):
         """Attempt to coalesce this move isntruction."""
-        reg = self.get_physical()
+        phys = self.get_physical()
         virt = self.get_virtual()
-        if virt.virtual and reg not in graph[virt]:  # if they don't interfere
-            graph[reg] |= graph[virt]
+        if virt.virtual and phys not in graph[virt]:  # if they don't interfere
+            graph[phys] |= graph[virt]
             for edge in graph[virt]:
                 graph[edge].remove(virt)
-                graph[edge].add(reg)
-            virt.devirtualize(reg)
+                graph[edge].add(phys)
+            virt.devirtualize(phys)
             return True
         return False
+
+    def precolor(self, colors):
+        """Precolor with physical registers used in moves."""
+        phys = self.get_physical()
+        if phys not in colors:
+            colors[phys] = int(phys.reg)
 
 
 class LeftMove(Move):
