@@ -9,8 +9,8 @@ from enum import IntEnum
 from struct import pack
 
 
-BYTE_MASK = BYTE_MASK
-WORD_MASK = BYTE_MASKFFFFFF
+BYTE_MASK = 0xFF
+WORD_MASK = 0xFFFFFFFF
 
 
 def twos_compliment(number, bits):
