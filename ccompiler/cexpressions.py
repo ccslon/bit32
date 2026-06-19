@@ -5,11 +5,12 @@ Created on Fri Sep  6 14:09:48 2024
 @author: ccslon
 """
 from operator import (add, sub, mul, floordiv, truediv, mod,
-                      lshift, rshift, neg, inv, or_, xor, and_,
+                      lshift, rshift, neg, or_, xor, and_,
                       eq, ne, gt, lt, ge, le)
-from bit32 import Size, Op, Reg, Cond, twos_compliment, floating_point, escape_chr
+from bit32 import WORD_MASK, Size, Op, Reg, Cond, twos_compliment, floating_point, escape_chr
 from .cnodes import Expression, Variable, Constant, Unary, Binary, Access, Statement
 from .ctypes import Type, Void, Char, Int, Float, Pointer, Array, Function
+
 
 class Local(Variable):
     """Class for local variables and parameters."""
@@ -51,12 +52,12 @@ class Global(Variable):
 
     def is_constant(self):
         """Statically defined variables are considered constant."""
-        return isinstance(self.type, Function | Array) # Struct | Union | Pointer?
+        return isinstance(self.type, Function | Array)  # Struct | Union | Pointer?
 
     def fold(self):
         """Fold this global into its address."""
         return self
-    
+
     def data(self, _):
         """Get this global's address as data."""
         return self.name
@@ -135,6 +136,7 @@ class Decimal(Constant):
         return emitter.emit_load_immediate(self.data(emitter), str(self.value))
 
     def reduce_float(self, emitter):
+        """Reduce to float."""
         return self.reduce(emitter)
 
 
@@ -190,7 +192,7 @@ class UnaryOp(Unary):
         """Evaluate unary operator."""
         return {Op.NEG: neg,
                 Op.NEGF: neg,
-                Op.NOT: inv}[self.op](self.value.evaluate())
+                Op.NOT: lambda n: n ^ WORD_MASK}[self.op](self.value.evaluate())
 
     def reduce(self, emitter):
         """Generate code for a unary operator."""
@@ -539,6 +541,7 @@ class Arrow(Access):
         """Generate code for storing to an arrow operator."""
         base = self.struct.reduce(emitter)
         return self.attribute.store(emitter, source, base)
+
 
 class SubScript(Binary):
     """Class for array access."""

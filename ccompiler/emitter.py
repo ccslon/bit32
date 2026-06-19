@@ -8,6 +8,8 @@ from .instructions import (Code, Register, Registers, GENERAL, Virtual, String, 
                            Push, Pop, Call, Ret, LoadGlobal, Address, Load, Store, LoadImmediate, Unary, Binary,
                            LeftMove, RightMove, Jump, CMov)
 from bit32 import Reg, Size, Cond, Op, escape_chr
+from .cnodes import REG_ARGS
+
 
 '''
 [x] add CMovs
@@ -71,6 +73,7 @@ select instructions -> coalesce -> peephole -> color -> peephole again
 '''
 
 POWERS_OF_2 = {2**n: n for n in range(8)}
+
 
 class Emitter:
     """Class for emitting bit32 objects."""
@@ -139,7 +142,7 @@ class Emitter:
                 if inst1.op is Op.MUL:  # x * 2**n = x << n
                     inst1.op = Op.SHL
                     inst1.source.value = POWERS_OF_2[inst1.source.value]
-                elif inst1.op is Op.DIV:   # x / 2**n = x >> n
+                elif inst1.op is Op.DIV:  # x / 2**n = x >> n
                     inst1.op = Op.SHR
                     inst1.source.value = POWERS_OF_2[inst1.source.value]
                 elif inst1.op is Op.MOD:  # x % 2**n = x & 2**n - 1
@@ -387,7 +390,7 @@ class Emitter:
 
     def emit_call(self, proc, args):
         """Emit call instruction object."""
-        self.add(Call(self.labels, proc, min(args, 4)))
+        self.add(Call(self.labels, proc, min(args, REG_ARGS)))
         self.table.clear()
 
     def emit_ret(self):

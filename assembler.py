@@ -8,14 +8,15 @@ from enum import Enum, IntEnum, auto
 from typing import NamedTuple
 from operator import add, sub, mul, floordiv, mod, lshift, rshift
 import re
-from bit32 import (Size, Flag, Reg, Op, Cond, Byte, Char, Half, Word, Jump, Interrupt, Unary,
-                   Binary, Load, PushPop, LoadImmediate, unescape)
+from bit32 import (BYTE_MASK, WORD_MASK, Size, Flag, Reg, Op, Cond, Byte, Char, Half, Word,
+                   Jump, Interrupt, Unary, Binary, Load, PushPop, LoadImmediate, unescape)
 
 
 RE_SIZE = r'B|H|W'
 RE_OP = r'|'.join(op.name for op in Op) + '|NOP|LDI?|ST|SWI|PUSH|POP|CALL|I?RET|HALT'
 RE_COND = r'|'.join(cond.name for cond in Cond)
 RE_REG = r'|'.join(reg.name for reg in Reg)
+
 
 class Lex(Enum):
     """Enum class for token types."""
@@ -121,7 +122,8 @@ class Emitter:
             if op is Op.MOV:
                 self.emit_load_immediate(condition, size, destination, source)
                 return
-            self.assembler.error(f'{source} does not fit within 8 bits. Use LDI instruction')
+            self.new_instruction(Unary, condition, flag, size, immediate, op, source & BYTE_MASK, destination)
+            return
         self.new_instruction(Unary, condition, flag, size, immediate, op, source, destination)
 
     def emit_binary(self, op, condition, flag, size, destination, source, source2, immediate):
@@ -129,7 +131,8 @@ class Emitter:
         if op in {Op.MOV, Op.MVN, Op.CMN, Op.CMP, Op.TST, Op.TEQ, Op.CMPF, Op.NOT, Op.NEG, Op.NEGF}:
             self.assembler.error(f'{op.name} only takes 2 arguments but 3 were given')
         if immediate and isinstance(source, int) and not (-128 <= source < 256):
-            self.assembler.error(f'{source} does not fit within 8 bits. Use LDI instruction')
+            self.new_instruction(Binary, condition, flag, size, immediate, op, source2 & BYTE_MASK, source, destination)
+            return
         self.new_instruction(Binary, condition, flag, size, immediate, op, source2, source, destination)
 
     def emit_load(self, condition, size, destination, base, offset, immediate):
@@ -203,7 +206,7 @@ class Assembler:
         if self.accept('-'):
             return -self.primary()
         if self.accept('~'):
-            return ~self.primary()
+            return self.primary() ^ WORD_MASK
         return self.primary()
 
     def multiplicative(self):
@@ -330,7 +333,6 @@ class Assembler:
     def code(self, emitter):
         """
         CODE -> 'nop'|JUMP|CALL|LOAD|STORE|PUSH|POP|LOAD_IMM|RET...
-
         """
         op, flag, cond, size = next(self).match.group('op', 'flag', 'cond', 'size')
         op = op.upper()
@@ -542,7 +544,7 @@ HIGHLIGHTS = {
     r"'(\\'|\\?[^'])'": Color.GREEN,  # char
     r'"(\\"|[^"])*"': Color.GREEN,  # string
     rf'\b({RE_REG})\b': Color.WHITE,  # register
-    rf'^(J(MP)?|{RE_OP})S?({RE_COND})?(\.({RE_SIZE}))?\b': Color.BLUE, # op
+    rf'^(J(MP)?|{RE_OP})S?({RE_COND})?(\.({RE_SIZE}))?\b': Color.BLUE,  # op
     r'\.(BYTE|HALF|WORD|SPACE)\b': Color.BLUE,  # size|space
     r'\.?[A-Z_]\w*': Color.CYAN,  # name
     r';.*$': Color.GREY  # comment
@@ -592,11 +594,23 @@ def assemble(program, name='out'):
 
 if __name__ == '__main__':
     assembly = '''
-    interrupt:
-        RET
-    main:
-    loop:
-        JMP loop
-        RET
-    '''
+interrupt:
+    PUSH A, B, LR
+    MOV B, 0
+.I0:
+    CMP B, 8
+    JGE .I1
+    CALL in
+    CMP A, '\0'
+    JEQ .I1
+    CALL out
+    ADD B, 1
+    JMP .I0
+.I1:
+    POP A, B, PC
+main:
+loop:
+    JMP loop
+    RET
+'''
     assemble(assembly)

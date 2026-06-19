@@ -9,6 +9,10 @@ from enum import IntEnum
 from struct import pack
 
 
+BYTE_MASK = BYTE_MASK
+WORD_MASK = BYTE_MASKFFFFFF
+
+
 def twos_compliment(number, bits):
     """Make a 2's compliment binary number."""
     if number < 0:
@@ -145,8 +149,11 @@ ESCAPE = {
 ESCAPE_CHR = {'\'': r'\''} | ESCAPE
 ESCAPE_STR = {'\"': r'\"'} | ESCAPE
 
+
 def escape_chr(char):
+    """Escape given character."""
     return ESCAPE_CHR.get(char, char)
+
 
 def escape_str(text):
     """Escape given string."""
@@ -162,6 +169,7 @@ UNESCAPE = {
     r'\b': '\b',
     r'\\': '\\'
 }
+
 
 def unescape(text):
     """Interpret escaped characters and replace with ascii value."""
@@ -180,7 +188,7 @@ class Data:
 
     def little_end(self):
         """Produce little endian representaion for this instance of data."""
-        return f'{self.bin & 0xff:02x} {self.bin>>8 & 0xff:02x} {self.bin>>16 & 0xff:02x} {self.bin>>24 & 0xff:02x}'
+        return f'{self.bin & BYTE_MASK:02x} {self.bin>>8 & BYTE_MASK:02x} {self.bin>>16 & BYTE_MASK:02x} {self.bin>>24 & BYTE_MASK:02x}'
 
     def hex(self):
         """Produce 32 bit hex representation for this instance of data."""
@@ -205,7 +213,7 @@ class ByteBase(Data):
 
     def little_end(self):
         """Produce little endian representaion for this byte."""
-        return f'{self.bin & 0xff:02x}'
+        return f'{self.bin & BYTE_MASK:02x}'
 
     def hex(self):
         """Produde 8 bit hex representation for this byte."""
@@ -240,7 +248,7 @@ class Half(Data):
 
     def little_end(self):
         """Produce little endian representaion for this half-word."""
-        return f'{self.bin & 0xff:02x} {self.bin>>8 & 0xff:02x}'
+        return f'{self.bin & BYTE_MASK:02x} {self.bin>>8 & BYTE_MASK:02x}'
 
     def hex(self):
         """Produde 16 bit hex representation for this half-word."""

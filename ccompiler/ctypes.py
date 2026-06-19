@@ -8,6 +8,7 @@ from bit32 import Op, Size, Cond
 from .cnodes import Frame
 from . import cexpressions
 
+
 class Type:
     """Base class for C type."""
 
@@ -36,7 +37,7 @@ class Void(Type):
         self.width = 0
 
     def cast(self, _):
-        """Any type can be case to void"""
+        """Any type can be case to void."""
         return True
 
     def get_node(self, _):
@@ -310,7 +311,7 @@ class Float(Numeric):
         super().__init__(True)
         self.width = Size.WORD
 
-    def convert(self, emitter, source, other):  # TODO test
+    def convert(self, emitter, source, other):
         """Convert to given type if applicable."""
         return other.itf(emitter, source)
 
@@ -324,7 +325,7 @@ class Float(Numeric):
 
     def reduce_pre(self, emitter, op, source):
         """Generate code for pre operator."""
-        interval = emitter.emit_unary(Op.ITF, Size.WORD, 1) # ITF A, 1
+        interval = emitter.emit_unary(Op.ITF, Size.WORD, 1)  # ITF A, 1
         return emitter.emit_binary(op, self.width, source, interval)
 
     def reduce_post(self, emitter, op, source):
@@ -367,7 +368,7 @@ class Pointer(Int):
         if self.interval > 1:
             if right.is_constant():
                 if op is Op.ADD:
-                    offset = right.fold().evaluate() 
+                    offset = right.fold().evaluate()
                     return emitter.emit_address(left.reduce(emitter), offset * self.interval, False, f'+{offset}')
                 return emitter.emit_binary(op, Size.WORD, left.reduce(emitter), right.fold().evaluate() * self.interval)
             left = left.reduce(emitter)
@@ -382,7 +383,7 @@ class Pointer(Int):
         """Generate code for array access."""
         return array.reduce(emitter)
 
-    def cast(self, other):  # TODO test
+    def cast(self, other):
         """Determine if the given type can be cast to this type."""
         return isinstance(other, (Numeric, Array))
 
@@ -433,6 +434,7 @@ class Array(List, Value):
         self.width = Size.WORD
 
     def size(self):
+        """Get the total size of this array."""
         return self.length * self.of.size()
 
     def reduce(self, emitter, base, var):
@@ -454,7 +456,7 @@ class Array(List, Value):
         for i in range(self.length):
             yield self.of, self.of.size() * i
 
-    def __eq__(self, other):  # TODO test
+    def __eq__(self, other):
         """Determine if given type is equal to this array type."""
         return isinstance(other, (Array, Pointer)) and self.of == other.of
 
@@ -473,7 +475,9 @@ class Record(Value):
         self.width = Size.WORD
 
     def size(self):
+        """Get the total size of this Record type."""
         return self.frame.size
+
 
 class Struct(List, Record):
     """Class for struct type."""
@@ -553,6 +557,7 @@ class Function(Value):
         self.width = Size.WORD
 
     def size(self):
+        """Get the total size of this function (0)."""
         return 0
 
     def global_reduce(self, emitter, glob):

@@ -6,7 +6,7 @@ Created on Fri Sep  6 14:25:05 2024
 """
 from collections import UserList
 from bit32 import Op, Cond, Reg, Size
-from .cnodes import Statement, Expression, Variable, Binary
+from .cnodes import REG_ARGS, Statement, Expression, Variable, Binary
 from .ctypes import Array
 
 
@@ -407,9 +407,9 @@ class Call(Expression, Statement):
 
     def move_arguments(self, emitter, targets):
         """Move arguments into proper positions before calling."""
-        for i, (target, arg) in enumerate(zip(targets[:4], self.arguments[:4])):
+        for i, (target, arg) in enumerate(zip(targets[:REG_ARGS], self.arguments[:REG_ARGS])):
             emitter.emit_left_move(arg.width, Reg(i), target)
-        for target in reversed(targets[4:]):
+        for target in reversed(targets[REG_ARGS:]):
             emitter.emit_push([target])  # TODO test
 
     def reduce(self, emitter):
@@ -440,8 +440,8 @@ class VariadicCall(Call):
 
     def adjust_stack(self, emitter):
         """Remove remaining arguments from stack."""
-        if len(self.arguments) > 4:
-            emitter.emit_stack_deallocation(len(self.arguments[4:]) * Size.WORD)  # TODO test
+        if len(self.arguments) > REG_ARGS:
+            emitter.emit_stack_deallocation(len(self.arguments[REG_ARGS:]) * Size.WORD)  # TODO test
 
     def reduce(self, emitter):
         """Generate code for variadic function call (as an expression)."""

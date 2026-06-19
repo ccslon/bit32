@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from copy import copy
 from .parser import Parser
 from .clexer import Lex, CTYPES
-from .cnodes import Frame, Translation, Definition, VariadicDefinition
+from .cnodes import REG_ARGS, Frame, Translation, Definition, VariadicDefinition
 from .cexpressions import (Local, Attribute, Global, Number, Decimal, Character, String,
                            AddressOf, Dereference, SizeOf, Cast, Post, UnaryOp, Not, Pre,
                            BinaryOp, Compare, Logic, Dot, SubScript, Arrow,  Conditional)
@@ -41,7 +41,7 @@ TODO
 [X] Typedef
 [X] Const expressions
 [X] Const eval
-[ ] Register variables (use max_args)
+[ ] Register variables
 [X] Function pointers
 [ ] Function defs in function defs
 [X] Error handling
@@ -53,14 +53,12 @@ TODO
 [X] PREPROCESSING
     [X] Include header files
     [X] Macros
-
 [-] Bit fields
 [X] Proper typedef
 [X] Return width
 [X] Proper preproc
 [X] Assertion messages
 [ ] Breakpoints in circuit
-[ ] fix interrupt on interrupt bug in circuit
 [X] Warn when global names collide
 [X] better debugging in ASM
 
@@ -779,9 +777,9 @@ class CParser(Parser):
                             self.stack_parameters[param.name] = param
                     else:
                         DefinitionType = Definition
-                        for param in ctype.parameters[:4]:
+                        for param in ctype.parameters[:REG_ARGS]:
                             self.scope.locals[param.name] = param
-                        for param in ctype.parameters[4:]:
+                        for param in ctype.parameters[REG_ARGS:]:
                             self.stack_parameters[param.name] = param
                     compound = self.compound()
                     self.end_scope()

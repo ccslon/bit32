@@ -9,7 +9,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from operator import add, sub, mul, truediv, mod, lshift, rshift, eq, ne, gt, lt, ge, le
-from bit32 import escape_chr, escape_str
+from bit32 import WORD_MASK, escape_chr, escape_str
 from .clexer import Lex, Token, CLexer
 from .parser import Parser
 '''
@@ -26,7 +26,6 @@ TODO:
         [X] if EXPRESSION
         [X] elif
     [X] expanded macro line numbers
-
     [X] multi file 1 pass
     [X] correct arg expansion
     [-] accept space
@@ -265,7 +264,7 @@ class CPreProcessor(Expander):
         if self.accept('-'):
             return -self.primary()
         if self.accept('~'):
-            return ~self.primary()
+            return self.primary() ^ WORD_MASK
         if self.accept('!'):
             return not self.primary()
         return self.primary()

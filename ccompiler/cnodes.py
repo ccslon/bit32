@@ -7,6 +7,10 @@ Created on Sat Mar  1 11:43:13 2025
 from collections import UserDict, UserList
 from bit32 import Op, Cond, Size, Reg
 
+
+REG_ARGS = 4  # first 4 arguments are passed in the first 4 registers
+
+
 class Frame(UserDict):
     """
     Class for frames.
@@ -216,9 +220,8 @@ class Definition(CNode):
         max_reg = emitter.allocate_registers()
         # calculate list of register to push onto the stack
         push = list(map(Reg, range(max(bool(self.type.return_type.width),
-                                       len(self.parameters[:4])),
+                                       len(self.parameters[:REG_ARGS])),
                                    max_reg+1)))
-        pop = push.copy()
         self.adjust_offsets(emitter, push)
         emitter.end_body()
         emitter.append_label(self.name.lexeme)
@@ -229,11 +232,11 @@ class Definition(CNode):
             emitter.append_label(emitter.return_label)
         if self.space:
             emitter.emit_stack_deallocation(self.space)
-        self.ret(emitter, pop)
+        self.ret(emitter, push)
 
     def mark_stack_locals(self):
         """Mark any params that live on the stack to be adjusted later."""
-        for param in self.parameters[4:]:
+        for param in self.parameters[REG_ARGS:]:
             param.marked = True
 
     def prologue(self, emitter, push):
@@ -241,14 +244,14 @@ class Definition(CNode):
         emitter.emit_push(push + [Reg.LR]*self.calls)
         if self.space:
             emitter.emit_stack_allocation(self.space)
-        for i, param in enumerate(self.parameters[:4]):
+        for i, param in enumerate(self.parameters[:REG_ARGS]):
             emitter.emit_store(param.width, Reg(i), Reg.SP, param.offset, False, param.name)
 
     def ret(self, emitter, pop):
         """Generate return code specific to regular functions."""
-        if len(self.parameters) > 4:
+        if len(self.parameters) > REG_ARGS:
             emitter.emit_pop(pop + [Reg.LR]*self.calls)
-            emitter.emit_stack_deallocation((len(self.parameters)-4) * Size.WORD)
+            emitter.emit_stack_deallocation((len(self.parameters)-REG_ARGS) * Size.WORD)
             emitter.emit_ret()
         elif self.calls:
             emitter.emit_pop(pop + [Reg.PC])
@@ -258,7 +261,7 @@ class Definition(CNode):
 
     def adjust_offsets(self, emitter, push):
         """Adjust offsets of variable found on the call stack."""
-        if len(self.parameters) > 4:
+        if len(self.parameters) > REG_ARGS:
             adjustment = self.space + Size.WORD*(self.calls + len(push))
             for inst in emitter.instructions:
                 inst.adjust_offset(adjustment)
@@ -274,7 +277,7 @@ class VariadicDefinition(Definition):  # TODO test
 
     def prologue(self, emitter, push):
         """Generate prologue code specific to variadic functions."""
-        emitter.emit_push(list(map(Reg, range(4))))
+        emitter.emit_push(list(map(Reg, range(REG_ARGS))))
         emitter.emit_push(push + [Reg.LR]*self.calls)
         if self.space:
             emitter.emit_stack_allocation(self.space)
@@ -282,7 +285,7 @@ class VariadicDefinition(Definition):  # TODO test
     def ret(self, emitter, push):
         """Generate return code specific to variadic functions."""
         emitter.emit_pop(push + [Reg.LR]*self.calls)
-        emitter.emit_stack_deallocation((len(self.parameters[4:])+4) * Size.WORD)
+        emitter.emit_stack_deallocation((REG_ARGS+len(self.parameters[REG_ARGS:])) * Size.WORD)
         emitter.emit_ret()
 
     def adjust_offsets(self, emitter, push):

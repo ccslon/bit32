@@ -9,10 +9,14 @@ from .cpreprocessor import CPreProcessor
 from .cparser import parse
 from .emitter import Emitter
 
-def ccompile_cwd(cwd, files, oflag='out', Eflag=False, Sflag=False, fflag=True):
-    ccompile([f'{cwd}/{file}' for file in files], f'{cwd}/{oflag}', Eflag, Sflag, fflag)
+
+def ccompile_dir(dir_, files, oflag='out', Eflag=False, Sflag=False, fflag=True):
+    """Compile the given files in the given directory based on the given flags."""
+    ccompile([f'{dir_}/{file}' for file in files], f'{dir_}/{oflag}', Eflag, Sflag, fflag)
+
 
 def ccompile(files, oflag='out', Eflag=False, Sflag=False, fflag=True):
+    """Compile the given files based on the given flags."""
     processed = []
     for file_name in files:
         if file_name.endswith(('.c', '.h')):
@@ -71,5 +75,5 @@ def debug_std(std):
         root.generate(emitter)
     except SyntaxError as error:
         print(f'In file "{std}.c" {error}')
-        return 
+        return
     print(emitter)

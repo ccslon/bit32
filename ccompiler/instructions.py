@@ -11,6 +11,7 @@ from bit32 import Reg, Size, Op, escape_str
 
 JUST = 6  # justification
 
+
 class Code(Enum):
     """Enum for code instruction types."""
 
@@ -55,6 +56,7 @@ class Label(Argument):
 
 GENERAL = 11  # number of general purpose registers
 
+
 class Register(Argument):
     """Base class for registers."""
 
@@ -91,7 +93,9 @@ class Physical(Register):
         if self not in graph and self.reg < GENERAL:
             graph[self] = self.reg
 
+
 Registers = [Physical(reg) for reg in Reg]
+
 
 class Virtual(Register):
     """Class for virtual register that will later be lowered into physical registers."""
@@ -140,6 +144,7 @@ class Virtual(Register):
         if self.virtual:
             self.value = reg.value
             self.virtual = False
+
 
 class Object:
     """Base class for bit32 objects."""
@@ -224,7 +229,7 @@ class Instruction(Object):
         pass
 
     def coalesce(self, _):
-        """Determines if this instruction can be coalesced (default is no)."""
+        """Determine if this instruction can be coalesced (default is no)."""
         return False
 
     def precolor(self, _):
@@ -235,6 +240,7 @@ class Instruction(Object):
     def op_str(self):
         """Get the formatted op string for this instructions."""
         return str(self.op).ljust(JUST)
+
 
 class Push(Instruction):
     """Class for push instruction objects."""
@@ -337,6 +343,7 @@ class Call(Instruction):
         """Display call instruction as string."""
         return f'{self.op_str} {self.target}'
 
+
 class Definition(Instruction):
     """Base class for instruction objects that define a target."""
 
@@ -415,8 +422,10 @@ class CMov(Unary):
         """Get the formatted op string for cmovs."""
         return f'{self.op.name}{self.condition}'.ljust(JUST)
 
+
 class Move(Unary):
     """Base class for coalescable Move instructions."""
+
     def __init__(self, labels, size, target, source):
         super().__init__(labels, Op.MOV, size, target, source)
 
@@ -441,7 +450,7 @@ class Move(Unary):
 
 
 class LeftMove(Move):
-    """Class for "left" move instructions objects"""
+    """Class for "left" move instructions objects."""
 
     def get_physical(self):
         """Get the physical register."""
@@ -510,6 +519,7 @@ class Address(Definition):
 
     @property
     def comment_str(self):
+        """Get the comment as a string."""
         return f' ; {self.comment}' if self.comment else ''
 
     def display(self):
@@ -546,6 +556,7 @@ class Store(Load):
     code = Code.STORE
 
     def used(self):
+        """Get the used registers."""
         if self.offset is None:
             return self.base.live() | self.target.live()
         return self.base.live() | self.offset.live() | self.target.live()
@@ -556,6 +567,7 @@ class Store(Load):
         return f'ST{self.size}'.ljust(JUST)
 
     def display(self):
+        """Display store instruction as string."""
         return '{} [{}{}], {}{}'.format(self.op_str, self.base,
                                         f', {self.offset}' if self.offset is not None else '',
                                         self.target, self.comment_str)
