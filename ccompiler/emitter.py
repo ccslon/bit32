@@ -132,7 +132,7 @@ class Emitter:
     def optimize_body(self):
         """Peephole optimize the current function body."""
         i = 0
-        while i < len(self.instructions)-1:
+        while i < len(self.instructions):
             # peephole size = 1
             # strength reduction
             inst1 = self.instructions[i]
