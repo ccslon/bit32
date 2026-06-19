@@ -97,7 +97,7 @@ typedef struct Header {
     unsigned size;
 } Header;
 Header base;
-Header *freehead = NULL;
+Header* freehead = NULL;
 extern void* heap;
 void* getheap(size_t n) {
     void* temp = heap;
