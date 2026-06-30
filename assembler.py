@@ -560,7 +560,7 @@ def repl(text, color):
 
 def display(assembly):
     """Display highlighted assemgly code."""
-    for line in assembly.split('\n'):
+    for line in str(assembly).split('\n'):
         new = ''
         while line:
             for pattern, color in HIGHLIGHTS.items():

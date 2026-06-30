@@ -76,4 +76,4 @@ def debug_std(std):
     except SyntaxError as error:
         print(f'In file "{std}.c" {error}')
         return
-    print(emitter)
+    display(emitter)
