@@ -23,11 +23,10 @@ printf:
   ST     [SP, 4], A ; c
   MOV    A, 0
   ST.B   [SP, 12], A ; precision
-  MOV.B  A, '0'
-  LD     B, [SP, 4] ; c
-  LD.B   B, [B]
-  CMP.B  A, B
-  JGT    .L5
+  LD     A, [SP, 4] ; c
+  LD.B   A, [A]
+  CMP.B  A, '0'
+  JLT    .L5
   LD     A, [SP, 4] ; c
   LD.B   A, [A]
   CMP.B  A, '9'

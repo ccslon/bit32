@@ -371,20 +371,17 @@ class BinaryOp(Binary):
         return self.type.reduce_binary(emitter, self.op, self.left, self.right)
 
 
+MIRRORED = {
+    Cond.EQ: Cond.EQ, Cond.NE: Cond.NE,
+    Cond.GT: Cond.LT, Cond.HI: Cond.LO,
+    Cond.LT: Cond.GT, Cond.LO: Cond.HI,
+    Cond.GE: Cond.LE, Cond.HS: Cond.LS,
+    Cond.LE: Cond.GE, Cond.LS: Cond.HS
+}
+
+
 class Compare(Binary):
     """Class for binary compare operators."""
-
-    MIRRORED = {
-        Cond.EQ: Cond.EQ,
-        Cond.NE: Cond.NE,
-        Cond.GT: Cond.LT,
-        Cond.HI: Cond.LO,
-        Cond.LT: Cond.GT,
-        Cond.GE: Cond.LE,
-        Cond.HS: Cond.LS,
-        Cond.LE: Cond.GE,
-        Cond.LS: Cond.HS        
-    }
 
     def __init__(self, op, left, right):
         super().__init__(Type.max_type(left.type, right.type), left, right)
@@ -399,36 +396,34 @@ class Compare(Binary):
                 Cond.GE: ge, Cond.HS: ge,
                 Cond.LE: le, Cond.LS: le}[self.op](self.left.evaluate(), self.right.evaluate())
 
+    def mirror(self):
+        """Mirror the node to put the constant on the right side."""        
+        self.left, self.right = self.right, self.left
+        self.op = MIRRORED[self.op]
+        self.inverse_op = MIRRORED[self.inverse_op]
+
     def reduce(self, emitter):
         """Generate code for compare operator."""
         if self.is_constant():
             return self.fold().reduce(emitter)
         if self.left.is_constant():
-            self.left, self.right = self.right, self.left
-            self.type.reduce_compare(emitter, self.left, self.right)
-            return emitter.emit_cmov(self.MIRRORED[self.op], self.MIRRORED[self.inverse_op])
+            self.mirror()
         self.type.reduce_compare(emitter, self.left, self.right)
         return emitter.emit_cmov(self.op, self.inverse_op)
 
     def compare(self, emitter, label):
         """Generate code for comparing with equality/relational operators."""
         if self.left.is_constant():
-            self.left, self.right = self.right, self.left
-            self.type.reduce_compare(emitter, self.left, self.right)
-            emitter.emit_jump(self.MIRRORED[self.inverse_op], label)
-        else:
-            self.type.reduce_compare(emitter, self.left, self.right)
-            emitter.emit_jump(self.inverse_op, label)
+            self.mirror()
+        self.type.reduce_compare(emitter, self.left, self.right)
+        emitter.emit_jump(self.inverse_op, label)
 
     def inverse_compare(self, emitter, label):  # TODO test
         """Generate code for inverse comparing with equality/relational operators."""
         if self.left.is_constant():
-            self.left, self.right = self.right, self.left
-            self.type.reduce_compare(emitter, self.left, self.right)
-            emitter.emit_jump(self.MIRRORED[self.op], label)
-        else:
-            self.type.reduce_compare(emitter, self.left, self.right)
-            emitter.emit_jump(self.op, label)
+            self.mirror()
+        self.type.reduce_compare(emitter, self.left, self.right)
+        emitter.emit_jump(self.op, label)
 
 
 class Logic(BinaryOp):

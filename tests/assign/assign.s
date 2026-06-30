@@ -1105,7 +1105,7 @@ _allocIntMap:
   ADD    SP, 8
   POP    B, PC
 hash:
-  PUSH   B, C
+  PUSH   B
   SUB    SP, 8
   ST     [SP, 0], A ; key
   MOV    A, 0
@@ -1117,9 +1117,8 @@ hash:
   JEQ    .L111
   LD     A, [SP, 0] ; key
   LD.B   A, [A]
-  MOV    B, 31
-  LD     C, [SP, 4] ; hash
-  MUL    B, C
+  LD     B, [SP, 4] ; hash
+  MUL    B, 31
   ADD    A, B
   ST     [SP, 4], A ; hash
 .L110:
@@ -1131,7 +1130,7 @@ hash:
   LD     A, [SP, 4] ; hash
 .L108:
   ADD    SP, 8
-  POP    B, C
+  POP    B
   RET
 IntMap_hash:
   PUSH   LR
@@ -1224,10 +1223,8 @@ _IntMap_resize:
   PUSH   B, C, LR
   SUB    SP, 12
   ST     [SP, 0], A ; old
-  MOV    A, 2
-  LD     B, [SP, 0] ; old
-  LD     B, [B, 8] ; .capacity
-  MUL    A, B
+  LD     A, [A, 8] ; .capacity
+  SHL    A, 1
   CALL   _allocIntMap
   ST     [SP, 4], A ; map
   MOV    A, 0
@@ -1642,13 +1639,10 @@ write_teletype:
   ADD    SP, 12
   POP    PC
 isupper:
-  PUSH   B
   SUB    SP, 1
   ST.B   [SP, 0], A ; c
-  MOV.B  A, 'A'
-  LD.B   B, [SP, 0] ; c
-  CMP.B  A, B
-  JGT    .L163
+  CMP.B  A, 'A'
+  JLT    .L163
   LD.B   A, [SP, 0] ; c
   CMP.B  A, 'Z'
   JGT    .L163
@@ -1659,16 +1653,12 @@ isupper:
 .L162:
 .L164:
   ADD    SP, 1
-  POP    B
   RET
 islower:
-  PUSH   B
   SUB    SP, 1
   ST.B   [SP, 0], A ; c
-  MOV.B  A, 'a'
-  LD.B   B, [SP, 0] ; c
-  CMP.B  A, B
-  JGT    .L166
+  CMP.B  A, 'a'
+  JLT    .L166
   LD.B   A, [SP, 0] ; c
   CMP.B  A, 'z'
   JGT    .L166
@@ -1679,7 +1669,6 @@ islower:
 .L165:
 .L167:
   ADD    SP, 1
-  POP    B
   RET
 isalpha:
   PUSH   LR
@@ -1702,13 +1691,10 @@ isalpha:
   ADD    SP, 1
   POP    PC
 iscntrl:
-  PUSH   B
   SUB    SP, 1
   ST.B   [SP, 0], A ; c
-  MOV    A, 0
-  LD.B   B, [SP, 0] ; c
-  CMP    A, B
-  JGT    .L173
+  CMP    A, 0
+  JLT    .L173
   LD.B   A, [SP, 0] ; c
   CMP    A, 32
   JGE    .L173
@@ -1719,16 +1705,12 @@ iscntrl:
 .L172:
 .L174:
   ADD    SP, 1
-  POP    B
   RET
 isdigit:
-  PUSH   B
   SUB    SP, 1
   ST.B   [SP, 0], A ; c
-  MOV.B  A, '0'
-  LD.B   B, [SP, 0] ; c
-  CMP.B  A, B
-  JGT    .L176
+  CMP.B  A, '0'
+  JLT    .L176
   LD.B   A, [SP, 0] ; c
   CMP.B  A, '9'
   JGT    .L176
@@ -1739,7 +1721,6 @@ isdigit:
 .L175:
 .L177:
   ADD    SP, 1
-  POP    B
   RET
 isalnum:
   PUSH   LR
@@ -1782,24 +1763,22 @@ isspace:
   ADD    SP, 1
   RET
 isxdigit:
-  PUSH   B, LR
+  PUSH   LR
   SUB    SP, 1
   ST.B   [SP, 0], A ; c
   CALL   isdigit
   CMP    A, 0
   JNE    .L187
-  MOV.B  A, 'A'
-  LD.B   B, [SP, 0] ; c
-  CMP.B  A, B
-  JGT    .L190
+  LD.B   A, [SP, 0] ; c
+  CMP.B  A, 'A'
+  JLT    .L190
   LD.B   A, [SP, 0] ; c
   CMP.B  A, 'F'
   JLE    .L187
 .L190:
-  MOV.B  A, 'a'
-  LD.B   B, [SP, 0] ; c
-  CMP.B  A, B
-  JGT    .L188
+  LD.B   A, [SP, 0] ; c
+  CMP.B  A, 'a'
+  JLT    .L188
   LD.B   A, [SP, 0] ; c
   CMP.B  A, 'f'
   JGT    .L188
@@ -1811,7 +1790,7 @@ isxdigit:
 .L186:
 .L189:
   ADD    SP, 1
-  POP    B, PC
+  POP    PC
 tolower:
   PUSH   LR
   SUB    SP, 1
@@ -1845,13 +1824,10 @@ toupper:
   ADD    SP, 1
   POP    PC
 isgraph:
-  PUSH   B
   SUB    SP, 1
   ST.B   [SP, 0], A ; c
-  MOV.B  A, ' '
-  LD.B   B, [SP, 0] ; c
-  CMP.B  A, B
-  JGE    .L196
+  CMP.B  A, ' '
+  JLE    .L196
   LD.B   A, [SP, 0] ; c
   CMP    A, 127
   JGE    .L196
@@ -1862,16 +1838,12 @@ isgraph:
 .L195:
 .L197:
   ADD    SP, 1
-  POP    B
   RET
 isprint:
-  PUSH   B
   SUB    SP, 1
   ST.B   [SP, 0], A ; c
-  MOV.B  A, ' '
-  LD.B   B, [SP, 0] ; c
-  CMP.B  A, B
-  JGT    .L199
+  CMP.B  A, ' '
+  JLT    .L199
   LD.B   A, [SP, 0] ; c
   CMP    A, 127
   JGE    .L199
@@ -1882,7 +1854,6 @@ isprint:
 .L198:
 .L200:
   ADD    SP, 1
-  POP    B
   RET
 ispunct:
   PUSH   LR
@@ -1982,7 +1953,7 @@ pow:
   ADD    SP, 12
   RET
 sin:
-  PUSH   B, C, D, E, LR
+  PUSH   B, C, D, LR
   SUB    SP, 12
   ST     [SP, 0], A ; t
   ITF    A, 0
@@ -1998,17 +1969,15 @@ sin:
   LD     B, [SP, 8] ; n
   CALL   pow
   MOV    B, A
-  MOV    A, 2
-  LD     D, [SP, 8] ; n
-  MUL    A, D
+  LD     A, [SP, 8] ; n
+  SHL    A, 1
   ADD    A, 1
   CALL   fact
   ITF    A, A
   DIVF   D, B, A
   LD     A, [SP, 0] ; t
-  MOV    B, 2
-  LD     E, [SP, 8] ; n
-  MUL    B, E
+  LD     B, [SP, 8] ; n
+  SHL    B, 1
   ADD    B, 1
   CALL   pow
   MULF   A, D, A
@@ -2023,7 +1992,7 @@ sin:
   LD     A, [SP, 4] ; sin
 .L215:
   ADD    SP, 12
-  POP    B, C, D, E, PC
+  POP    B, C, D, PC
 fill:
   PUSH   B, C, D, LR
   SUB    SP, 4
@@ -2677,9 +2646,8 @@ vfprintf:
   CALL   isdigit
   CMP    A, 0
   JEQ    .L283
-  MOV    A, 10
-  LD.B   B, [SP, 20] ; precision
-  MUL    A, B
+  LD.B   A, [SP, 20] ; precision
+  MUL    A, 10
   LD     B, [SP, 12] ; c
   ADD    C, B, 1
   ST     [SP, 12], C ; c
@@ -2972,9 +2940,8 @@ uscan:
   CALL   isdigit
   CMP    A, 0
   JEQ    .L310
-  MOV    A, 10
-  LD     B, [SP, 17] ; u
-  MUL    A, B
+  LD     A, [SP, 17] ; u
+  MUL    A, 10
   LD.B   B, [SP, 12] ; c
   SUB.B  B, '0'
   ADD    A, B
@@ -3057,9 +3024,8 @@ dscan:
   CALL   isdigit
   CMP    A, 0
   JEQ    .L322
-  MOV    A, 10
-  LD     B, [SP, 17] ; d
-  MUL    A, B
+  LD     A, [SP, 17] ; d
+  MUL    A, 10
   LD.B   B, [SP, 12] ; c
   SUB.B  B, '0'
   ADD    A, B
@@ -3104,10 +3070,9 @@ oscan:
   JEQ    .L326
   JMP    .L325
 .L326:
-  MOV.B  A, '0'
-  LD.B   B, [SP, 12] ; c
-  CMP.B  A, B
-  JGT    .L328
+  LD.B   A, [SP, 12] ; c
+  CMP.B  A, '0'
+  JLT    .L328
   LD.B   A, [SP, 12] ; c
   CMP.B  A, '7'
   JLE    .L327
@@ -3124,18 +3089,16 @@ oscan:
   LD     B, [SP, 4] ; width
   CMP    A, B
   JCS    .L331
-  MOV.B  A, '0'
-  LD.B   B, [SP, 12] ; c
-  CMP.B  A, B
-  JGT    .L331
+  LD.B   A, [SP, 12] ; c
+  CMP.B  A, '0'
+  JLT    .L331
   LD.B   A, [SP, 12] ; c
   CMP.B  A, '7'
   JGT    .L331
-  MOV    B, 8
-  LD     A, [SP, 17] ; o
-  MUL    B, A
-  SUB    A, '0'
-  ADD    A, B, A
+  LD     B, [SP, 17] ; o
+  SHL    A, B, 3
+  SUB    B, '0'
+  ADD    A, B
   ST     [SP, 17], A ; o
 .L330:
   LD     A, [SP, 8] ; stream
@@ -3219,21 +3182,18 @@ xscan:
   CALL   isdigit
   CMP    A, 0
   JEQ    .L343
-  MOV    A, 16
-  LD     B, [SP, 17] ; x
-  MUL    A, B
+  LD     A, [SP, 17] ; x
+  SHL    A, 4
   LD.B   B, [SP, 12] ; c
   SUB.B  B, '0'
   ADD    A, B
   ST.B   [SP, 12], A ; c
   JMP    .L342
 .L343:
-  MOV    A, 16
-  LD     B, [SP, 17] ; x
-  MUL    B, A, B
-  MOV    C, 10
+  LD     A, [SP, 17] ; x
+  SHL    B, A, 4
   LD.B   A, [SP, 12] ; c
-  ADD    C, A
+  ADD    C, A, 10
   CALL   isupper
   CMP    A, 0
   JEQ    .L345
@@ -3357,8 +3317,8 @@ fscan:
   CALL   isdigit
   CMP    A, 0
   JEQ    .L361
-  ITF    A, 10
-  LD     B, [SP, 21] ; f
+  LD     A, [SP, 21] ; f
+  ITF    B, 10
   MULF   A, B
   LD.B   B, [SP, 12] ; c
   SUB.B  B, '0'
@@ -3409,8 +3369,8 @@ fscan:
   CALL   isdigit
   CMP    A, 0
   JEQ    .L367
-  ITF    A, 10
-  LD     B, [SP, 21] ; f
+  LD     A, [SP, 21] ; f
+  ITF    B, 10
   MULF   A, B
   LD.B   B, [SP, 12] ; c
   SUB    B, 10
@@ -3664,9 +3624,8 @@ vfscanf:
   CALL   isdigit
   CMP    A, 0
   JEQ    .L403
-  MOV    A, 10
-  LD     B, [SP, 21] ; width
-  MUL    A, B
+  LD     A, [SP, 21] ; width
+  MUL    A, 10
   LD     B, [SP, 12] ; c
   ADD    C, B, 1
   ST     [SP, 12], C ; c
@@ -4426,9 +4385,9 @@ qsort:
   RET
 rand:
   PUSH   B, C
-  LDI    B, 1103515245
   LDI    A, =next_rand
-  LD     C, [A]
+  LD     B, [A]
+  LDI    C, 1103515245
   MUL    B, C
   LDI    C, 12345
   ADD    B, C
@@ -4501,9 +4460,8 @@ atoi:
   CALL   isdigit
   CMP    A, 0
   JEQ    .L507
-  MOV    A, 10
-  LD     B, [SP, 12] ; n
-  MUL    A, B
+  LD     A, [SP, 12] ; n
+  MUL    A, 10
   LD     B, [SP, 0] ; s
   LD     C, [SP, 8] ; i
   LD.B   B, [B, C]
@@ -4576,8 +4534,8 @@ atof:
   CALL   isdigit
   CMP    A, 0
   JEQ    .L518
-  ITF    A, 10
-  LD     B, [SP, 4] ; f
+  LD     A, [SP, 4] ; f
+  ITF    B, 10
   MULF   A, B
   LD     B, [SP, 0] ; s
   LD     C, [SP, 12] ; i
@@ -4615,8 +4573,8 @@ atof:
   CALL   isdigit
   CMP    A, 0
   JEQ    .L522
-  ITF    A, 10
-  LD     B, [SP, 4] ; f
+  LD     A, [SP, 4] ; f
+  ITF    B, 10
   MULF   A, B
   LD     B, [SP, 0] ; s
   LD     C, [SP, 12] ; i
@@ -4683,9 +4641,7 @@ malloc:
   PUSH   B, C, LR
   SUB    SP, 16
   ST     [SP, 0], A ; bytes
-  MOV    A, 8
-  LD     B, [SP, 0] ; bytes
-  ADD    A, B
+  ADD    A, 8
   ST     [SP, 12], A ; units
   LDI    A, =freehead
   LD     A, [A]

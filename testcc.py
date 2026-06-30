@@ -185,6 +185,6 @@ if __name__ == '__main__':
 
 def retest():
     """Rerun all tests to get their output."""
-    from ccompiler import ccompile_cwd
+    from ccompiler import ccompile_dir
     for file in tests:
-        ccompile_cwd('tests', [f'{file}.c'], oflag=file, Sflag=True, fflag=True)
+        ccompile_dir('tests', [f'{file}.c'], oflag=file, Sflag=True, fflag=True)
