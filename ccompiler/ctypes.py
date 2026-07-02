@@ -448,6 +448,12 @@ class Array(List, Value):
     def global_reduce(self, emitter, glob):
         """Generate code for global array."""
         return self.global_address(emitter, glob)
+    
+    def global_data(self, emitter, source, data):
+        super().global_data(emitter, source, data)
+        if len(source) < self.length:
+            data.append((None, (self.length - len(source)) * self.of.size()))
+        return data
 
     def __iter__(self):
         """Iterate through array."""

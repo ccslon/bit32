@@ -98,7 +98,8 @@ class Emitter:
 
     def emit_space(self, label, size):
         """Emit space data."""
-        self.labels.append(label)
+        if label is not None:
+            self.labels.append(label)
         for _ in range(size // Size.WORD):
             self.new_data(Word, 0)
         for _ in range(size % Size.WORD):
@@ -431,9 +432,12 @@ class Assembler:
 
     def data(self, emitter):
         """
-        DATA -> SIZE EXPRESSION
+        DATA -> (space|SIZE) EXPRESSION
         """
-        emitter.new_data(self.size(), self.expression())
+        if self.peek(Lex.SPACE):
+            emitter.emit_space(None, self.expression())
+        else:
+            emitter.new_data(self.size(), self.expression())
 
     def assemble(self, assembly):
         """Parse and assemble the given assembly code and output bit32 objects."""

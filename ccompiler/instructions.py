@@ -167,6 +167,8 @@ class Data(Object):
 
     def display(self):
         """Display data as string."""
+        if self.size is None:
+            return f'.space {self.value}'
         return f'.{self.size.name.lower()} {self.value}'
 
 
