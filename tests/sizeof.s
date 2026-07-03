@@ -24,7 +24,7 @@ loop1:
 .L0:
   LD     A, [SP, 0] ; i
   CMP    A, 5
-  JGE    .L2
+  JCS    .L2
   LD     A, [SP, 4] ; s
   LDI    B, =data
   LD     C, [SP, 0] ; i
@@ -51,7 +51,7 @@ loop2:
 .L3:
   LD     A, [SP, 0] ; i
   CMP    A, 5
-  JGE    .L5
+  JCS    .L5
   LD     A, [SP, 4] ; s
   LDI    B, =data
   LD     C, [SP, 0] ; i

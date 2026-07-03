@@ -118,7 +118,7 @@ class SizeOf(Number):
     """Class for sizeof operator."""
 
     def __init__(self, ctype):
-        super().__init__(ctype.size())
+        super().__init__(ctype.size(), Int(signed=False))
 
 
 class Decimal(Constant):
