@@ -14,7 +14,6 @@ func1:
   SUB    SP, 4
   LDI    A, 1069547520 ; 1.5
   ST     [SP, 0], A ; f
-  LD     A, [SP, 0] ; f
   LDI    B, 3217031168 ; -1.5
   CALL   foo
   ADD    SP, 4

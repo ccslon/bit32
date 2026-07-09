@@ -69,16 +69,11 @@ setarray:
   POP    C
   RET
 getstack:
-  PUSH   B
   SUB    SP, 44
   ST     [SP, 0], A ; i
-  ADD    A, SP, 4 ; a
-  LD     B, [SP, 0] ; i
-  SHL    B, 2
-  LD     A, [A, B]
+  LD     A, [SP, 16] ; a
 .L3:
   ADD    SP, 44
-  POP    B
   RET
 setstack:
   PUSH   C

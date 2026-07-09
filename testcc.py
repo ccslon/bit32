@@ -140,6 +140,9 @@ class TestCompiler(TestCase):
     def test_static(self):
         self.generated_equals_expected('static')
 
+    def test_common(self):
+        self.generated_equals_expected('common')
+
     def test_macro(self):
         preproc = CPreProcessor()
         preproc.process('tests/macros.c')
@@ -154,6 +157,27 @@ class TestCompiler(TestCase):
             expected = file.read()
         self.assertEqual(str(preproc), expected)
 
+    def test_assign(self):
+        processed = []
+        for file in ['assign', 'lexer', 'nodes', 'parser', 'intmap']:
+            preproc = CPreProcessor()
+            preproc.process(f'tests/assign/{file}.c')
+            processed.append(preproc)
+        emitter = Emitter()
+        for preproc in processed:
+            root = parse(preproc.output())
+            root.generate(emitter)
+        preproc = CPreProcessor()
+        for std in ['bit32', 'ctype', 'math', 'stdio', 'stdlib', 'string']:
+            preproc.process(f'ccompiler/std/{std}.c')
+            root = parse(preproc.output())
+            root.generate(emitter)
+        # with open('tests/assign/assign.s', 'w+') as file:
+        #     file.write(str(emitter))
+        with open('tests/assign/assign.s') as file:
+            expected = file.read()
+        self.assertEqual(str(emitter), expected)
+
 
 if __name__ == '__main__':
     main()
@@ -161,6 +185,6 @@ if __name__ == '__main__':
 
 def retest():
     """Rerun all tests to get their output."""
-    from ccompiler import compile_file
+    from ccompiler import ccompile_dir
     for file in tests:
-        compile_file(f'tests/{file}.c', sflag=True, fflag=True)
+        ccompile_dir('tests', [f'{file}.c'], oflag=file, Sflag=True, fflag=True)

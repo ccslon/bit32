@@ -9,10 +9,14 @@ from .cpreprocessor import CPreProcessor
 from .cparser import parse
 from .emitter import Emitter
 
-def ccompile_cwd(cwd, files, oflag='out', Eflag=False, Sflag=False, fflag=True):
-    ccompile([f'{cwd}/{file}' for file in files], f'{cwd}/{oflag}', Eflag, Sflag, fflag)
+
+def ccompile_dir(dir_, files, oflag='out', Eflag=False, Sflag=False, fflag=True):
+    """Compile the given files in the given directory based on the given flags."""
+    ccompile([f'{dir_}/{file}' for file in files], f'{dir_}/{oflag}', Eflag, Sflag, fflag)
+
 
 def ccompile(files, oflag='out', Eflag=False, Sflag=False, fflag=True):
+    """Compile the given files based on the given flags."""
     processed = []
     for file_name in files:
         if file_name.endswith(('.c', '.h')):
@@ -44,11 +48,8 @@ def ccompile(files, oflag='out', Eflag=False, Sflag=False, fflag=True):
             output = str(emitter)
             display(output)
         else:
-            stds = set()
-            for preproc in processed:
-                stds |= preproc.std_included
             preproc = CPreProcessor()
-            for std in stds & {'ctype', 'errno', 'math', 'stdio', 'stdlib', 'string'}:
+            for std in ['bit32', 'ctype', 'math', 'stdio', 'stdlib', 'string']:
                 try:
                     preproc.process(f'ccompiler/std/{std}.c')
                     root = parse(preproc.output())
@@ -64,3 +65,15 @@ def ccompile(files, oflag='out', Eflag=False, Sflag=False, fflag=True):
     if fflag:
         with open(f'{oflag}.{file_type}', 'w+') as file:
             file.write(output)
+
+def debug_std(std):
+    preproc = CPreProcessor()
+    try:
+        preproc.process(f'ccompiler/std/{std}.c')
+        root = parse(preproc.output())
+        emitter = Emitter()
+        root.generate(emitter)
+    except SyntaxError as error:
+        print(f'In file "{std}.c" {error}')
+        return
+    display(emitter)

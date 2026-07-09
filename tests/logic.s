@@ -31,10 +31,9 @@ foo:
   LD     A, [SP, 4] ; b
   CMP    A, 0
   JEQ    .L6
-  MOV    B, 100
+  MOV    A, 100
 .L6:
 .L0:
-  MOV    A, B
   ADD    SP, 12
   POP    PC
 bar:
@@ -71,17 +70,15 @@ bar:
   CMP    A, 0
   JEQ    .L13
 .L14:
-  MOV    B, 100
+  MOV    A, 100
 .L13:
 .L7:
-  MOV    A, B
   ADD    SP, 12
   POP    PC
 no:
-  PUSH   B, LR
+  PUSH   LR
   SUB    SP, 8
   ST     [SP, 0], A ; a
-  LD     A, [SP, 0] ; a
   CMP    A, 0
   MOVEQ  A, 1
   MOVNE  A, 0
@@ -95,9 +92,8 @@ no:
   LD     A, [SP, 0] ; a
   CMP    A, 0
   JNE    .L18
-  MOV    B, 100
+  MOV    A, 100
 .L18:
 .L15:
-  MOV    A, B
   ADD    SP, 8
-  POP    B, PC
+  POP    PC

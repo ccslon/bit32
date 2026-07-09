@@ -13,35 +13,30 @@ sumfs:
   CMP    A, B
   JGE    .L3
   LD     B, [SP, 8] ; s
-  LD     A, [SP, 12] ; i
-  LD     C, [SP, 4] ; f
   LD     D, [SP, 12] ; i
+  MOV    A, D
+  LD     C, [SP, 4] ; f
   SHL    D, 2
   LD     C, [C, D]
   CALL   C
-  ADD    B, A
-  ST     [SP, 8], B ; s
+  ADD    A, B, A
+  ST     [SP, 8], A ; s
 .L2:
   LD     A, [SP, 12] ; i
   ADD    A, 1
   ST     [SP, 12], A ; i
   JMP    .L1
 .L3:
-  LD     B, [SP, 8] ; s
+  LD     A, [SP, 8] ; s
 .L0:
-  MOV    A, B
   ADD    SP, 16
   POP    C, D, PC
 sqr:
-  PUSH   B
   SUB    SP, 4
   ST     [SP, 0], A ; n
-  LD     A, [SP, 0] ; n
-  LD     B, [SP, 0] ; n
-  MUL    A, B
+  MUL    A, A
 .L4:
   ADD    SP, 4
-  POP    B
   RET
 sum:
   PUSH   C, LR
@@ -61,31 +56,30 @@ sum:
   LD     A, [SP, 12] ; i
   LD     C, [SP, 4] ; f
   CALL   C
-  ADD    B, A
-  ST     [SP, 8], B ; sum
+  ADD    A, B, A
+  ST     [SP, 8], A ; sum
 .L7:
   LD     A, [SP, 12] ; i
-  ADD    B, A, 1
-  ST     [SP, 12], B ; i
+  ADD    A, 1
+  ST     [SP, 12], A ; i
   JMP    .L6
 .L8:
-  LD     B, [SP, 8] ; sum
+  LD     A, [SP, 8] ; sum
 .L5:
-  MOV    A, B
   ADD    SP, 16
   POP    C, PC
 main:
-  PUSH   B, C, D, LR
+  PUSH   B, LR
   SUB    SP, 20
-  ADD    C, SP, 0 ; funcs
-  LDI    D, =sqr
-  ST     [C, 0], D
-  LDI    D, =sqr
-  ST     [C, 4], D
-  LDI    D, =sqr
-  ST     [C, 8], D
-  LDI    D, =sqr
-  ST     [C, 12], D
+  ADD    A, SP, 0 ; funcs
+  LDI    B, =sqr
+  ST     [A, 0], B
+  LDI    B, =sqr
+  ST     [A, 4], B
+  LDI    B, =sqr
+  ST     [A, 8], B
+  LDI    B, =sqr
+  ST     [A, 12], B
   MOV    A, 4
   ADD    B, SP, 0 ; funcs
   CALL   sumfs
@@ -93,8 +87,6 @@ main:
   MOV    A, 5
   LDI    B, =sqr
   CALL   sum
-  MOV    C, A
 .L9:
-  MOV    A, C
   ADD    SP, 20
-  POP    B, C, D, PC
+  POP    B, PC

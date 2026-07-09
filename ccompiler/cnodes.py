@@ -8,6 +8,9 @@ from collections import UserDict, UserList
 from bit32 import Op, Cond, Size, Reg
 
 
+REG_ARGS = 4  # first 4 arguments are passed in the first 4 registers
+
+
 class Frame(UserDict):
     """
     Class for frames.
@@ -34,13 +37,13 @@ class Frame(UserDict):
 class CNode:
     """Base class for nodes representing C programs."""
 
-    def generate(self, emitter, n):
+    def generate(self, emitter):
         """Generate target code."""
         pass
 
-    def branch(self, emitter, n, _):
+    def branch(self, emitter, _):
         """Handle branch for if statements."""
-        self.generate(emitter, n)
+        self.generate(emitter)
 
 
 class Statement(CNode):
@@ -65,53 +68,29 @@ class Expression(CNode):
         Recurse property of expressions.
         This is used to determine if a subtree only contains constant values.
         Subtrees that are constant can be evaluated at compile time. They also
-        and other allow for other compile time optimizations.
+        allow for other compile time optimizations.
         """
         return False  # default is false
 
-    def hard_calls(self):
-        """
-        Determine if subexpression "hard calls".
-
-        Recurse property of expressions.
-        This is used in register allocation. The rules of register allocation
-        change when a subexpression involves calling a function.
-        A "hard call" is when there is any instances of call nodes in the
-        subexpression.
-        """
-        raise NotImplementedError(self.__class__.__name__)
-
-    def soft_calls(self):
-        """
-        Determine if subexpression "soft calls".
-
-        Recurse property of expressions.
-        This is used in register allocation. A "soft call" is when the subtree
-        involves calling a function but in a way that does not break the
-        calling convention and this compiler's rules of register allocation.
-        The criteria for a node to soft call is based on the node.
-        """
-        raise NotImplementedError(self.__class__.__name__)
-
-    def reduce(self, emitter, n):
+    def reduce(self, emitter):
         """Generate code to "reduce" the expression into a single register."""
         raise NotImplementedError(self.__class__.__name__)
 
-    def compare(self, emitter, n, label):
+    def compare(self, emitter, label):
         """Generate code for comparing nodes. Default is comparing to 0."""
-        emitter.emit_binary(self.type.CMP, self.width, self.reduce(emitter, n), 0)
+        emitter.emit_compare(self.type.CMP, self.width, self.reduce(emitter), 0)
         emitter.emit_jump(Cond.EQ, label)
 
-    def inverse_compare(self, emitter, n, label):
+    def inverse_compare(self, emitter, label):
         """Generate code for inverse comparing nodes."""
-        emitter.emit_binary(self.type.CMP, self.width, self.reduce(emitter, n), 0)
+        emitter.emit_compare(self.type.CMP, self.width, self.reduce(emitter), 0)
         emitter.emit_jump(Cond.NE, label)
 
-    def reduce_branch(self, emitter, n, _):
+    def reduce_branch(self, emitter, _):
         """Reduce expression for ternary condition operator."""
-        self.reduce(emitter, n)
+        return self.reduce(emitter)
 
-    def reduce_number(self, emitter, n):
+    def reduce_number(self, emitter):
         """
         Reduce to number constant if applicable.
 
@@ -125,25 +104,24 @@ class Expression(CNode):
             ADD A, 76
         """
         if self.is_constant():
-            return self.fold().reduce_number(emitter, n)
-        return self.reduce(emitter, n)
+            return self.fold().reduce_number(emitter)
+        return self.reduce(emitter)
 
-    def reduce_float(self, emitter, n):
+    def reduce_float(self, emitter):
         """Reduce to float (convert if applicable)."""
-        self.reduce(emitter, n)
-        self.type.itf(emitter, n)
-        return Reg(n)
+        target = self.reduce(emitter)
+        return self.type.itf(emitter, target)
 
-    def reduce_subscript(self, emitter, n, size):
+    def reduce_subscript(self, emitter, size):
         """
         Generate special reduction case for subscript nodes.
 
         Used especially when the index is a constant.
         """
-        self.reduce(emitter, n)
+        index = self.reduce(emitter)
         if size > 1:
-            emitter.emit_binary(Op.MUL, Size.WORD, Reg(n), int(size))
-        return Reg(n)
+            return emitter.emit_binary(Op.MUL, Size.WORD, index, int(size))
+        return index
 
 
 class Variable(Expression):
@@ -154,17 +132,9 @@ class Variable(Expression):
         self.name = name
         self.marked = False
 
-    def hard_calls(self):
-        """Variables do not hard call."""
-        return False
-
-    def soft_calls(self):
-        """Variables do not soft call."""
-        return False
-
-    def call(self, emitter, _):
+    def call(self, emitter, args):
         """Generate default call behavior."""
-        emitter.emit_call(self.name)
+        emitter.emit_call(self.name, args)
 
 
 class Constant(Expression):
@@ -177,14 +147,6 @@ class Constant(Expression):
     def is_constant(self):
         """Constants are constant."""
         return True
-
-    def hard_calls(self):
-        """Constants do not hard call."""
-        return False
-
-    def soft_calls(self):
-        """Constants do not soft call."""
-        return False
 
     def evaluate(self):
         """Evaluate this node in the case of a constant expression."""
@@ -206,14 +168,6 @@ class Unary(Expression):
         """Determine if subtree is constant."""
         return self.value.is_constant()
 
-    def hard_calls(self):
-        """Determine if subtree hard calls."""
-        return self.value.hard_calls()
-
-    def soft_calls(self):
-        """Determine if subtree soft calls."""
-        return self.value.soft_calls()
-
     def fold(self):
         """Fold this unary operator into a single constant node."""
         return self.type.get_node(self.evaluate())
@@ -231,14 +185,6 @@ class Binary(Expression):
         """Determine if subtree is const."""
         return self.left.is_constant() and self.right.is_constant()
 
-    def hard_calls(self):
-        """Determine if subtree hard calls."""
-        return self.left.hard_calls() or self.right.hard_calls()
-
-    def soft_calls(self):
-        """Determine if subtree soft calls."""
-        return self.left.hard_calls() or self.right.hard_calls()  # self.left.soft_calls() ?
-
     def fold(self):
         """Fold this binary operator into a single constant node."""
         return self.type.get_node(self.evaluate())
@@ -252,14 +198,6 @@ class Access(Expression):
         self.struct = struct
         self.attribute = attribute
 
-    def hard_calls(self):
-        """Determine if subtree hard calls."""
-        return self.struct.hard_calls()
-
-    def soft_calls(self):
-        """Determine if subtree soft calls."""
-        return self.struct.soft_calls()
-
 
 class Definition(CNode):
     """Class for function definition nodes."""
@@ -269,28 +207,21 @@ class Definition(CNode):
         self.name = name
         self.parameters = ctype.parameters
         self.block = block
-        self.returns, self.calls, self.max_arguments, self.space = info
+        self.returns, self.calls, self.space = info
 
     def global_generate(self, emitter):
         """Generate all of the code for the function."""
-        max_args = max(self.calls, self.max_arguments)
         emitter.begin_body(self)
         # mark stack locals
         self.mark_stack_locals()
         # generate function body
-        self.block.generate(emitter, max_args)
-        # peephole optimize
-        emitter.optimize_body()
+        self.block.generate(emitter)
         # find max register used in body
-        max_reg = -1
-        for inst in emitter.instructions:
-            max_reg = max(max_reg, inst.max_used())
-
+        max_reg = emitter.allocate_registers()
         # calculate list of register to push onto the stack
         push = list(map(Reg, range(max(bool(self.type.return_type.width),
-                                       len(self.parameters[:4])), max_reg+1)))
-        pop = push.copy()
-
+                                       len(self.parameters[:REG_ARGS])),
+                                   max_reg+1)))
         self.adjust_offsets(emitter, push)
         emitter.end_body()
         emitter.append_label(self.name.lexeme)
@@ -299,30 +230,28 @@ class Definition(CNode):
         # epilogue
         if self.returns or self.type.return_type.width:
             emitter.append_label(emitter.return_label)
-        if self.returns and self.type.return_type.width and max_args:
-            emitter.emit_binary(Op.MOV, Size.WORD, Reg.A, Reg(max_args))
         if self.space:
-            emitter.emit_binary(Op.ADD, Size.WORD, Reg.SP, self.space)
-        self.ret(emitter, pop)
+            emitter.emit_stack_deallocation(self.space)
+        self.ret(emitter, push)
 
     def mark_stack_locals(self):
         """Mark any params that live on the stack to be adjusted later."""
-        for param in self.parameters[4:]:
+        for param in self.parameters[REG_ARGS:]:
             param.marked = True
 
     def prologue(self, emitter, push):
         """Generate prologue code specific to regular functions."""
         emitter.emit_push(push + [Reg.LR]*self.calls)
         if self.space:
-            emitter.emit_binary(Op.SUB, Size.WORD, Reg.SP, self.space)
-        for i, param in enumerate(self.parameters[:4]):
+            emitter.emit_stack_allocation(self.space)
+        for i, param in enumerate(self.parameters[:REG_ARGS]):
             emitter.emit_store(param.width, Reg(i), Reg.SP, param.offset, False, param.name)
 
     def ret(self, emitter, pop):
         """Generate return code specific to regular functions."""
-        if len(self.parameters) > 4:
+        if len(self.parameters) > REG_ARGS:
             emitter.emit_pop(pop + [Reg.LR]*self.calls)
-            emitter.emit_binary(Op.ADD, Size.WORD, Reg.SP, (len(self.parameters)-4) * Size.WORD)
+            emitter.emit_stack_deallocation((len(self.parameters)-REG_ARGS) * Size.WORD)
             emitter.emit_ret()
         elif self.calls:
             emitter.emit_pop(pop + [Reg.PC])
@@ -332,7 +261,7 @@ class Definition(CNode):
 
     def adjust_offsets(self, emitter, push):
         """Adjust offsets of variable found on the call stack."""
-        if len(self.parameters) > 4:
+        if len(self.parameters) > REG_ARGS:
             adjustment = self.space + Size.WORD*(self.calls + len(push))
             for inst in emitter.instructions:
                 inst.adjust_offset(adjustment)
@@ -348,15 +277,15 @@ class VariadicDefinition(Definition):  # TODO test
 
     def prologue(self, emitter, push):
         """Generate prologue code specific to variadic functions."""
-        emitter.emit_push(list(map(Reg, range(4))))
+        emitter.emit_push(list(map(Reg, range(REG_ARGS))))
         emitter.emit_push(push + [Reg.LR]*self.calls)
         if self.space:
-            emitter.emit_binary(Op.SUB, Size.WORD, Reg.SP, self.space)
+            emitter.emit_stack_allocation(self.space)
 
     def ret(self, emitter, push):
         """Generate return code specific to variadic functions."""
         emitter.emit_pop(push + [Reg.LR]*self.calls)
-        emitter.emit_binary(Op.ADD, Size.WORD, Reg.SP, (len(self.parameters[4:])+4) * Size.WORD)
+        emitter.emit_stack_deallocation((REG_ARGS+len(self.parameters[REG_ARGS:])) * Size.WORD)
         emitter.emit_ret()
 
     def adjust_offsets(self, emitter, push):

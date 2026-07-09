@@ -9,7 +9,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from operator import add, sub, mul, truediv, mod, lshift, rshift, eq, ne, gt, lt, ge, le
-from bit32 import escape_chr, escape_str
+from bit32 import WORD_MASK, escape_chr, escape_str
 from .clexer import Lex, Token, CLexer
 from .parser import Parser
 '''
@@ -26,7 +26,6 @@ TODO:
         [X] if EXPRESSION
         [X] elif
     [X] expanded macro line numbers
-
     [X] multi file 1 pass
     [X] correct arg expansion
     [-] accept space
@@ -49,8 +48,9 @@ class If:
 class Macro:
     """Class for macros defined in source file."""
 
-    parameters: list[str]
     body: list[Token]
+    parameters: list[str] = None
+    variadic: bool = None
     disabled: int = 0
 
 
@@ -102,36 +102,48 @@ class Expander(Parser):
         if macro.parameters is None:
             expanded.extend(Token(ttype, lexeme, name.line) for ttype, lexeme in macro.body)
         elif self.accept('('):
-            args = {}
             self.accept(Lex.SPACE)
+            args = {}
+            va_args = []
             if not self.accept(')'):
-                for param in macro.parameters:
+                for i, param in enumerate(macro.parameters):
+                    if i > 0:
+                        self.expect(',')
                     self.accept(Lex.SPACE)
                     start = self.index
                     self.argument()
                     args[param] = self.tokens[start:self.index]
-                    if self.accept(')'):
-                        break
-                    self.expect(',')
+                if macro.variadic and not self.peek(')'):
+                    if args:
+                        self.expect(',')
+                    self.accept(Lex.SPACE)
+                    start = self.index
+                    while True:
+                        self.argument()
+                        if self.peek(')'):
+                            break
+                        self.expect(',')
+                    va_args.extend(self.tokens[start:self.index])
+                self.expect(')')
             def stringize(lexeme):
                 if lexeme in args:
                     return ''.join(str(arg.lexeme) for arg in args[lexeme])
                 return lexeme
             expanded_args = {}
+            expanded_va_args = None
             for ttype, lexeme in macro.body:
                 if ttype is Lex.STRINGIZE:
                     expanded.append(Token(Lex.STRING, stringize(lexeme), name.line))
                 elif ttype is Lex.CONCAT:
-                    left, right = lexeme.split('##')
-                    if left in args:
-                        left = stringize(left)
-                    if right in args:
-                        right = stringize(right)
-                    expanded.extend(self.lexer.lex(left+right, name.line)[:-1])  # cut off Lex.END
+                    expanded.extend(self.lexer.lex(''.join(map(stringize, lexeme.split('##'))), name.line)[:-1])  # cut off Lex.END
                 elif lexeme in args:
                     if lexeme not in expanded_args:
                         expanded_args[lexeme] = Expander(self.defined).parse(args[lexeme])
                     expanded.extend(expanded_args[lexeme])
+                elif lexeme == '__VA_ARGS__' and macro.variadic:
+                    if expanded_va_args is None:
+                        expanded_va_args = Expander(self.defined).parse(va_args)
+                    expanded.extend(expanded_va_args)
                 else:
                     expanded.append(Token(ttype, lexeme, name.line))
             if self.index < len(self.tokens) and not self.peek(Lex.SPACE):  # To preserve token boudaries
@@ -252,7 +264,7 @@ class CPreProcessor(Expander):
         if self.accept('-'):
             return -self.primary()
         if self.accept('~'):
-            return ~self.primary()
+            return self.primary() ^ WORD_MASK
         if self.accept('!'):
             return not self.primary()
         return self.primary()
@@ -378,7 +390,6 @@ class CPreProcessor(Expander):
         """
         PARAMETER -> name
         """
-        self.accept(Lex.SPACE)
         name = self.expect(Lex.NAME)
         self.accept(Lex.SPACE)
         return name.lexeme
@@ -388,14 +399,19 @@ class CPreProcessor(Expander):
         PARAMETERS -> [PARAMETER {',' PARAMETER}]
         """
         parameters = []
+        variadic = False
         self.accept(Lex.SPACE)
         if not self.peek(')'):
             while True:
+                self.accept(Lex.SPACE)
+                if self.accept('...'):
+                    variadic = True
+                    break
                 parameters.append(self.parameter())
                 if self.peek(')'):
                     break
                 self.expect(',')
-        return parameters
+        return parameters, variadic
 
     def object_like(self):
         """
@@ -405,14 +421,14 @@ class CPreProcessor(Expander):
         body = []
         while not self.peek({Lex.NEW_LINE, Lex.END}):
             body.append(next(self))
-        return Macro(None, [(token.type, token.lexeme) for token in body])
+        return Macro([(token.type, token.lexeme) for token in body])
 
     def function_like(self):
         """
         DEFINE -> 'define' name '(' PARAMETERS ')' {TOKEN|'#' TOKEN|TOKEN '##' TOKEN}
         """
         self.expect('(')
-        params = self.parameters()
+        params, var = self.parameters()
         self.expect(')')
         self.accept(Lex.SPACE)
         if self.peek('##'):
@@ -433,7 +449,7 @@ class CPreProcessor(Expander):
                 body.append(Token(Lex.CONCAT, f'{left.lexeme}##{right.lexeme}', left.line))
             else:
                 body.append(next(self))
-        return Macro(params, [(token.type, token.lexeme) for token in body])
+        return Macro([(token.type, token.lexeme) for token in body], params, var)
 
     def undef(self):
         """
@@ -534,7 +550,7 @@ class CPreProcessor(Expander):
                     self.directive()
                 elif self.peek(Lex.NEW_LINE):
                     new = next(self)
-                    self.defined['__LINE__'] = Macro(None, [(Lex.NUMBER, new.line)])
+                    self.defined['__LINE__'] = Macro([(Lex.NUMBER, new.line)])
                     output.append(new)
                 elif self.frame.active:
                     if self.peek_defined():
@@ -569,8 +585,8 @@ class CPreProcessor(Expander):
         """Process a single source file."""
         with open(os.path.sep.join(file_path + [file_name])) as file:
             self.frame = Frame(os.path.dirname(os.path.abspath(file.name)))
-            self.defined['__FILE__'] = Macro(None, [(Lex.STRING, os.path.basename(file_name))])
-            self.defined['__LINE__'] = Macro(None, [(Lex.NUMBER, 1)])
+            self.defined['__FILE__'] = Macro([(Lex.STRING, os.path.basename(file_name))])
+            self.defined['__LINE__'] = Macro([(Lex.NUMBER, 1)])
             text = file.read()
         text = self.replace_comments(text)
         output = self.parse(self.lexer.lex(text))
@@ -582,10 +598,10 @@ class CPreProcessor(Expander):
         self.std_included.clear()
         self.files.clear()
         self.defined.clear()
-        self.defined['__BASE_FILE__'] = Macro(None, [(Lex.STRING, file_name)])
+        self.defined['__BASE_FILE__'] = Macro([(Lex.STRING, file_name)])
         now = datetime.now()
-        self.defined['__DATE__'] = Macro(None, [(Lex.STRING, now.strftime("%b %d %Y"))])
-        self.defined['__TIME__'] = Macro(None, [(Lex.STRING, now.strftime("%H:%M:%S"))])
+        self.defined['__DATE__'] = Macro([(Lex.STRING, now.strftime("%b %d %Y"))])
+        self.defined['__TIME__'] = Macro([(Lex.STRING, now.strftime("%H:%M:%S"))])
         self.process_file([], file_name)
 
     def output(self):
@@ -605,6 +621,6 @@ class CPreProcessor(Expander):
     def __str__(self):
         """Produce the processed input as text."""
         return ''.join(f'"{escape_str(token.lexeme)}"' if token.type is Lex.STRING
-                       else f"'{escape_chr(token.lexeme)}'" if token.type is Lex.CHARACTER 
+                       else f"'{escape_chr(token.lexeme)}'" if token.type is Lex.CHARACTER
                        else str(token.lexeme)
                        for _, tokens in self.files for token in tokens)

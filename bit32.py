@@ -9,6 +9,10 @@ from enum import IntEnum
 from struct import pack
 
 
+BYTE_MASK = 0xFF
+WORD_MASK = 0xFFFFFFFF
+
+
 def twos_compliment(number, bits):
     """Make a 2's compliment binary number."""
     if number < 0:
@@ -27,11 +31,6 @@ class Size(IntEnum):
     BYTE = B = 1
     HALF = H = 2  # 2 bytes
     WORD = W = 4  # 4 bytes
-
-    @classmethod
-    def get(cls, name):
-        """Get an size enum based on the given name. Default to Word."""
-        return cls[name.upper()] if name else cls.WORD
 
     def __str__(self):
         """Get size string representation."""
@@ -68,11 +67,6 @@ class Reg(IntEnum):
     ILR = 13    # interrupt link register
     LR = 14     # link register
     PC = 15     # program counter
-
-    @classmethod
-    def max_reg(cls, reg):
-        """Ignore register if not scratch register."""
-        return reg if reg < Reg.SP else cls.A
 
     def __str__(self):
         """Get register string representation."""
@@ -136,11 +130,6 @@ class Cond(IntEnum):
     GE = 14
     AL = 15
 
-    @classmethod
-    def get(cls, name):
-        """Get an condition enum based on the given name. Default to Always."""
-        return cls[name.upper()] if name else cls.AL
-
     def jump(self):
         """Get special formatting for Jump instructions."""
         return self.name if self != self.AL else 'MP'
@@ -160,8 +149,11 @@ ESCAPE = {
 ESCAPE_CHR = {'\'': r'\''} | ESCAPE
 ESCAPE_STR = {'\"': r'\"'} | ESCAPE
 
+
 def escape_chr(char):
+    """Escape given character."""
     return ESCAPE_CHR.get(char, char)
+
 
 def escape_str(text):
     """Escape given string."""
@@ -177,6 +169,7 @@ UNESCAPE = {
     r'\b': '\b',
     r'\\': '\\'
 }
+
 
 def unescape(text):
     """Interpret escaped characters and replace with ascii value."""
@@ -195,7 +188,7 @@ class Data:
 
     def little_end(self):
         """Produce little endian representaion for this instance of data."""
-        return f'{self.bin & 0xff:02x} {self.bin>>8 & 0xff:02x} {self.bin>>16 & 0xff:02x} {self.bin>>24 & 0xff:02x}'
+        return f'{self.bin & BYTE_MASK:02x} {self.bin>>8 & BYTE_MASK:02x} {self.bin>>16 & BYTE_MASK:02x} {self.bin>>24 & BYTE_MASK:02x}'
 
     def hex(self):
         """Produce 32 bit hex representation for this instance of data."""
@@ -220,7 +213,7 @@ class ByteBase(Data):
 
     def little_end(self):
         """Produce little endian representaion for this byte."""
-        return f'{self.bin & 0xff:02x}'
+        return f'{self.bin & BYTE_MASK:02x}'
 
     def hex(self):
         """Produde 8 bit hex representation for this byte."""
@@ -255,7 +248,7 @@ class Half(Data):
 
     def little_end(self):
         """Produce little endian representaion for this half-word."""
-        return f'{self.bin & 0xff:02x} {self.bin>>8 & 0xff:02x}'
+        return f'{self.bin & BYTE_MASK:02x} {self.bin>>8 & BYTE_MASK:02x}'
 
     def hex(self):
         """Produde 16 bit hex representation for this half-word."""
@@ -310,22 +303,6 @@ class Interrupt(Instruction):
 class Unary(Instruction):
     """Class for unary ALU instructions."""
 
-    def __init__(self, cond, flag, size, op, rd):
-        super().__init__()
-        self[31:28] = cond
-        self[27] = flag
-        self[26:24] = Code.ALU
-        self[23:22] = size >> 1
-        self[21:17] = op
-        self[16:12] = None
-        self[11:8] = rd
-        self[7:4] = rd
-        self[3:0] = rd
-
-
-class Binary(Instruction):
-    """Class for binary ALU instructions."""
-
     def __init__(self, cond, flag, size, imm, op, src, rd):
         super().__init__()
         self[31:28] = cond
@@ -348,8 +325,8 @@ class Binary(Instruction):
         self[3:0] = rd
 
 
-class Ternary(Instruction):
-    """Class for ternary ALU instructions."""
+class Binary(Instruction):
+    """Class for binary ALU instructions."""
 
     def __init__(self, cond, flag, size, imm, op, src, rs, rd):
         super().__init__()

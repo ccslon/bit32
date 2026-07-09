@@ -14,13 +14,12 @@ print_int:
   PUSH   B, C, LR
   SUB    SP, 12
   ST     [SP, 0], A ; num
-  LD     A, [SP, 0] ; num
   MOV    B, 10
   CALL   div
   ADD    B, SP, 4 ; ans
   LD     C, [A, 0]
   ST     [B, 0], C
-  LD     C, [A, 4]
-  ST     [B, 4], C
+  LD     A, [A, 4]
+  ST     [B, 4], A
   ADD    SP, 12
   POP    B, C, PC

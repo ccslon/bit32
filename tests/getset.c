@@ -19,6 +19,7 @@ void setarray(int i, int t) {
 }
 int getstack(int i) {
     int a[10];
+    return a[3];
     return a[i];
 }
 int setstack(int i, int t) {

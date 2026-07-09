@@ -29,13 +29,13 @@ stack_int:
   ST     [B, 4], C
   MOV    C, 6
   ST     [B, 8], C
-  ADD    B, A, 24
-  MOV    C, 7
-  ST     [B, 0], C
-  MOV    C, 8
-  ST     [B, 4], C
-  MOV    C, 9
-  ST     [B, 8], C
+  ADD    A, 24
+  MOV    B, 7
+  ST     [A, 0], B
+  MOV    B, 8
+  ST     [A, 4], B
+  MOV    B, 9
+  ST     [A, 8], B
   ADD    A, SP, 48 ; chars
   MOV.B  B, 'a'
   ST.B   [A, 0], B
@@ -67,32 +67,32 @@ list_cat:
   ST     [B, 0], C
   MOV    C, 10
   ST.B   [B, 4], C
-  ADD    B, A, 5
-  LDI    C, =.S1
-  ST     [B, 0], C
-  MOV    C, 6
-  ST.B   [B, 4], C
+  ADD    A, 5
+  LDI    B, =.S1
+  ST     [A, 0], B
+  MOV    B, 6
+  ST.B   [A, 4], B
   ADD    SP, 10
   POP    A, B, C
   RET
 stack_person:
-  PUSH   A, B, C
+  PUSH   A, B
   SUB    SP, 10
   ADD    A, SP, 0 ; me
   LDI    B, =.S2
   ST     [A, 0], B
   MOV    B, 27
   ST.B   [A, 4], B
-  ADD    B, A, 5
-  LDI    C, =.S3
-  ST     [B, 0], C
-  MOV    C, 15
-  ST.B   [B, 4], C
+  ADD    A, 5
+  LDI    B, =.S3
+  ST     [A, 0], B
+  MOV    B, 15
+  ST.B   [A, 4], B
   ADD    SP, 10
-  POP    A, B, C
+  POP    A, B
   RET
 list_person:
-  PUSH   A, B, C, D
+  PUSH   A, B, C
   SUB    SP, 20
   ADD    A, SP, 0 ; people
   ADD    B, A, 0
@@ -100,21 +100,21 @@ list_person:
   ST     [B, 0], C
   MOV    C, 27
   ST.B   [B, 4], C
-  ADD    C, B, 5
-  LDI    D, =.S3
-  ST     [C, 0], D
-  MOV    D, 15
-  ST.B   [C, 4], D
-  ADD    B, A, 10
-  LDI    C, =.S4
+  ADD    B, 5
+  LDI    C, =.S3
   ST     [B, 0], C
-  MOV    C, 24
+  MOV    C, 15
   ST.B   [B, 4], C
-  ADD    C, B, 5
-  LDI    D, =.S5
-  ST     [C, 0], D
-  MOV    D, 15
-  ST.B   [C, 4], D
+  ADD    A, 10
+  LDI    B, =.S4
+  ST     [A, 0], B
+  MOV    B, 24
+  ST.B   [A, 4], B
+  ADD    A, 5
+  LDI    B, =.S5
+  ST     [A, 0], B
+  MOV    B, 15
+  ST.B   [A, 4], B
   ADD    SP, 20
-  POP    A, B, C, D
+  POP    A, B, C
   RET

@@ -16,7 +16,7 @@ while_loop:
 .L1:
   POP    A, PC
 for_loop:
-  PUSH   A, B, LR
+  PUSH   A, LR
   SUB    SP, 4
   MOV    A, 0
   ST     [SP, 0], A ; i
@@ -34,9 +34,9 @@ for_loop:
 .L7:
 .L5:
   LD     A, [SP, 0] ; i
-  ADD    B, A, 1
-  ST     [SP, 0], B ; i
+  ADD    A, 1
+  ST     [SP, 0], A ; i
   JMP    .L4
 .L6:
   ADD    SP, 4
-  POP    A, B, PC
+  POP    A, PC

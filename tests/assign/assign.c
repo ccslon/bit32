@@ -3,6 +3,8 @@
 #include <string.h>
 
 #include "intmap.h"
+// #include "lexer.h"
+// #include "nodes.h"
 #include "parser.h"
 
 jmp_buf jmp;
@@ -41,7 +43,6 @@ int main() {
     exec("(a+b)*c");
     exec("x = a + 1");
     exec("x");
-    exec("3-4");
     puts("Welcome");
     loop();
     freeIntMap(env);
@@ -53,7 +54,7 @@ void loop() {
 	char buf[BUF_SIZE];
 	while(1) {
         buf[0] = '\0';
-		gets(buf, BUF_SIZE);
+		fgets(buf, BUF_SIZE, stdin);
 		if (strcmp(buf, "quit") == 0) {
 			return;
 		}

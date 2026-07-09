@@ -4,9 +4,10 @@ Created on Fri Sep  6 14:05:50 2024
 
 @author: ccslon
 """
-from bit32 import Op, Size, Reg, Cond, floating_point
+from bit32 import Op, Size, Cond
 from .cnodes import Frame
 from . import cexpressions
+
 
 class Type:
     """Base class for C type."""
@@ -26,7 +27,6 @@ class Type:
 
     def cast(self, other):
         """Determine if given type is able to cast to instance type."""
-        # return self == other
         return self.__eq__(other)
 
 
@@ -37,7 +37,7 @@ class Void(Type):
         self.width = 0
 
     def cast(self, _):
-        """Any type can be case to void"""
+        """Any type can be case to void."""
         return True
 
     def get_node(self, _):
@@ -61,71 +61,65 @@ class Value(Type):
         self.interval = 1
         self.width = 0
 
-    def convert(self, emitter, n, other):
+    def convert(self, emitter, source, other):
         """Convert to given type if applicable."""
-        pass
+        return source
 
-    def fti(self, emitter, n):
+    def fti(self, emitter, source):
         """Convert float to integer."""
-        pass
+        return source
 
-    def itf(self, emitter, n):
+    def itf(self, emitter, source):
         """Convert integer to float."""
-        pass
+        return source
 
-    def address(self, emitter, n, var, base):
+    def address(self, emitter, base, var):
         """Generate address code for generic type."""
-        emitter.emit_address(Reg(n), Reg(base), var.offset, var.marked, var.name)
-        return Reg(n)
+        return emitter.emit_address(base, var.offset, var.marked, var.name)
 
-    def reduce(self, emitter, n, var, base):
+    def reduce(self, emitter, base, var):
         """Generate code for generic type."""
-        emitter.emit_load(self.width, Reg(n), Reg(base), var.offset, var.marked, var.name)
-        return Reg(n)
+        return emitter.emit_load(self.width, base, var.offset, var.marked, var.name)
 
-    def store(self, emitter, n, var, base):
+    def store(self, emitter, source, base, var):
         """Generate code for storing to generic type."""
-        emitter.emit_store(self.width, Reg(n), Reg(base), var.offset, var.marked, var.name)
-        return Reg(n)
+        return emitter.emit_store(self.width, source, base, var.offset, var.marked, var.name)
 
-    def reduce_pre(self, emitter, n, op):
+    def reduce_pre(self, emitter, op, source):
         """Generate code for pre operator."""
-        emitter.emit_binary(op, self.width, Reg(n), self.interval)
+        return emitter.emit_binary(op, self.width, source, self.interval)
 
-    def reduce_post(self, emitter, n, op):
+    def reduce_post(self, emitter, op, source):
         """Generate code for post operator."""
-        emitter.emit_ternary(op, self.width, Reg(n+1), Reg(n), self.interval)
+        return emitter.emit_binary(op, self.width, source, self.interval)
 
-    def reduce_binary(self, emitter, n, op, left, right):
+    def reduce_binary(self, emitter, op, left, right):
         """Generate code for binary opertor."""
-        emitter.emit_binary(op, self.width, left.reduce(emitter, n), right.reduce_number(emitter, n+1))
+        return emitter.emit_binary(op, self.width, left.reduce(emitter), right.reduce_number(emitter))
 
-    def reduce_compare(self, emitter, n, left, right):
+    def reduce_compare(self, emitter, left, right):
         """Generate code for compare operator."""
-        emitter.emit_binary(Op.CMP, self.width, left.reduce(emitter, n), right.reduce_number(emitter, n+1))
+        return emitter.emit_compare(Op.CMP, self.width, left.reduce(emitter), right.reduce_number(emitter))
 
-    def list_generate(self, emitter, n, right, offset):
+    def list_generate(self, emitter, element, base, offset):
         """Generate code for initialization lists."""
-        right.reduce(emitter, n+1)
-        self.convert(emitter, n+1, right.type)
-        emitter.emit_store(self.width, Reg(n+1), Reg(n), offset)
+        source = element.reduce(emitter)
+        source = self.convert(emitter, source, element.type)
+        emitter.emit_store(self.width, source, base, offset)
 
-    def global_address(self, emitter, n, glob):
+    def global_address(self, emitter, glob):
         """Generate address code for global variable."""
-        emitter.emit_load_global(Reg(n), glob.name)
-        return Reg(n)
+        return emitter.emit_load_global(glob.name)
 
-    def global_reduce(self, emitter, n, glob):
+    def global_reduce(self, emitter, glob):
         """Generate code for global variable."""
-        self.global_address(emitter, n, glob)
-        emitter.emit_load(self.width, Reg(n), Reg(n))
-        return Reg(n)
+        base = self.global_address(emitter, glob)
+        return emitter.emit_load(self.width, base)
 
-    def global_store(self, emitter, n, glob):  # TODO test
+    def global_store(self, emitter, source, glob):
         """Generate code for storing a global variable."""
-        emitter.emit_load_global(Reg(n+1), glob.name)
-        emitter.emit_store(self.width, Reg(n), Reg(n+1))
-        return Reg(n)
+        base = emitter.emit_load_global(glob.name)
+        return emitter.emit_store(self.width, source, base)
 
     def global_data(self, emitter, expr, data):
         """Generate code for global data."""
@@ -201,17 +195,17 @@ class Numeric(Value):
         super().__init__()
         self.signed = signed
 
-    def convert(self, emitter, n, other):
+    def convert(self, emitter, source, other):
         """Convert to given type if applicable."""
-        other.fti(emitter, n)
+        return other.fti(emitter, source)
 
-    def fti(self, emitter, n):
+    def fti(self, emitter, source):
         """Convert float to integer."""
-        pass
+        return source
 
-    def itf(self, emitter, n):
+    def itf(self, emitter, source):
         """Convert integer to float."""
-        emitter.emit_binary(Op.ITF, Size.WORD, Reg(n), Reg(n))
+        return emitter.emit_unary(Op.ITF, Size.WORD, source)
 
     def get_unary_op(self, op):
         """Get unary operator for this type."""
@@ -317,35 +311,35 @@ class Float(Numeric):
         super().__init__(True)
         self.width = Size.WORD
 
-    def convert(self, emitter, n, other):  # TODO test
+    def convert(self, emitter, source, other):
         """Convert to given type if applicable."""
-        other.itf(emitter, n)
+        return other.itf(emitter, source)
 
-    def fti(self, emitter, n):
+    def fti(self, emitter, source):
         """Convert float to integer."""
-        emitter.emit_binary(Op.FTI, Size.WORD, Reg(n), Reg(n))
+        return emitter.emit_unary(Op.FTI, Size.WORD, source)
 
-    def itf(self, emitter, n):
+    def itf(self, emitter, source):
         """Convert integer to float."""
-        pass
+        return source
 
-    def reduce_pre(self, emitter, n, op):
+    def reduce_pre(self, emitter, op, source):
         """Generate code for pre operator."""
-        emitter.emit_load_immediate(Reg(n+1), floating_point(1), '1.0')
-        emitter.emit_binary(op, self.width, Reg(n), Reg(n+1))
+        interval = emitter.emit_unary(Op.ITF, Size.WORD, 1)  # ITF A, 1
+        return emitter.emit_binary(op, self.width, source, interval)
 
-    def reduce_post(self, emitter, n, op):
+    def reduce_post(self, emitter, op, source):
         """Generate code for post operator."""
-        emitter.emit_load_immediate(Reg(n+2), floating_point(1), '1.0')
-        emitter.emit_ternary(op, self.width, Reg(n+1), Reg(n), Reg(n+2))
+        interval = emitter.emit_unary(Op.ITF, Size.WORD, 1)
+        return emitter.emit_binary(op, self.width, source, interval)
 
-    def reduce_binary(self, emitter, n, op, left, right):
+    def reduce_binary(self, emitter, op, left, right):
         """Generate code for binary operator."""
-        emitter.emit_binary(op, self.width, left.reduce_float(emitter, n), right.reduce_float(emitter, n+1))
+        return emitter.emit_binary(op, self.width, left.reduce_float(emitter), right.reduce_float(emitter))
 
-    def reduce_compare(self, emitter, n, left, right):
+    def reduce_compare(self, emitter, left, right):
         """Generate code for compare operator."""
-        emitter.emit_binary(Op.CMPF, self.width, left.reduce_float(emitter, n), right.reduce_float(emitter, n+1))
+        emitter.emit_compare(Op.CMPF, self.width, left.reduce_float(emitter), right.reduce_float(emitter))
 
     def get_node(self, value):
         """Get the constant node associated with floats."""
@@ -369,24 +363,27 @@ class Pointer(Int):
         self.interval = int(ctype.size())
         self.const = const
 
-    def reduce_binary(self, emitter, n, op, left, right):
+    def reduce_binary(self, emitter, op, left, right):
         """Generate code for binary operator."""
         if self.interval > 1:
             if right.is_constant():
-                emitter.emit_binary(op, Size.WORD, left.reduce(emitter, n), right.fold().evaluate() * self.interval)
-            else:            
-                left.reduce(emitter, n)
-                right.reduce(emitter, n+1)
-                emitter.emit_binary(Op.MUL, Size.WORD, Reg(n+1), self.interval)
-                emitter.emit_binary(op, Size.WORD, Reg(n), Reg(n+1))
-        else:
-            super().reduce_binary(emitter, n, op, left, right)
+                if op is Op.ADD:
+                    offset = right.fold().evaluate()
+                    return emitter.emit_address(left.reduce(emitter), offset * self.interval, False, f'+{offset}')
+                return emitter.emit_binary(op, Size.WORD, left.reduce(emitter), right.fold().evaluate() * self.interval)
+            left = left.reduce(emitter)
+            right = right.reduce(emitter)
+            offset = emitter.emit_binary(Op.MUL, Size.WORD, right, self.interval)
+            if op is Op.ADD:
+                return emitter.emit_address(left, offset)
+            return emitter.emit_binary(op, Size.WORD, left, offset)
+        return super().reduce_binary(emitter, op, left, right)
 
-    def reduce_array(self, emitter, n, array):
+    def reduce_array(self, emitter, array):
         """Generate code for array access."""
-        return array.reduce(emitter, n)
+        return array.reduce(emitter)
 
-    def cast(self, other):  # TODO test
+    def cast(self, other):
         """Determine if the given type can be cast to this type."""
         return isinstance(other, (Numeric, Array))
 
@@ -413,16 +410,16 @@ class Pointer(Int):
 class List:
     """Base class for types that can list initialized."""
 
-    def list_generate(self, emitter, n, right, offset):
+    def list_generate(self, emitter, source, base, offset):
         """Generate code for initialization lists."""
-        # can't be address or it will be optimized away incorrectly.
-        emitter.emit_ternary(Op.ADD, Size.WORD, Reg(n+1), Reg(n), offset)
-        for (offset, ctype), rtype in zip(self, right):
-            ctype.list_generate(emitter, n+1, rtype, offset)
+        # base = emitter.emit_binary(Op.ADD, Size.WORD, base, offset)
+        base = emitter.emit_address(base, offset)
+        for (ctype, offset), element in zip(self, source):
+            ctype.list_generate(emitter, element, base, offset)
 
-    def global_data(self, emitter, expr, data):
+    def global_data(self, emitter, source, data):
         """Generate code for global data."""
-        for (_, ctype), etype in zip(self, expr):
+        for (ctype, _), etype in zip(self, source):
             ctype.global_data(emitter, etype, data)
         return data
 
@@ -437,26 +434,35 @@ class Array(List, Value):
         self.width = Size.WORD
 
     def size(self):
+        """Get the total size of this array."""
         return self.length * self.of.size()
 
-    def reduce(self, emitter, n, var, base):
+    def reduce(self, emitter, base, var):
         """Generate code for loading array."""
-        return self.address(emitter, n, var, base)
+        return self.address(emitter, base, var)
 
-    def reduce_array(self, emitter, n, array):
+    def reduce_array(self, emitter, array):
         """Generate code for special array access."""
-        return array.address(emitter, n)
+        return array.address(emitter)
 
-    def global_reduce(self, emitter, n, glob):
+    def global_reduce(self, emitter, glob):
         """Generate code for global array."""
-        self.global_address(emitter, n, glob)
+        return self.global_address(emitter, glob)
+    
+    def global_data(self, emitter, source, data):
+        super().global_data(emitter, source, data)
+        if len(source) < self.length:
+            data.append((None, (self.length - len(source)) * self.of.size()))
+        return data
 
     def __iter__(self):
         """Iterate through array."""
+        while self.length is None:
+            yield self.of, None
         for i in range(self.length):
-            yield i*self.of.size(), self.of
+            yield self.of, self.of.size() * i
 
-    def __eq__(self, other):  # TODO test
+    def __eq__(self, other):
         """Determine if given type is equal to this array type."""
         return isinstance(other, (Array, Pointer)) and self.of == other.of
 
@@ -466,7 +472,7 @@ class Array(List, Value):
 
 
 class Record(Value):
-
+    """Base class for records."""
 
     def __init__(self, name, frame):
         super().__init__()
@@ -475,22 +481,25 @@ class Record(Value):
         self.width = Size.WORD
 
     def size(self):
+        """Get the total size of this Record type."""
         return self.frame.size
+
 
 class Struct(List, Record):
     """Class for struct type."""
 
     FrameType = Frame
 
-    def reduce(self, emitter, n, var, base):
+    def reduce(self, emitter, base, var):
         """Generate code for loading a struct."""
-        return self.address(emitter, n, var, base)
+        return self.address(emitter, base, var)
 
-    def store(self, emitter, n, var, base):
+    def store(self, emitter, source, base, var):
         """Generate code for storing a struct."""
-        self.address(emitter, n+1, var, base)
+        base = self.address(emitter, base, var)
         frame = {}
-        for offset, ctype in self:
+        for ctype, offset in self:
+            # I forget what this loop does. I think it has to do with absorbed unions
             if offset in frame:
                 if ctype.size() > frame[offset].size():
                     frame[offset] = ctype
@@ -498,20 +507,20 @@ class Struct(List, Record):
                 frame[offset] = ctype
         for offset, ctype in frame.items():
             if ctype.size() in {Size.WORD, Size.BYTE, Size.HALF}:
-                emitter.emit_load(ctype.width, Reg(n+2), Reg(n), offset)
-                emitter.emit_store(ctype.width, Reg(n+2), Reg(n+1), offset)
+                target = emitter.emit_load(ctype.width, source, offset)
+                emitter.emit_store(ctype.width, target, base, offset)
             else:
                 for i in range(ctype.size() // Size.WORD):
-                    emitter.emit_load(Size.WORD, Reg(n+2), Reg(n), offset + Size.WORD*i)
-                    emitter.emit_store(Size.WORD, Reg(n+2), Reg(n+1), offset + Size.WORD*i)
+                    target = emitter.emit_load(Size.WORD, source, offset + Size.WORD*i)
+                    emitter.emit_store(Size.WORD, target, base, offset + Size.WORD*i)
                 for j in range(ctype.size() % Size.WORD):
-                    emitter.emit_load(Size.BYTE, Reg(n+2), Reg(n), offset + Size.WORD*(i+1)+j)
-                    emitter.emit_store(Size.BYTE, Reg(n+2), Reg(n+1), offset + Size.WORD*(i+1)+j)
+                    target = emitter.emit_load(Size.BYTE, source, offset + Size.WORD*(i+1)+j)
+                    emitter.emit_store(Size.BYTE, target, base, offset + Size.WORD*(i+1)+j)
 
     def __iter__(self):
         """Iterate through struct."""
         for attr in self.frame.values():
-            yield attr.offset, attr.type
+            yield attr.type, attr.offset
 
     def __eq__(self, other):
         """Determine if the given type is equal to this struct type."""
@@ -532,10 +541,15 @@ class UnionFrame(Frame):
         self.data[name] = attr
 
 
-class Union(Record):
+class Union(List, Record):
     """Class for union type."""
 
     FrameType = UnionFrame
+
+    def __iter__(self):
+        """Iterate through struct."""
+        attr = max(self.frame.values(), key=lambda a: a.type.size())
+        yield attr.type, attr.offset
 
 
 class Function(Value):
@@ -549,11 +563,12 @@ class Function(Value):
         self.width = Size.WORD
 
     def size(self):
+        """Get the total size of this function (0)."""
         return 0
 
-    def global_reduce(self, emitter, n, glob):
+    def global_reduce(self, emitter, glob):
         """Generate code for loading global function."""
-        return self.global_address(emitter, n, glob)
+        return self.global_address(emitter, glob)
 
     def cast(self, other):
         """Determine if type can be cast to given type (functions cannot)."""

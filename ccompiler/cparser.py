@@ -8,11 +8,11 @@ from dataclasses import dataclass
 from copy import copy
 from .parser import Parser
 from .clexer import Lex, CTYPES
-from .cnodes import Frame, Translation, Definition, VariadicDefinition
+from .cnodes import REG_ARGS, Frame, Translation, Definition, VariadicDefinition
 from .cexpressions import (Local, Attribute, Global, Number, Decimal, Character, String,
                            AddressOf, Dereference, SizeOf, Cast, Post, UnaryOp, Not, Pre,
                            BinaryOp, Compare, Logic, Dot, SubScript, Arrow,  Conditional)
-from .ctypes import Type, Void, Float, Int, Short, Char, Pointer, Struct, Union, Array, Function
+from .ctypes import Type, Void, Float, Int, Short, Char, Pointer, List, Struct, Union, Array, Function
 from .cstatements import (Statement, If, Case, Switch, While, Do, For, Continue, Break, Goto, Label, Return, Compound,
                           Comma, Call, VariadicCall, InitAssignment, Assignment, InitListAssignment, InitStringArray)
 r'''( |\t)+$'''  # To delete weird whitespace spyder adds
@@ -41,7 +41,7 @@ TODO
 [X] Typedef
 [X] Const expressions
 [X] Const eval
-[ ] Register variables (use max_args)
+[ ] Register variables
 [X] Function pointers
 [ ] Function defs in function defs
 [X] Error handling
@@ -53,14 +53,12 @@ TODO
 [X] PREPROCESSING
     [X] Include header files
     [X] Macros
-
 [-] Bit fields
 [X] Proper typedef
 [X] Return width
 [X] Proper preproc
 [X] Assertion messages
 [ ] Breakpoints in circuit
-[ ] fix interrupt on interrupt bug in circuit
 [X] Warn when global names collide
 [X] better debugging in ASM
 
@@ -85,11 +83,10 @@ class FunctionInfo:
     space: int = 0
     returns: bool = False
     calls: bool = False
-    max_arguments: int = 0
 
     def __iter__(self):
         """For unpacking."""
-        return iter((self.returns, self.calls, self.max_arguments, self.space))
+        return iter((self.returns, self.calls, self.space))
 
 
 class Scope:
@@ -131,6 +128,8 @@ class CParser(Parser):
     def __init__(self):
         self.scope = Scope()
         self.stack = []
+        self.function = None
+        self.stack_parameters = {}
         super().__init__()
 
     def parse(self, tokens):
@@ -216,7 +215,6 @@ class CParser(Parser):
             arguments.append(self.assignment())
             while self.accept(','):
                 arguments.append(self.assignment())
-        self.function.max_arguments = min(max(self.function.max_arguments, len(arguments)), 4)
         return arguments
 
     def unary(self):
@@ -551,25 +549,27 @@ class CParser(Parser):
                 self.expect(']')
         return ctype, name
 
-    def initializer_list(self, parser):
+    def initializer_list(self, ctype, parser):
         """
         INITIALIZER_LIST -> [INITIALIZER {',' INITIALIZER}]
         """
         initializer_list = []
         if not self.peek('}'):
+            types = iter(ctype)
             while True:
-                initializer_list.append(self.initializer(parser))
+                etype, _ = next(types)
+                initializer_list.append(self.initializer(etype, parser))
                 if self.peek('}'):
                     break
                 self.expect(',')
         return initializer_list
 
-    def initializer(self, parser):
+    def initializer(self, ctype, parser):
         """
         INITIALIZER -> '{' INITIALIZER_LIST '}'|ASSIGNMENT|CONSTANT
         """
         if self.accept('{'):
-            initializer = self.initializer_list(parser)
+            initializer = self.initializer_list(ctype, parser)
             self.expect('}')
         else:
             initializer = parser()
@@ -771,11 +771,16 @@ class CParser(Parser):
                     self.function = FunctionInfo(ctype.return_type, name.lexeme)
                     self.stack_parameters = Frame()
                     self.begin_scope()
-                    for param in ctype.parameters[:4]:
-                        self.scope.locals[param.name] = param
-                    for param in ctype.parameters[4:]:
-                        self.stack_parameters[param.name] = param
-                    DefinitionType = VariadicDefinition if ctype.variadic else Definition
+                    if ctype.variadic:
+                        DefinitionType = VariadicDefinition
+                        for param in ctype.parameters:
+                            self.stack_parameters[param.name] = param
+                    else:
+                        DefinitionType = Definition
+                        for param in ctype.parameters[:REG_ARGS]:
+                            self.scope.locals[param.name] = param
+                        for param in ctype.parameters[REG_ARGS:]:
+                            self.stack_parameters[param.name] = param
                     compound = self.compound()
                     self.end_scope()
                     self.expect('}')
@@ -809,10 +814,10 @@ class CParser(Parser):
             if isinstance(ctype, Function):
                 self.error('Cannot assign a value to a function type')
             token = next(self)
-            initializer = self.initializer(parser)
+            initializer = self.initializer(ctype, parser)
             if isinstance(initializer, String) and isinstance(ctype, Array):
                 init_decl = InitStringArray(token, init_decl, initializer)
-            elif isinstance(initializer, list) and isinstance(ctype, Array | Struct):
+            elif isinstance(initializer, list) and isinstance(ctype, List):
                 init_decl = InitListAssignment(token, init_decl, initializer)
             else:
                 init_decl = InitAssignment(token, init_decl, initializer)

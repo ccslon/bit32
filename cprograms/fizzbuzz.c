@@ -1,7 +1,6 @@
+#include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-
-int g;
 
 void fizzbuzz(int m) {
     int n;

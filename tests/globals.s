@@ -64,8 +64,7 @@ main:
   ST     [B, 5], A ; .owner
   LD     A, [SP, 0] ; cat1
   CALL   print_cat
-  MOV    B, 0
+  MOV    A, 0
 .L0:
-  MOV    A, B
   ADD    SP, 4
   POP    B, PC

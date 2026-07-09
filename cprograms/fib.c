@@ -14,9 +14,8 @@ int fib(const int n) {
 }
 
 int main() {
-    printf("%d", fib(8));
-    // int i;
-    // printf("Fib! %d %d\n", 0, 1);
-    // for (i = 1; i <= 10; i++)
-    //     printf("%d\n", fib(i));  
+    int i;
+    printf("Fib! %d %d\n", 0, 1);
+    for (i = 1; i <= 10; i++)
+        printf("%d\n", fib(i));  
 }

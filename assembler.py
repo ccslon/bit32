@@ -8,14 +8,15 @@ from enum import Enum, IntEnum, auto
 from typing import NamedTuple
 from operator import add, sub, mul, floordiv, mod, lshift, rshift
 import re
-from bit32 import (Size, Flag, Reg, Op, Cond, Byte, Char, Half, Word, Jump, Interrupt, Unary,
-                   Binary, Ternary, Load, PushPop, LoadImmediate, unescape)
+from bit32 import (BYTE_MASK, WORD_MASK, Size, Flag, Reg, Op, Cond, Byte, Char, Half, Word,
+                   Jump, Interrupt, Unary, Binary, Load, PushPop, LoadImmediate, unescape)
 
 
 RE_SIZE = r'B|H|W'
 RE_OP = r'|'.join(op.name for op in Op) + '|NOP|LDI?|ST|SWI|PUSH|POP|CALL|I?RET|HALT'
 RE_COND = r'|'.join(cond.name for cond in Cond)
 RE_REG = r'|'.join(reg.name for reg in Reg)
+
 
 class Lex(Enum):
     """Enum class for token types."""
@@ -97,7 +98,8 @@ class Emitter:
 
     def emit_space(self, label, size):
         """Emit space data."""
-        self.labels.append(label)
+        if label is not None:
+            self.labels.append(label)
         for _ in range(size // Size.WORD):
             self.new_data(Word, 0)
         for _ in range(size % Size.WORD):
@@ -115,32 +117,24 @@ class Emitter:
         """Emit interrupt instruction."""
         self.new_instruction(Interrupt, condition, True, label)
 
-    def emit_unary(self, op, condition, flag, size, destination):
-        """Emit unary instruction."""
-        if op not in {Op.NOT, Op.NEG, Op.NEGF}:
-            self.assembler.error(f'{op.name} is not a unary operator')
-        self.new_instruction(Unary, condition, flag, size, op, destination)
-
-    def emit_binary(self, op, condition, flag, size, destination, source, immediate):
+    def emit_unary(self, op, condition, flag, size, destination, source, immediate):
         """Emit binary instruction."""
-        if op in {Op.NOT, Op.NEG, Op.NEGF}:
-            self.assembler.error(f'{op.name} is a unary operator only')
         if immediate and isinstance(source, int) and not (-128 <= source < 256):
             if op is Op.MOV:
                 self.emit_load_immediate(condition, size, destination, source)
                 return
-            self.assembler.error(f'{source} does not fit within 8 bits. Use LDI instruction')
-        self.new_instruction(Binary, condition, flag, size, immediate, op, source, destination)
+            self.new_instruction(Unary, condition, flag, size, immediate, op, source & BYTE_MASK, destination)
+            return
+        self.new_instruction(Unary, condition, flag, size, immediate, op, source, destination)
 
-    def emit_ternary(self, op, condition, flag, size, destination, source, source2, immediate):
+    def emit_binary(self, op, condition, flag, size, destination, source, source2, immediate):
         """Emit ternary instruction."""
-        if op in {Op.NOT, Op.NEG, Op.NEGF}:
-            self.assembler.error(f'{op.name} is a unary operation only')
-        if op in {Op.MOV, Op.MVN, Op.CMN, Op.CMP, Op.TST, Op.TEQ, Op.CMPF}:
+        if op in {Op.MOV, Op.MVN, Op.CMN, Op.CMP, Op.TST, Op.TEQ, Op.CMPF, Op.NOT, Op.NEG, Op.NEGF}:
             self.assembler.error(f'{op.name} only takes 2 arguments but 3 were given')
         if immediate and isinstance(source, int) and not (-128 <= source < 256):
-            self.assembler.error(f'{source} does not fit within 8 bits. Use LDI instruction')
-        self.new_instruction(Ternary, condition, flag, size, immediate, op, source2, source, destination)
+            self.new_instruction(Binary, condition, flag, size, immediate, op, source2 & BYTE_MASK, source, destination)
+            return
+        self.new_instruction(Binary, condition, flag, size, immediate, op, source2, source, destination)
 
     def emit_load(self, condition, size, destination, base, offset, immediate):
         """Emit load instruction."""
@@ -213,7 +207,7 @@ class Assembler:
         if self.accept('-'):
             return -self.primary()
         if self.accept('~'):
-            return ~self.primary()
+            return self.primary() ^ WORD_MASK
         return self.primary()
 
     def multiplicative(self):
@@ -340,19 +334,18 @@ class Assembler:
     def code(self, emitter):
         """
         CODE -> 'nop'|JUMP|CALL|LOAD|STORE|PUSH|POP|LOAD_IMM|RET...
-
         """
         op, flag, cond, size = next(self).match.group('op', 'flag', 'cond', 'size')
         op = op.upper()
-        cond = Cond.get(cond)
-        size = Size.get(size)
+        cond = Cond[cond.upper()] if cond else Cond.AL
+        size = Size[size.upper()] if size else Size.WORD
         if op == 'NOP':
             emitter.emit_jump(Cond.NV, 0)
         elif op in {'J', 'JMP'}:
             if self.peek(Lex.NAME):
                 emitter.emit_jump(cond, self.label())
             elif self.peek(Lex.REG):
-                emitter.emit_binary(Op.MOV, cond, False, Size.WORD, Reg.PC, self.reg(), False)
+                emitter.emit_unary(Op.MOV, cond, False, Size.WORD, Reg.PC, self.reg(), False)
             else:
                 self.error('JMP instruction expects label or register')
         elif op == 'LD':
@@ -405,45 +398,46 @@ class Assembler:
             emitter.emit_load_immediate(cond, size, target, self.label() if self.accept('=') else self.expression())
         elif op == 'CALL':
             if self.peek(Lex.REG):
-                emitter.emit_ternary(Op.ADD, cond, False, Size.WORD, Reg.LR, Reg.PC, 2*Size.WORD, True)
-                emitter.emit_binary(Op.MOV, cond, False, Size.WORD, Reg.PC, self.reg(), False)
+                emitter.emit_binary(Op.ADD, cond, False, Size.WORD, Reg.LR, Reg.PC, 2*Size.WORD, True)
+                emitter.emit_unary(Op.MOV, cond, False, Size.WORD, Reg.PC, self.reg(), False)
             else:
                 emitter.emit_call(cond, self.label())
         elif op == 'RET':
-            emitter.emit_binary(Op.MOV, cond, False, Size.WORD, Reg.PC, Reg.LR, False)
+            emitter.emit_unary(Op.MOV, cond, False, Size.WORD, Reg.PC, Reg.LR, False)
         elif op == 'IRET':
-            emitter.emit_binary(Op.MOV, Cond.AL, False, Size.WORD, Reg.PC, Reg.ILR, False)
+            emitter.emit_unary(Op.MOV, Cond.AL, False, Size.WORD, Reg.PC, Reg.ILR, False)
         elif op == 'HALT':
-            emitter.emit_binary(Op.OR, cond, False, Size.WORD, Reg.SR, Flag.HALT, True)
+            emitter.emit_binary(Op.OR, cond, False, Size.WORD, Reg.SR, Reg.SR, Flag.HALT, True)
         elif op == 'SWI':
             emitter.emit_interrupt(cond, self.label())
         else:
             op = Op[op]
             flag = bool(flag)
             target = self.reg()
-            if self.accept(','):
-                if self.peek(Lex.REG):
-                    source = self.reg()
-                    if self.accept(','):
-                        if self.peek(Lex.REG):
-                            imm = False
-                            source2 = self.reg()
-                        else:
-                            imm = True
-                            source2 = self.expression()
-                        emitter.emit_ternary(op, cond, flag, size, target, source, source2, imm)
+            self.expect(',')
+            if self.peek(Lex.REG):
+                source = self.reg()
+                if self.accept(','):
+                    if self.peek(Lex.REG):
+                        imm = False
+                        source2 = self.reg()
                     else:
-                        emitter.emit_binary(op, cond, flag, size, target, source, False)
+                        imm = True
+                        source2 = self.expression()
+                    emitter.emit_binary(op, cond, flag, size, target, source, source2, imm)
                 else:
-                    emitter.emit_binary(op, cond, flag, size, target, self.expression(), True)
+                    emitter.emit_unary(op, cond, flag, size, target, source, False)
             else:
-                emitter.emit_unary(op, cond, flag, size, target)
+                emitter.emit_unary(op, cond, flag, size, target, self.expression(), True)
 
     def data(self, emitter):
         """
-        DATA -> SIZE EXPRESSION
+        DATA -> (space|SIZE) EXPRESSION
         """
-        emitter.new_data(self.size(), self.expression())
+        if self.peek(Lex.SPACE):
+            emitter.emit_space(None, self.expression())
+        else:
+            emitter.new_data(self.size(), self.expression())
 
     def assemble(self, assembly):
         """Parse and assemble the given assembly code and output bit32 objects."""
@@ -530,7 +524,7 @@ def link(objects):
         data = Type(*args)
         contents.append(data.little_end())
         i += Type.size
-    print('Interrupt Vector:', '0x'+Interrupt(Cond.AL, False, targets['interrupt_handler']).hex())
+    print('Interrupt Vector:', '0x'+Interrupt(Cond.AL, False, targets['.interrupt']).hex())
     print(repl('\nSuccess!', Color.GREEN), len(contents), 'items.', i, 'bytes')
     return contents
 
@@ -549,12 +543,12 @@ class Color(IntEnum):
 
 
 # ANSI 8-bit color mode (look it up)
-HIGHLIGHTS = {    
+HIGHLIGHTS = {
     r'\b-?(0x[0-9A-F]+|0b[01]+|\d+)\b': Color.ORANGE,  # const
     r"'(\\'|\\?[^'])'": Color.GREEN,  # char
     r'"(\\"|[^"])*"': Color.GREEN,  # string
     rf'\b({RE_REG})\b': Color.WHITE,  # register
-    rf'^(J(MP)?|{RE_OP})S?({RE_COND})?(\.{RE_SIZE})?\b': Color.BLUE, # op
+    rf'^(J(MP)?|{RE_OP})S?({RE_COND})?(\.({RE_SIZE}))?\b': Color.BLUE,  # op
     r'\.(BYTE|HALF|WORD|SPACE)\b': Color.BLUE,  # size|space
     r'\.?[A-Z_]\w*': Color.CYAN,  # name
     r';.*$': Color.GREY  # comment
@@ -570,7 +564,7 @@ def repl(text, color):
 
 def display(assembly):
     """Display highlighted assemgly code."""
-    for line in assembly.split('\n'):
+    for line in str(assembly).split('\n'):
         new = ''
         while line:
             for pattern, color in HIGHLIGHTS.items():
@@ -604,9 +598,23 @@ def assemble(program, name='out'):
 
 if __name__ == '__main__':
     assembly = '''
-    main:
-    loop:
-        JMP loop
-        RET
-    '''
+interrupt:
+    PUSH A, B, LR
+    MOV B, 0
+.I0:
+    CMP B, 8
+    JGE .I1
+    CALL in
+    CMP A, '\0'
+    JEQ .I1
+    CALL out
+    ADD B, 1
+    JMP .I0
+.I1:
+    POP A, B, PC
+main:
+loop:
+    JMP loop
+    RET
+'''
     assemble(assembly)

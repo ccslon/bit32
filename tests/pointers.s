@@ -2,11 +2,9 @@ change:
   PUSH   B
   SUB    SP, 4
   ST     [SP, 0], A ; n
-  LD     A, [SP, 0] ; n
-  LD     A, [A]
-  ADD    A, 10
-  LD     B, [SP, 0] ; n
-  ST     [B], A
+  LD     B, [A]
+  ADD    B, 10
+  ST     [A], B
   ADD    SP, 4
   POP    B
   RET
@@ -14,7 +12,6 @@ foo:
   PUSH   LR
   SUB    SP, 8
   ST     [SP, 0], A ; m
-  LD     A, [SP, 0] ; m
   MUL    A, 5
   ST     [SP, 4], A ; n
   ADD    A, SP, 4 ; n

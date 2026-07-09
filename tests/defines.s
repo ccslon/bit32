@@ -17,13 +17,12 @@ test:
   LD     A, [SP, 4] ; minN
 .L3:
   ST     [SP, 4], A ; minN
-  LD     A, [SP, 4] ; minN
-  ADD    B, A, 1
-  ST     [SP, 4], B ; minN
+  ADD    A, 1
+  ST     [SP, 4], A ; minN
 .L1:
   LD     A, [SP, 0] ; i
-  ADD    B, A, 1
-  ST     [SP, 0], B ; i
+  ADD    A, 1
+  ST     [SP, 0], A ; i
   JMP    .L0
 .L2:
   ADD    SP, 8

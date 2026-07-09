@@ -12,7 +12,6 @@ main:
   ST     [SP, 8], A ; k
   MOV    A, 4
   ST     [SP, 12], A ; l
-  LD     A, [SP, 12] ; l
   ADD    A, 3
   ST     [SP, 16], A ; m
   MOV    A, 0
@@ -56,8 +55,8 @@ test_loops:
   CALL   foo
 .L6:
   LD     A, [SP, 0] ; i
-  ADD    B, A, 1
-  ST     [SP, 0], B ; i
+  ADD    A, 1
+  ST     [SP, 0], A ; i
   JMP    .L5
 .L7:
 .L8:
@@ -66,19 +65,19 @@ test_loops:
   ADD    SP, 12
   POP    A, B, PC
 test_ifs:
-  PUSH   A, B, LR
+  PUSH   A, LR
   SUB    SP, 4
   JMP    .L11
   CALL   foo
   JMP    .L10
 .L11:
   LD     A, [SP, 0] ; q
-  ADD    B, A, 1
-  ST     [SP, 0], B ; q
+  ADD    A, 1
+  ST     [SP, 0], A ; q
   JMP    .L10
 .L12:
   MOV    A, 10
   ST     [SP, 0], A ; q
 .L10:
   ADD    SP, 4
-  POP    A, B, PC
+  POP    A, PC
