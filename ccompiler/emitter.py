@@ -149,7 +149,6 @@ class Emitter:
                     inst1.op = Op.AND
                     inst1.source.value -= 1
             i += 1
-
         new = []
         i = 0
         while i < len(self.instructions)-1:
@@ -186,7 +185,10 @@ class Emitter:
                 '''
                 inst2.labels += inst1.labels
                 inst2.base = inst1.base
-                inst2.offset.value += inst1.offset.value
+                if inst2.offset is None:
+                    inst2.offset = inst1.offset
+                else:
+                    inst2.offset.value += inst1.offset.value
                 inst2.marked = inst1.marked
                 inst2.comment = inst1.comment + inst2.comment
                 inst2.live_in = inst1.live_in

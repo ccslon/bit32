@@ -360,17 +360,17 @@ class Pointer(Int):
     def __init__(self, ctype, const=False):
         super().__init__(False)
         self.to = self.of = ctype
-        self.interval = int(ctype.size())
+        self.interval = max(int(ctype.size()), 1)
         self.const = const
 
     def reduce_binary(self, emitter, op, left, right):
         """Generate code for binary operator."""
+        if right.is_constant():
+            offset = right.fold().evaluate()
+            if op is Op.ADD:
+                return emitter.emit_address(left.reduce(emitter), offset * self.interval, False, f'+{offset}')
+            return emitter.emit_binary(op, Size.WORD, left.reduce(emitter), offset * self.interval)
         if self.interval > 1:
-            if right.is_constant():
-                if op is Op.ADD:
-                    offset = right.fold().evaluate()
-                    return emitter.emit_address(left.reduce(emitter), offset * self.interval, False, f'+{offset}')
-                return emitter.emit_binary(op, Size.WORD, left.reduce(emitter), right.fold().evaluate() * self.interval)
             left = left.reduce(emitter)
             right = right.reduce(emitter)
             offset = emitter.emit_binary(Op.MUL, Size.WORD, right, self.interval)
@@ -448,7 +448,7 @@ class Array(List, Value):
     def global_reduce(self, emitter, glob):
         """Generate code for global array."""
         return self.global_address(emitter, glob)
-    
+
     def global_data(self, emitter, source, data):
         super().global_data(emitter, source, data)
         if len(source) < self.length:

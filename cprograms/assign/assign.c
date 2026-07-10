@@ -7,7 +7,6 @@
 
 jmp_buf jmp;
 IntMap* env;
-IntMap* n = NULL;
 void exec(char* input) {
     Token* head = NULL;
     Node* tree = NULL;
@@ -34,9 +33,9 @@ int main() {
     IntMap_set(env, "a", 3);
     IntMap_set(env, "b", 4);
     IntMap_set(env, "c", 7);
-    // IntMap_set(env, "foo", 10);
+    IntMap_set(env, "foo", 10);
     puts("Testing123");
-    // exec("1+1");
+    exec("1+1");
     exec("a+b*c");
     exec("(a+b)*c");
     exec("x = a + 1");

@@ -55,7 +55,7 @@ Node* allocAssign(Token* token, Node* left, Node* right) {
     Node* node = malloc(sizeof(Node));
     node->type = ASSIGN;
     node->token = token;
-    node->binary = malloc(sizeof(struct Binary));
+    node->binary = malloc(sizeof(Binary));
     node->binary->op = NULL;
     node->binary->left = left;
     node->binary->right = right;

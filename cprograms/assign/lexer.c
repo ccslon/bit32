@@ -31,13 +31,13 @@ void freeTokens(Token* head) {
 
 unsigned consume(Token* new, char* input, enum TokenType type, int (*test)(int)) {
     unsigned i = 0;    
-    char lexeme_buffer[LEXEME_BUFFER_SIZE];
-    char lexeme_len = 0;
+    char lexeme[LEXEME_SIZE];
+    char len = 0;
     do {
-        lexeme_buffer[lexeme_len++] = input[i++];
-    } while ((*test)(input[i]) && lexeme_len < LEXEME_BUFFER_SIZE-1);
-    lexeme_buffer[lexeme_len] = '\0';
-    new->lexeme = strdup(lexeme_buffer);
+        lexeme[len++] = input[i++];
+    } while (len < LEXEME_SIZE-1 && (*test)(input[i]));
+    lexeme[len] = '\0';
+    new->lexeme = strdup(lexeme);
     new->type = type;    
     return i;
 }
@@ -49,12 +49,9 @@ Token* lex(char* input) {
     unsigned len = strlen(input);    
     Token* head = NULL;
     Token* tail = NULL;
-    short line = 1;
     while (i < len) {
         if (isspace(input[i])) {
-            if (input[i] == '\n') {
-                line++;
-            }
+            // if (input[i] == '\n');
             i++;
         } else {
             Token* new = malloc(sizeof(Token));
@@ -82,7 +79,6 @@ Token* lex(char* input) {
                         longjmp(jmp, 1);
                 }
             }
-            new->line = line;
             if (head == NULL) {
                 head = tail = new;
             } else {
@@ -94,7 +90,6 @@ Token* lex(char* input) {
     Token* end = malloc(sizeof(Token));
     end->type = END;
     end->sym = '\0';
-    end->line = line;
     end->next = NULL;
     tail->next = end;
     return head;

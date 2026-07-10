@@ -24,4 +24,7 @@ void IntMap_set(IntMap*, char*, int);
 void HashMap_del(IntMap*, char*);
 void freePairs(Pair*);
 void freeIntMap(IntMap*);
+void printPair(Pair* pair);
+void printPairs(Pair* pair);
+void printIntMap(IntMap* map);
 #endif
