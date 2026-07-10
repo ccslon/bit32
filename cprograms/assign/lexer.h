@@ -3,6 +3,8 @@
 
 #define EINV_SYM 200
 
+#define LEXEME_SIZE 16
+
 enum TokenType {
     NUM,
     VAR,
@@ -17,13 +19,10 @@ typedef struct Token {
         char* lexeme;
         char sym;
     };
-    short line;
     struct Token* next;
 } Token;
 
 void freeTokens(Token*);
-
-#define LEXEME_BUFFER_SIZE 16
 
 unsigned consume(Token*, char*, enum TokenType, int (*)(int));
 

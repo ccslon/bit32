@@ -1,5 +1,6 @@
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include "intmap.h"
 IntMap* _allocIntMap(unsigned size) {
     IntMap* map = malloc(sizeof(IntMap));
@@ -72,7 +73,7 @@ void IntMap_set(IntMap* map, char* key, int value) {
     }
 }
 void IntMap_del(IntMap* map, char* key) {
-    if (map != NULL) {   
+    if (map != NULL) {
         Pair* pair;
         if (IntMap_in(map, key)) {
             unsigned h = IntMap_hash(map, key);
@@ -110,4 +111,18 @@ void freeIntMap(IntMap* map) {
     }
     free(map->data);
     free(map);
+}
+void printPair(Pair* pair) {
+	printf("%s %d\n", pair->key, pair->value);
+}
+void printPairs(Pair* pair) {
+	for(; pair != NULL; pair = pair->next) {
+		printPair(pair);		
+	}
+}
+void printIntMap(IntMap* map){
+	int i;
+	for (i = 0; i < map->capacity; i++) {
+		printPairs(map->data[i]);
+	}
 }
