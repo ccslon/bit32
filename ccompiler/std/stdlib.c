@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <ctype.h>
+#define MIN_ALLOC 128
 div_t div(int num, int den) {
     div_t ans = {num / den, num % den};
     return ans;
@@ -94,21 +95,22 @@ float atof(const char* s) {
 }
 typedef struct Header {
     struct Header* next;
-    unsigned size;
+    size_t size;
 } Header;
 Header base;
 Header* freehead = NULL;
 extern void* heap;
 void* getheap(size_t n) {
     void* temp = heap;
-    heap += n;
+    heap = (char*)heap + n;
     return temp;
 }
 Header* morecore(size_t n) {
     void* core;
     Header* header;
-    core = getheap(n);
-    header = (Header*)core;
+    if (n < MIN_ALLOC)
+        n = MIN_ALLOC;
+    header = (Header*)getheap(n);
     header->size = n;
     free(header+1);
     return freehead;
@@ -121,14 +123,15 @@ void* malloc(size_t bytes) {
         base.size = 0;
     }
     for (p = prevp->next; ; prevp = p, p = p->next) {
-        if (p->size >= units) {
-            if (p->size == units) {
-                prevp->next = p->next;
-            } else {
-                p->size -= units;
-                p = (Header*)((int)p + p->size);
-                p->size = units;
-            }
+        if (p->size == units) {
+            prevp->next = p->next;
+            freehead = prevp;
+            return (void*)(p+1);
+        }
+        if (p->size > units + sizeof(Header)) {            
+            p->size -= units;
+            p = (Header*)((char*)p + p->size);
+            p->size = units;
             freehead = prevp;
             return (void*)(p+1);
         }
@@ -139,18 +142,17 @@ void* malloc(size_t bytes) {
 }
 void free(void* original) {
     if (original != NULL) {
-        Header  *free, *p;
+        Header *free, *p;
         free = (Header*)original - 1;
         for (p = freehead; !(p < free && free < p->next); p = p->next)
             if (p >= p->next && (free > p || free < p->next))
-                break;
-        
-        if ((int)free + free->size == p->next) {
+                break;        
+        if ((char*)free + free->size == p->next) {
             free->size += p->next->size;
             free->next = p->next->next;
         } else 
             free->next = p->next;
-        if ((int)p + p->size == free) {
+        if ((char*)p + p->size == free) {
             p->size += free->size;
             p->next = free->next;
         } else
