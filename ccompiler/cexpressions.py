@@ -147,7 +147,7 @@ class Character(Constant):
         super().__init__(Char(), ord(value))
         self.char = value
 
-    def data(self, emitter):
+    def data(self, _):
         """Get data representation of character."""
         return f"'{escape_chr(self.char)}'"
 

@@ -98,29 +98,33 @@ class Lexer(metaclass=MetaLexer):
 class CLexer(Lexer):
     """Lexer specifically for the C programming language."""
 
-    def RE_decimal(self, match):
+    def RE_decimal(self, group):
         r'\d+\.\d+'
-        return float(match)
+        return float(group)
 
-    def RE_number(self, match):
-        r'0x[0-9A-Fa-f]+|0b[01]+|\d+'
-        if match.startswith('0x'):
-            return int(match, base=16)
-        if match.startswith('0b'):
-            return int(match, base=2)
-        return int(match)
+    def RE_number(self, group):
+        r'(0[Xx][0-9A-Fa-f]+|0[Bb][01]+|0[0-7]+|\d+)[LUlu]?'
+        if group.endswith(('L', 'U', 'l', 'u')):
+            group = group[:-1]
+        if group.startswith(('0X','0x')):
+            return int(group, base=16)
+        if group.startswith(('0B','0b')):
+            return int(group, base=2)
+        if group.startswith('0'):
+            return int(group, base=8)
+        return int(group)
 
-    def RE_character(self, match):
+    def RE_character(self, group):
         r"'(\\'|\\?[^'])'"
-        return unescape(match[1:-1])
+        return unescape(group[1:-1])
 
-    def RE_string(self, match):
+    def RE_string(self, group):
         r'"(\\"|[^"])*"'
-        return unescape(match[1:-1])
+        return unescape(group[1:-1])
 
-    def RE_std(self, match):
+    def RE_std(self, group):
         r'<\s*\w+\.h\s*>'
-        return match[1:-1].strip()
+        return group[1:-1].strip()
 
     RE_ctype = rf"\b({'|'.join(CTYPES)})\b"
 
@@ -136,13 +140,13 @@ class CLexer(Lexer):
 
     RE_space = r'[ \t]+'
 
-    def RE_new_line(self, match):
+    def RE_new_line(self, group):
         r'\n'
         self.line += 1
-        return match
+        return group
 
-    def RE_invalid(self, match):
+    def RE_invalid(self, group):
         r'\S'
-        raise SyntaxError(f'line {self.line}: Invalid symbol "{match}"')
+        raise SyntaxError(f'line {self.line}: Invalid symbol "{group}"')
 
     RE_end = r'$'
