@@ -60,8 +60,16 @@ GENERAL = 11  # number of general purpose registers
 class Register(Argument):
     """Base class for registers."""
 
+    def devirtualize(self, reg):
+        """Lower to physical register."""
+        pass
+
     def disconnect(self, _, __):
         """Disconnect this register from neighbors. Defualt is do nothing."""
+        pass
+
+    def precolor(self, _):
+        """Precolor this node."""
         pass
 
     def color(self, _, __, ___):
@@ -88,11 +96,18 @@ class Physical(Register):
             return {self}
         return super().live()
 
-    def color(self, graph, _, __):
-        """Color this physical register if not already."""
-        if self not in graph and self.reg < GENERAL:
-            graph[self] = self.reg
+    def devirtualize(self, other):
+        """Lower to physical register."""
+        other.virtual = False
 
+    def precolor(self, colors):
+        """Precolor this physical register."""
+        if self.value not in colors and self.reg < GENERAL:
+            colors[self.value] = int(self.reg)
+
+    def color(self, colors, _, __):
+        """Color this physical register if not already."""
+        self.precolor(colors)
 
 Registers = [Physical(reg) for reg in Reg]
 
@@ -131,20 +146,19 @@ class Virtual(Register):
     def color(self, colors, spill, edges):
         """Color this virtual register or otherwise spill."""
         if self.virtual:
-            used_colors = {colors[edge] for edge in edges if edge in colors}
+            used_colors = {colors[edge.value] for edge in edges if edge.value in colors}
             for color in range(GENERAL):
                 if color not in used_colors:
-                    colors[self] = color
+                    colors[self.value] = color
                     break
             else:
                 spill.append(self)
 
-    def devirtualize(self, reg):
-        """Lower to physical register."""
+    def alias(self, reg):
+        """Give this node an alias."""
         if self.virtual:
             self.value = reg.value
-            self.virtual = False
-
+            reg.devirtualize(self)
 
 class Object:
     """Base class for bit32 objects."""
@@ -424,7 +438,6 @@ class CMov(Unary):
         """Get the formatted op string for cmovs."""
         return f'{self.op.name}{self.condition}'.ljust(JUST)
 
-
 class Move(Unary):
     """Base class for coalescable Move instructions."""
 
@@ -433,45 +446,43 @@ class Move(Unary):
 
     def coalesce(self, graph):
         """Attempt to coalesce this move isntruction."""
-        phys = self.get_physical()
-        virt = self.get_virtual()
-        if virt.virtual and phys not in graph[virt]:  # if they don't interfere
-            graph[phys] |= graph[virt]
-            for edge in graph[virt]:
-                graph[edge].remove(virt)
-                graph[edge].add(phys)
-            virt.devirtualize(phys)
+        parent = self.get_parent()
+        child = self.get_child()
+        if parent != child and parent not in graph[child]:  # if they don't interfere
+            graph[parent] |= graph[child]
+            for edge in graph[child]:
+                graph[edge].remove(child)
+                graph[edge].add(parent)
+            child.alias(parent)
             return True
         return False
 
     def precolor(self, colors):
-        """Precolor with physical registers used in moves."""
-        phys = self.get_physical()
-        if phys not in colors:
-            colors[phys] = int(phys.reg)
+        """Precolor with parent registers used in moves."""
+        self.get_parent().precolor(colors)
 
 
 class LeftMove(Move):
     """Class for "left" move instructions objects."""
 
-    def get_physical(self):
-        """Get the physical register."""
+    def get_parent(self):
+        """Get the parent register."""
         return self.target
 
-    def get_virtual(self):
-        """Get the virtual register."""
+    def get_child(self):
+        """Get the child register."""
         return self.source
 
 
 class RightMove(Move):
     """Class for "right" move instruction objects."""
 
-    def get_physical(self):
-        """Get the physical register."""
+    def get_parent(self):
+        """Get the parent register."""
         return self.source
 
-    def get_virtual(self):
-        """Get the virtual register."""
+    def get_child(self):
+        """Get the child register."""
         return self.target
 
 

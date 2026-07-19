@@ -27,6 +27,20 @@ class Local(Variable):
         """Generate code for storing a variable."""
         return self.type.store(emitter, source, Reg.SP, self)
 
+class Register(Variable):
+
+    def address(self, emitter):
+        """Generate address code for local variable."""
+        raise SyntaxError('Register varaibles are not addressable')
+
+    def reduce(self, emitter):
+        """Generate code for local variable."""
+        return emitter.get_register_variable(self.name)
+
+    def store(self, emitter, source):
+        """Generate code for storing a variable."""
+        # emitter.table.clear()
+        return emitter.emit_left_move(self.type.width, self.reduce(emitter), source)
 
 class Attribute(Variable):
     """Class for attributes found in structs or unions."""
@@ -516,7 +530,7 @@ class Conditional(Expression):
         emitter.emit_jump(Cond.AL, label)
         emitter.append_label(sublabel)
         false = self.false.reduce_branch(emitter, label)
-        emitter.emit_phi(self.width, true, false)
+        emitter.emit_left_move(self.width, true, false)
         emitter.append_label(label)
         return true
 
@@ -528,7 +542,7 @@ class Conditional(Expression):
         emitter.emit_jump(Cond.AL, root)
         emitter.append_label(sublabel)
         false = self.false.reduce_branch(emitter, root)
-        emitter.emit_phi(self.width, true, false)
+        emitter.emit_left_move(self.width, true, false)
         return true
 
 

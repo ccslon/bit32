@@ -9,7 +9,7 @@ from copy import copy
 from .parser import Parser
 from .clexer import Lex, CTYPES
 from .cnodes import REG_ARGS, Frame, Translation, Definition, VariadicDefinition
-from .cexpressions import (Local, Attribute, Global, Number, Decimal, Character, String,
+from .cexpressions import (Local, Register, Attribute, Global, Number, Decimal, Character, String,
                            AddressOf, Dereference, SizeOf, Cast, Post, UnaryOp, Not, Pre,
                            BinaryOp, Compare, Logic, Dot, SubScript, Arrow,  Conditional)
 from .ctypes import Type, Void, Float, Int, Short, Char, Pointer, List, Struct, Union, Array, Function
@@ -365,7 +365,7 @@ class CParser(Parser):
         assignment = self.conditional()
         if self.peek({'=', '+=', '-=', '*=', '/=', '%=',
                       '<<=', '>>=', '^=', '|=', '&=', '/=', '%='}):
-            if not isinstance(assignment, (Local, Global, Dot, Arrow, SubScript, Dereference)):
+            if not isinstance(assignment, (Local, Register, Global, Dot, Arrow, SubScript, Dereference)):
                 self.error(f'Cannot assign to {type(assignment)}')
             if self.peek('='):
                 assignment = Assignment(next(self), assignment, self.assignment())
@@ -752,13 +752,15 @@ class CParser(Parser):
         """
         external = []
         storage, qualifier = self.specifiers()
+        if storage == 'register':
+            self.error('Cannot declare global as register variable')
         if not self.accept(';'):
             declaring = False
             while True:
                 ctype, name = self.declarator(qualifier)
                 if self.accept('{'):  # DEFINITION
                     if declaring:
-                        self.error('You cannot define a function while already declaring')
+                        self.error('Cannot define a function while already declaring')
                     if name is None:
                         self.error('Function definition needs a name')
                     if storage in {'typedef', 'extern'}:
@@ -806,7 +808,12 @@ class CParser(Parser):
         if storage == 'extern':
             self.scope.globals[name.lexeme] = Global(ctype, name.lexeme)
             return
-        variable = Global(ctype, name.lexeme if self.function is None else f'{self.function.name}_{name.lexeme}') if storage == 'static' else VarType(ctype, name.lexeme)
+        if storage == 'static':
+            variable = Global(ctype, name.lexeme if self.function is None else f'{self.function.name}_{name.lexeme}')
+        elif storage == 'register':
+            variable = Register(ctype, name.lexeme)
+        else:
+            variable = VarType(ctype, name.lexeme)
         init_decl = variable
         if self.peek('='):
             if isinstance(ctype, Void):

@@ -90,6 +90,7 @@ class Emitter:
         self.data = []
         self.strings = []
         self.table = {}
+        self.register_variables = {}
 
     def begin_loop(self):
         """
@@ -111,6 +112,12 @@ class Emitter:
     def end_loop(self):
         """End current loop or switch block."""
         self.loop.pop()
+
+    def get_register_variable(self, name):
+        """Get virtual register associated with variable."""
+        if name not in self.register_variables:
+            self.register_variables[name] = Virtual.next_virtual()
+        return self.register_variables[name]
 
     def next_label(self):
         """Create a new unique label."""
@@ -316,13 +323,14 @@ class Emitter:
         max_reg = max(colors.values()) if colors else -1
         # devirtualize registers
         for virt in Virtual.virtuals:
-            if virt in colors:
-                virt.devirtualize(Registers[colors[virt]])
+            if virt.value in colors:
+                virt.alias(Registers[colors[virt.value]])
         return max_reg
 
     def begin_body(self, definition):
         """Begin the body of a function."""
         Virtual.clear()
+        self.register_variables.clear()
         if definition.returns or definition.type.return_type.width:
             self.return_label = self.next_label()
         self.temp = self.instructions
