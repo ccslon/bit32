@@ -495,11 +495,13 @@ class CParser(Parser):
 
     def qualifier(self):
         """
-        QUALIFIER -> ['const'] ['volatile'] SPECIFIER
+        QUALIFIER -> ['volatile'] ['const'] SPECIFIER
         """
+        volatile = bool(self.accept('volatile'))
         const = bool(self.accept('const'))
         self.accept('volatile')
         qualifier = self.specifier()
+        qualifier.volatile = volatile
         qualifier.const = const
         return qualifier
 
@@ -521,10 +523,9 @@ class CParser(Parser):
             types = []
         qualifiers = []
         while self.accept('*'):
-            qualifiers.append(bool(self.accept('const')))
-            self.accept('volatile')
+            qualifiers.append((bool(self.accept('volatile')), bool(self.accept('const'))))
         ctype, name = self.direct_declarator(ctype, types)
-        types.extend(((Pointer, (qual,)) for qual in qualifiers))
+        types.extend(((Pointer, qual) for qual in qualifiers))
         if is_top:
             for NewType, args in reversed(types):
                 ctype = NewType(ctype, *args)

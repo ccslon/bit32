@@ -466,14 +466,16 @@ class Emitter:
         self.add(Address(self.labels, target, base, offset, marked, comment))
         return target
 
-    def emit_load(self, size, base, offset=None, marked=False, comment=''):
+    def emit_load(self, size, base, offset=None, marked=False, volatile=False, comment=''):
         """Emit load instruction object."""
-        t = (Code.LOAD, base, offset, marked)
-        if not self.labels and t in self.table:
-            return self.table[t]
+        if not volatile:
+            t = (Code.LOAD, base, offset, marked)
+            if not self.labels and t in self.table:
+                return self.table[t]
         target = Virtual.next_virtual()
         self.add(Load(self.labels, size, target, base, offset, marked, comment))
-        self.table[t] = target
+        if not volatile:
+            self.table[t] = target
         return target
 
     def emit_store(self, size, target, base, offset=None, marked=False, comment=''):

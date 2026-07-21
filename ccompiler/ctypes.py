@@ -56,7 +56,8 @@ class Void(Type):
 class Value(Type):
     """Base class for types that hold values."""
 
-    def __init__(self):
+    def __init__(self):        
+        self.volatile = False
         self.const = False
         self.interval = 1
         self.width = 0
@@ -79,7 +80,7 @@ class Value(Type):
 
     def reduce(self, emitter, base, var):
         """Generate code for generic type."""
-        return emitter.emit_load(self.width, base, var.offset, var.marked, var.name)
+        return emitter.emit_load(self.width, base, var.offset, var.marked, self.volatile, var.name)
 
     def store(self, emitter, source, base, var):
         """Generate code for storing to generic type."""
@@ -103,9 +104,7 @@ class Value(Type):
 
     def list_generate(self, emitter, element, base, offset):
         """Generate code for initialization lists."""
-        source = element.reduce(emitter)
-        source = self.convert(emitter, source, element.type)
-        emitter.emit_store(self.width, source, base, offset)
+        emitter.emit_store(self.width, self.convert(emitter, element.reduce(emitter), element.type), base, offset)
 
     def global_address(self, emitter, glob):
         """Generate address code for global variable."""
@@ -113,13 +112,11 @@ class Value(Type):
 
     def global_reduce(self, emitter, glob):
         """Generate code for global variable."""
-        base = self.global_address(emitter, glob)
-        return emitter.emit_load(self.width, base)
+        return emitter.emit_load(self.width, self.global_address(emitter, glob), volatile=self.volatile)
 
     def global_store(self, emitter, source, glob):
         """Generate code for storing a global variable."""
-        base = emitter.emit_load_global(glob.name)
-        return emitter.emit_store(self.width, source, base)
+        return emitter.emit_store(self.width, source, self.global_address(emitter, glob))
 
     def global_data(self, emitter, expr, data):
         """Generate code for global data."""
@@ -357,11 +354,12 @@ class Float(Numeric):
 class Pointer(Int):
     """Class for pointer type."""
 
-    def __init__(self, ctype, const=False):
+    def __init__(self, ctype, volatile=False, const=False):
         super().__init__(False)
+        self.volatile = volatile        
+        self.const = const
         self.to = self.of = ctype
         self.interval = max(int(ctype.size()), 1)
-        self.const = const
 
     def reduce_binary(self, emitter, op, left, right):
         """Generate code for binary operator."""

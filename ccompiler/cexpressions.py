@@ -218,6 +218,11 @@ class UnaryOp(Unary):
 class Pre(UnaryOp, Statement):
     """Class for pre increment/decrement operators."""
 
+    def __init__(self, op, value):
+        if value.type.const:
+            op.error('Cannot assign to a const')
+        super().__init__(op, value)
+
     def evaluate(self):
         """Evaluate pre operator."""
         return {Op.ADD: add, Op.ADDF: add,
@@ -237,7 +242,7 @@ class Pre(UnaryOp, Statement):
         self.reduce(emitter)
 
 
-class Post(UnaryOp, Statement):
+class Post(Pre, Statement):
     """Class for post increment/decrement operators."""
 
     def evaluate(self):
@@ -252,10 +257,6 @@ class Post(UnaryOp, Statement):
         post = self.type.reduce_post(emitter, self.op, target)
         self.value.store(emitter, post)
         return target
-
-    def generate(self, emitter):
-        """Generate code for operator as if it where a statement."""
-        self.reduce(emitter)
 
 
 class AddressOf(Unary):
