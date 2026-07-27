@@ -25,6 +25,28 @@ main:
   ADD    SP, 16
   POP    B, C, D, E
   RET
+test_volatile:
+  PUSH   A, B, C
+  SUB    SP, 12
+  LD     A, [SP, 0] ; a
+  LD     B, [SP, 0] ; a
+  ADD    A, B
+  ST     [SP, 4], A ; b
+  LD     B, [SP, 0] ; a
+  LD     A, [SP, 4] ; b
+  ADD    B, A
+  LD     C, [SP, 0] ; a
+  ADD    A, C, A
+  MUL    A, B, A
+  ST     [SP, 8], A ; c
+  LDI    B, =vglob
+  LD     A, [B]
+  LD     B, [B]
+  ADD    A, B
+  ST     [SP, 4], A ; b
+  ADD    SP, 12
+  POP    A, B, C
+  RET
 foo:
   PUSH   B, C
   SUB    SP, 60

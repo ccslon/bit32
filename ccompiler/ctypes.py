@@ -12,6 +12,8 @@ from . import cexpressions
 class Type:
     """Base class for C type."""
 
+    width = 0
+
     @classmethod
     def max_type(cls, left, right):
         """Widen 2 given C types."""
@@ -29,20 +31,17 @@ class Type:
         """Determine if given type is able to cast to instance type."""
         return self.__eq__(other)
 
+    def ConstantType(self, value):
+        """Get the constant node associated with pointers."""
+        return cexpressions.Number(value, self)
+
 
 class Void(Type):
     """Class for void type."""
 
-    def __init__(self):
-        self.width = 0
-
     def cast(self, _):
         """Any type can be case to void."""
         return True
-
-    def get_node(self, _):
-        """Get the constant node associated with this type."""
-        return cexpressions.Number(0)
 
     def __eq__(self, other):
         """Determine if the given type is equal to void."""
@@ -56,11 +55,10 @@ class Void(Type):
 class Value(Type):
     """Base class for types that hold values."""
 
-    def __init__(self):        
+    def __init__(self):
         self.volatile = False
         self.const = False
         self.interval = 1
-        self.width = 0
 
     def convert(self, emitter, source, other):
         """Convert to given type if applicable."""
@@ -122,69 +120,49 @@ class Value(Type):
 class Numeric(Value):
     """Base class for numeric types."""
 
-    BINARY_OP = {
-        '+': Op.ADD,
-        '+=': Op.ADD,
-        '++': Op.ADD,
-        '-': Op.SUB,
-        '-=': Op.SUB,
-        '--': Op.SUB,
-        '*': Op.MUL,
-        '*=': Op.MUL,
-        '<<': Op.SHL,
-        '<<=': Op.SHL,
-        '>>': Op.SHR,
-        '>>=': Op.SHR,
-        '^': Op.XOR,
-        '^=': Op.XOR,
-        '|': Op.OR,
-        '|=': Op.OR,
-        '||': Op.OR,
-        '&':  Op.AND,
-        '&=': Op.AND,
-        '&&': Op.AND,
-        '/':  Op.DIV,
-        '/=': Op.DIV,
-        '%':  Op.MOD,
-        '%=': Op.MOD
+    BINARY = {
+        '+': Op.ADD, '+=': Op.ADD, '++': Op.ADD,
+        '-': Op.SUB, '-=': Op.SUB, '--': Op.SUB,
+        '*': Op.MUL, '*=': Op.MUL,
+        '<<': Op.SHL, '<<=': Op.SHL,
+        '>>': Op.SHR, '>>=': Op.SHR,
+        '^': Op.XOR, '^=': Op.XOR,
+        '|': Op.OR, '|=': Op.OR, '||': Op.OR,
+        '&': Op.AND, '&=': Op.AND, '&&': Op.AND,
+        '/': Op.DIV, '/=': Op.DIV,
+        '%': Op.MOD, '%=': Op.MOD
     }
-    UNARY_OP = {
-        '++': Op.ADD,
-        '--': Op.SUB,
-        '-': Op.NEG,
-        '~': Op.NOT
+    UNARY = {
+        '++': Op.ADD, '--': Op.SUB,
+        '-': Op.NEG, '~': Op.NOT
+    }
+    CONDITION = {  # condition codes
+        True: {  # signed
+            '==': Cond.EQ, '!=': Cond.NE,
+            '>': Cond.GT, '<': Cond.LT,
+            '>=': Cond.GE, '<=': Cond.LE
+        },
+        False: {  # unsigned
+            '==': Cond.EQ, '!=': Cond.NE,
+            '>': Cond.HI, '<': Cond.LO,
+            '>=': Cond.HS, '<=': Cond.LS
+        }
+    }
+    INVERSE = {  # inverse condition codes
+        True: {  # signed
+            '==': Cond.NE, '!=': Cond.EQ,
+            '>': Cond.LE, '<': Cond.GE,
+            '>=': Cond.LT, '<=': Cond.GT
+        },
+        False: {  # unsigned
+            '==': Cond.NE, '!=': Cond.EQ,
+            '>': Cond.LS, '<': Cond.HS,
+            '>=': Cond.LO, '<=': Cond.HI
+        }
     }
     CMP = Op.CMP
-    SCMP_OP = {      # Signed compare op
-        '==': Cond.EQ,
-        '!=': Cond.NE,
-        '>':  Cond.GT,
-        '<':  Cond.LT,
-        '>=': Cond.GE,
-        '<=': Cond.LE
-    }
-    INV_SCMP_OP = {  # inverse signed compare op
-        '==': Cond.NE,
-        '!=': Cond.EQ,
-        '>':  Cond.LE,
-        '<':  Cond.GE,
-        '>=': Cond.LT,
-        '<=': Cond.GT
-    }
-    UCMP_OP = {      # unsigned compare op
-        '>':  Cond.HI,
-        '<':  Cond.LO,
-        '>=': Cond.HS,
-        '<=': Cond.LS
-    }
-    INV_UCMP_OP = {  # inverse unsigned compare op
-        '>':  Cond.LS,
-        '<':  Cond.HS,
-        '>=': Cond.LO,
-        '<=': Cond.HI
-    }
 
-    def __init__(self, signed):
+    def __init__(self, signed=True):
         super().__init__()
         self.signed = signed
 
@@ -200,29 +178,13 @@ class Numeric(Value):
         """Convert integer to float."""
         return emitter.emit_unary(Op.ITF, Size.WORD, source)
 
-    def get_unary_op(self, op):
-        """Get unary operator for this type."""
-        return self.UNARY_OP[op.lexeme]
-
-    def get_binary_op(self, op):
-        """Get binary operator for this type."""
-        return self.BINARY_OP[op.lexeme]
-
-    def get_cmp_op(self, op):
+    def get_condition(self, cond):
         """Get compare operator for this type."""
-        if self.signed:
-            return self.SCMP_OP[op.lexeme]
-        return self.UCMP_OP.get(op.lexeme, self.SCMP_OP[op.lexeme])
+        return self.CONDITION[self.signed][cond]
 
-    def get_inv_cmp_op(self, op):
+    def get_inverse(self, cond):
         """Get inverse compare operator for this type."""
-        if self.signed:
-            return self.INV_SCMP_OP[op.lexeme]
-        return self.INV_UCMP_OP.get(op.lexeme, self.INV_SCMP_OP[op.lexeme])
-
-    def get_node(self, value):
-        """Get the constant node associated with this type."""
-        return cexpressions.Number(value)
+        return self.INVERSE[self.signed][cond]
 
     def __eq__(self, other):
         """Determine if the given type is equal to this type."""
@@ -232,9 +194,7 @@ class Numeric(Value):
 class Char(Numeric):
     """Class for char type."""
 
-    def __init__(self, signed=True):
-        super().__init__(signed)
-        self.width = Size.BYTE
+    width = Size.BYTE
 
     def __str__(self):
         """Get string representation for char type."""
@@ -244,9 +204,7 @@ class Char(Numeric):
 class Short(Numeric):
     """Class for short type."""
 
-    def __init__(self, signed=True):
-        super().__init__(signed)
-        self.width = Size.HALF
+    width = Size.HALF
 
     def __str__(self):
         """Get string representation for short type."""
@@ -256,9 +214,7 @@ class Short(Numeric):
 class Int(Numeric):
     """Class for int type."""
 
-    def __init__(self, signed=True):
-        super().__init__(signed)
-        self.width = Size.WORD
+    width = Size.WORD
 
     def __str__(self):
         """Get string representation for int type."""
@@ -268,41 +224,18 @@ class Int(Numeric):
 class Float(Numeric):
     """Class for float type."""
 
-    BINARY_OP = {
-        '+': Op.ADDF,
-        '+=': Op.ADDF,
-        '++': Op.ADDF,
-        '-': Op.SUBF,
-        '-=': Op.SUBF,
-        '--': Op.SUBF,
-        '*': Op.MULF,
-        '*=': Op.MULF,
-        '/':  Op.DIVF,
-        '/=': Op.DIVF,
-        '<<': Op.SHL,
-        '<<=': Op.SHL,
-        '>>': Op.SHR,
-        '>>=': Op.SHR,
-        '^': Op.XOR,
-        '^=': Op.XOR,
-        '|': Op.OR,
-        '|=': Op.OR,
-        '||': Op.OR,
-        '&': Op.AND,
-        '&=': Op.AND,
-        '&&': Op.AND
+    width = Size.WORD
+
+    BINARY = Numeric.BINARY | {
+        '+': Op.ADDF, '+=': Op.ADDF, '++': Op.ADDF,
+        '-': Op.SUBF, '-=': Op.SUBF, '--': Op.SUBF,
+        '*': Op.MULF, '*=': Op.MULF,
+        '/': Op.DIVF, '/=': Op.DIVF,
     }
-    UNARY_OP = {
-        '++': Op.ADDF,
-        '--': Op.SUBF,
-        '-': Op.NEGF,
-        '~': Op.NOT
+    UNARY = Numeric.UNARY | {
+        '++': Op.ADDF, '--': Op.SUBF, '-': Op.NEGF,
     }
     CMP = Op.CMPF
-
-    def __init__(self):
-        super().__init__(True)
-        self.width = Size.WORD
 
     def convert(self, emitter, source, other):
         """Convert to given type if applicable."""
@@ -328,13 +261,9 @@ class Float(Numeric):
         """Generate code for compare operator."""
         emitter.emit_compare(Op.CMPF, self.width, left.reduce_float(emitter), right.reduce_float(emitter))
 
-    def get_node(self, value):
+    def ConstantType(self, value):
         """Get the constant node associated with floats."""
-        return cexpressions.Decimal(value)
-
-    def __eq__(self, other):
-        """Determine if given type is equal to this type."""
-        return isinstance(other, Numeric)
+        return cexpressions.Decimal(value, self)
 
     def __str__(self):
         """Get string representation for float."""
@@ -375,10 +304,6 @@ class Pointer(Int):
         """Determine if the given type can be cast to this type."""
         return isinstance(other, (Numeric, Array))
 
-    def get_node(self, value):
-        """Get the constant node associated with pointers."""
-        return cexpressions.Number(value, self)
-
     def __eq__(self, other):
         """Determine if given type is equal to this pointer type."""
         return (isinstance(other, Pointer)
@@ -414,11 +339,12 @@ class List:
 class Array(List, Value):
     """Class for array type."""
 
+    width = Size.WORD
+
     def __init__(self, of, length):
         super().__init__()
         self.of = of
         self.length = length
-        self.width = Size.WORD
 
     def size(self):
         """Get the total size of this array."""
@@ -462,11 +388,12 @@ class Array(List, Value):
 class Record(Value):
     """Base class for records."""
 
+    width = Size.WORD
+
     def __init__(self, name, frame):
         super().__init__()
         self.name = name.lexeme if name is not None else name
         self.frame = frame
-        self.width = Size.WORD
 
     def size(self):
         """Get the total size of this Record type."""
@@ -548,11 +475,6 @@ class Function(Value):
         self.return_type = return_type
         self.parameters = parameters
         self.variadic = variadic
-        self.width = Size.WORD
-
-    def size(self):
-        """Get the total size of this function (0)."""
-        return 0
 
     def global_reduce(self, emitter, glob):
         """Generate code for loading global function."""

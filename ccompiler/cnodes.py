@@ -162,7 +162,7 @@ class Unary(Expression):
 
     def fold(self):
         """Fold this unary operator into a single constant node."""
-        return self.type.get_node(self.evaluate())
+        return self.type.ConstantType(self.evaluate())
 
 
 class Binary(Expression):
@@ -179,7 +179,7 @@ class Binary(Expression):
 
     def fold(self):
         """Fold this binary operator into a single constant node."""
-        return self.type.get_node(self.evaluate())
+        return self.type.ConstantType(self.evaluate())
 
 
 class Access(Expression):

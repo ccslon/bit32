@@ -4623,8 +4623,13 @@ morecore:
   PUSH   B, LR
   SUB    SP, 12
   ST     [SP, 0], A ; n
+  CMP    A, 128
+  JCS    .L525
+  MOV    A, 128
+  ST     [SP, 0], A ; n
+.L525:
+  LD     A, [SP, 0] ; n
   CALL   getheap
-  ST     [SP, 4], A ; core
   ST     [SP, 8], A ; header
   LD     A, [SP, 0] ; n
   LD     B, [SP, 8] ; header
@@ -4647,7 +4652,7 @@ malloc:
   LD     A, [A]
   ST     [SP, 8], A ; prevp
   CMP    A, 0
-  JNE    .L526
+  JNE    .L527
   LDI    A, =base
   ST     [SP, 8], A ; prevp
   LDI    B, =freehead
@@ -4657,27 +4662,33 @@ malloc:
   MOV    A, 0
   LDI    B, =base
   ST     [B, 4], A ; .size
-.L526:
+.L527:
   LD     A, [SP, 8] ; prevp
   LD     A, [A, 0] ; .next
   ST     [SP, 4], A ; p
-.L527:
+.L528:
   LD     A, [SP, 4] ; p
   LD     A, [A, 4] ; .size
   LD     B, [SP, 12] ; units
   CMP    A, B
-  JCC    .L530
-  LD     A, [SP, 4] ; p
-  LD     A, [A, 4] ; .size
-  LD     B, [SP, 12] ; units
-  CMP    A, B
-  JNE    .L532
+  JNE    .L531
   LD     A, [SP, 4] ; p
   LD     A, [A, 0] ; .next
   LD     B, [SP, 8] ; prevp
   ST     [B, 0], A ; .next
-  JMP    .L531
-.L532:
+  LD     A, [SP, 8] ; prevp
+  LDI    B, =freehead
+  ST     [B], A
+  LD     A, [SP, 4] ; p
+  ADD    A, 8 ; +1
+  JMP    .L526
+.L531:
+  LD     A, [SP, 4] ; p
+  LD     A, [A, 4] ; .size
+  LD     B, [SP, 12] ; units
+  ADD    B, 8
+  CMP    A, B
+  JLS    .L532
   LD     A, [SP, 4] ; p
   LD     B, [A, 4] ; .size
   LD     C, [SP, 12] ; units
@@ -4690,14 +4701,13 @@ malloc:
   LD     A, [SP, 12] ; units
   LD     B, [SP, 4] ; p
   ST     [B, 4], A ; .size
-.L531:
   LD     A, [SP, 8] ; prevp
   LDI    B, =freehead
   ST     [B], A
   LD     A, [SP, 4] ; p
   ADD    A, 8 ; +1
-  JMP    .L525
-.L530:
+  JMP    .L526
+.L532:
   LD     A, [SP, 4] ; p
   LDI    B, =freehead
   LD     B, [B]
@@ -4709,18 +4719,18 @@ malloc:
   CMP    A, 0
   JNE    .L534
   MOV    A, 0
-  JMP    .L525
+  JMP    .L526
 .L534:
 .L533:
-.L528:
+.L529:
   LD     A, [SP, 4] ; p
   ST     [SP, 8], A ; prevp
   LD     A, [SP, 4] ; p
   LD     A, [A, 0] ; .next
   ST     [SP, 4], A ; p
-  JMP    .L527
-.L529:
-.L525:
+  JMP    .L528
+.L530:
+.L526:
   ADD    SP, 16
   POP    B, C, PC
 free:
