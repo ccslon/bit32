@@ -94,14 +94,7 @@ class Expression(CNode):
         """
         Reduce to number constant if applicable.
 
-        This generates less code if the right side of a binary node is a
-        constant. Instead of:
-            MOV A, 3
-            MOV B, 76
-            ADD A, B
-        this will be generated:
-            MOV A, 3
-            ADD A, 76
+        This generates less code if the right side of a binary node is a constant.
         """
         if self.is_constant():
             return self.fold().reduce_number(emitter)
@@ -109,8 +102,7 @@ class Expression(CNode):
 
     def reduce_float(self, emitter):
         """Reduce to float (convert if applicable)."""
-        target = self.reduce(emitter)
-        return self.type.itf(emitter, target)
+        return self.type.itf(emitter, self.reduce(emitter))
 
     def reduce_subscript(self, emitter, size):
         """
@@ -202,11 +194,11 @@ class Access(Expression):
 class Definition(CNode):
     """Class for function definition nodes."""
 
-    def __init__(self, ctype, name, block, info):
+    def __init__(self, ctype, name, body, info):
         self.type = ctype
         self.name = name
         self.parameters = ctype.parameters
-        self.block = block
+        self.body = body
         self.returns, self.calls, self.space = info
 
     def global_generate(self, emitter):
@@ -215,16 +207,17 @@ class Definition(CNode):
         # mark stack locals
         self.mark_stack_locals()
         # generate function body
-        self.block.generate(emitter)
+        self.body.generate(emitter)
         # find max register used in body
         max_reg = emitter.allocate_registers()
-        # calculate list of register to push onto the stack
+        # calculate list of registers to push onto the stack
         push = list(map(Reg, range(max(bool(self.type.return_type.width),
-                                       len(self.parameters[:REG_ARGS])),
+                                       min(len(self.parameters),
+                                           REG_ARGS)),
                                    max_reg+1)))
         self.adjust_offsets(emitter, push)
         emitter.end_body()
-        emitter.append_label(self.name.lexeme)
+        emitter.append_label(self.name)
         self.prologue(emitter, push)
         emitter.add_body()
         # epilogue
@@ -267,7 +260,7 @@ class Definition(CNode):
                 inst.adjust_offset(adjustment)
 
 
-class VariadicDefinition(Definition):  # TODO test
+class VariadicDefinition(Definition):
     """Class for variadic function definition nodes."""
 
     def mark_stack_locals(self):

@@ -41,7 +41,7 @@ TODO
 [X] Typedef
 [X] Const expressions
 [X] Const eval
-[ ] Register variables
+[X] Register variables
 [X] Function pointers
 [ ] Function defs in function defs
 [X] Error handling
@@ -723,7 +723,6 @@ class CParser(Parser):
         else:
             statement = self.expression()
             self.expect(';')
-
         return statement
 
     def compound(self):
@@ -787,7 +786,7 @@ class CParser(Parser):
                     compound = self.compound()
                     self.end_scope()
                     self.expect('}')
-                    external.append(DefinitionType(ctype, name, compound, self.function))
+                    external.append(DefinitionType(ctype, name.lexeme, compound, self.function))
                     self.function = None
                     break
                 else:  # DECLARATION

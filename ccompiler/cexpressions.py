@@ -27,11 +27,9 @@ class Local(Variable):
         """Generate code for storing a variable."""
         return self.type.store(emitter, source, Reg.SP, self)
 
-class Register(Variable):
 
-    def address(self, emitter):
-        """Generate address code for local variable."""
-        raise SyntaxError('Register varaibles are not addressable')
+class Register(Variable):
+    """Class fo local register varaibles."""
 
     def reduce(self, emitter):
         """Generate code for local variable."""
@@ -39,8 +37,8 @@ class Register(Variable):
 
     def store(self, emitter, source):
         """Generate code for storing a variable."""
-        # emitter.table.clear()
         return emitter.emit_left_move(self.type.width, self.reduce(emitter), source)
+
 
 class Attribute(Variable):
     """Class for attributes found in structs or unions."""
@@ -118,7 +116,7 @@ class Number(Constant):
         """Reduce to number constant if applicable. See Expression class."""
         if -128 <= self.value < 256:
             return self.value
-        return emitter.emit_load_immediate(twos_compliment(self.value, 32))  # TODO test this branch
+        return emitter.emit_load_immediate(twos_compliment(self.value, 32))
 
     def reduce_subscript(self, emitter, size):
         """Generate special reduction case for subscript nodes."""
@@ -232,8 +230,7 @@ class Pre(UnaryOp, Statement):
         """Generate code for operator."""
         if self.is_constant():
             return self.fold().reduce(emitter)
-        target = self.value.reduce(emitter)
-        pre = self.type.reduce_pre(emitter, self.op, target)
+        pre = self.type.reduce_pre_post(emitter, self.op, self.value.reduce(emitter))
         self.value.store(emitter, pre)
         return pre
 
@@ -254,8 +251,7 @@ class Post(Pre, Statement):
         if self.is_constant():
             return self.fold().reduce(emitter)
         target = self.value.reduce(emitter)
-        post = self.type.reduce_post(emitter, self.op, target)
-        self.value.store(emitter, post)
+        self.value.store(emitter, self.type.reduce_pre_post(emitter, self.op, target))
         return target
 
 
@@ -288,13 +284,11 @@ class Dereference(Unary):
 
     def reduce(self, emitter):
         """Generate code for dereference."""
-        base = self.address(emitter)
-        return emitter.emit_load(self.width, base)
+        return emitter.emit_load(self.width, self.address(emitter))
 
     def store(self, emitter, source):
         """Generate code for storing a dereference."""
-        base = self.address(emitter)
-        return emitter.emit_store(self.width, source, base)
+        return emitter.emit_store(self.width, source, self.address(emitter))
 
     def call(self, emitter, args):
         """Generate code for function pointers."""
@@ -309,7 +303,7 @@ class Cast(Unary):
             token.error(f'Cannot cast {value.type} to {cast_type}')
         super().__init__(cast_type, value)
 
-    def data(self, emitter):  # TODO test
+    def data(self, emitter):
         """Get data representation of cast."""
         return self.value.data(emitter)
 
@@ -321,8 +315,7 @@ class Cast(Unary):
         """Generate code for casting."""
         if self.is_constant():
             return self.fold().reduce(emitter)
-        source = self.value.reduce(emitter)
-        return self.type.convert(emitter, source, self.value.type)
+        return self.type.convert(emitter, self.value.reduce(emitter), self.value.type)
 
 
 class Not(Unary):
@@ -340,7 +333,7 @@ class Not(Unary):
         if self.is_constant():
             return self.fold().reduce(emitter)
         emitter.emit_binary(self.type.CMP, self.width, self.value.reduce(emitter), 0)
-        return emitter.emit_cmov(Cond.EQ, Cond.NE)
+        return emitter.emit_cmov(self.width, Cond.EQ, Cond.NE)
 
     def compare(self, emitter, label):
         """Generate code for comparing nodes with logical not."""
@@ -412,7 +405,7 @@ class Compare(Binary):
                 Cond.LE: le, Cond.LS: le}[self.op](self.left.evaluate(), self.right.evaluate())
 
     def mirror(self):
-        """Mirror the node to put the constant on the right side."""        
+        """Mirror the node to put the constant on the right side."""
         self.left, self.right = self.right, self.left
         self.op = MIRRORED[self.op]
         self.inverse_op = MIRRORED[self.inverse_op]
@@ -424,7 +417,7 @@ class Compare(Binary):
         if self.left.is_constant():
             self.mirror()
         self.type.reduce_compare(emitter, self.left, self.right)
-        return emitter.emit_cmov(self.op, self.inverse_op)
+        return emitter.emit_cmov(self.width, self.op, self.inverse_op)
 
     def compare(self, emitter, label):
         """Generate code for comparing with equality/relational operators."""
@@ -433,7 +426,7 @@ class Compare(Binary):
         self.type.reduce_compare(emitter, self.left, self.right)
         emitter.emit_jump(self.inverse_op, label)
 
-    def inverse_compare(self, emitter, label):  # TODO test
+    def inverse_compare(self, emitter, label):
         """Generate code for inverse comparing with equality/relational operators."""
         if self.left.is_constant():
             self.mirror()
@@ -556,13 +549,11 @@ class Dot(Access):
 
     def reduce(self, emitter):
         """Generate code for dot operator."""
-        base = self.struct.address(emitter)
-        return self.attribute.reduce(emitter, base)
+        return self.attribute.reduce(emitter, self.struct.address(emitter))
 
     def store(self, emitter, source):
         """Generate code for storing to a dot operator."""
-        base = self.struct.address(emitter)
-        return self.attribute.store(emitter, source, base)
+        return self.attribute.store(emitter, source, self.struct.address(emitter))
 
 
 class Arrow(Access):
@@ -574,13 +565,11 @@ class Arrow(Access):
 
     def reduce(self, emitter):
         """Generate code for arrow operator."""
-        base = self.struct.reduce(emitter)
-        return self.attribute.reduce(emitter, base)
+        return self.attribute.reduce(emitter, self.struct.reduce(emitter))
 
     def store(self, emitter, source):
         """Generate code for storing to an arrow operator."""
-        base = self.struct.reduce(emitter)
-        return self.attribute.store(emitter, source, base)
+        return self.attribute.store(emitter, source, self.struct.reduce(emitter))
 
 
 class SubScript(Binary):

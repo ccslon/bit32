@@ -5,8 +5,8 @@ Created on Sat Sep  7 01:02:16 2024
 @author: Colin
 """
 from .instructions import (Code, Register, Registers, GENERAL, Virtual, String, Space, Global, Data,
-                           Push, Pop, Call, Ret, LoadGlobal, Address, Load, Store, LoadImmediate, Unary, Binary,
-                           LeftMove, RightMove, Jump, CMov)
+                           Push, Pop, Call, Ret, LoadGlobal, Address, Load, Store, LoadImmediate,
+                           Unary, Binary, LeftMove, RightMove, Jump, CMov)
 from bit32 import Reg, Size, Cond, Op, escape_chr
 from .cnodes import REG_ARGS
 
@@ -441,11 +441,11 @@ class Emitter:
         self.add(RightMove(self.labels, size, target, source))
         return target
 
-    def emit_cmov(self, cond, inv):
+    def emit_cmov(self, size, cond, inv):
         """Emit cmov instruction object."""
         target = Virtual.next_virtual()
-        self.add(CMov(self.labels, cond, target, 1))
-        self.add(CMov(self.labels, inv, target, 0))
+        self.add(CMov(self.labels, size, cond, target, 1))
+        self.add(CMov(self.labels, size, inv, target, 0))
         return target
 
     def emit_stack_allocation(self, space):

@@ -96,9 +96,7 @@ class Switch(Statement):
             sub = emitter.emit_binary(Op.SUB, self.test.width, test, min(self.cases, key=lambda c: c.constant.value).constant.data(emitter))
             emitter.emit_compare(Op.CMP, self.test.width, sub, cases[-1])
             emitter.emit_jump(Cond.HI, default)
-            base = emitter.emit_load_global(table)
-            offset = emitter.emit_binary(Op.SHL, Size.WORD, sub, 2)
-            emitter.emit_table_jump(base, offset)
+            emitter.emit_table_jump(emitter.emit_load_global(table), emitter.emit_binary(Op.SHL, Size.WORD, sub, 2))
             for case in self.cases:
                 emitter.append_label(jumps[case.constant.value - min_case])
                 case.statement.generate(emitter)
@@ -258,8 +256,7 @@ class Return(Statement):
             if self.value.is_constant():
                 target = self.value.fold().reduce(emitter)
             else:
-                target = self.value.reduce(emitter)
-                target = self.type.convert(emitter, target, self.value.type)
+                target = self.type.convert(emitter, self.value.reduce(emitter), self.value.type)
             emitter.emit_left_move(self.type.width, Reg.A, target)
         emitter.emit_jump(Cond.AL, emitter.return_label)
 
@@ -289,9 +286,7 @@ class InitAssignment(Binary, Statement):
 
     def reduce(self, emitter):
         """Generate code for initial assignment."""
-        right = self.right.reduce(emitter)
-        conv = self.type.convert(emitter, right, self.right.type)
-        return self.left.store(emitter, conv)
+        return self.left.store(emitter, self.type.convert(emitter, self.right.reduce(emitter), self.right.type))
 
     def generate(self, emitter):
         """Generate code for initial assignment."""
@@ -316,7 +311,7 @@ class InitListAssignment(Statement):
 
     def __init__(self, token, left, right):
         if isinstance(left.type, Array):
-            if left.type.length is None:  # TODO test
+            if left.type.length is None:
                 left.type.length = len(right)
             elif left.type.length < len(right):
                 token.error('Not large enough')
@@ -347,8 +342,7 @@ class InitStringArray(Statement):
 
     def generate(self, emitter):
         """Generate code for local string array assignments."""
-        base = self.array.address(emitter)
-        emitter.emit_stack_string_array(f'{self.string.value}\0', base)
+        emitter.emit_stack_string_array(f'{self.string.value}\0', self.array.address(emitter))
 
     def global_generate(self, emitter):
         """Generate code for local string array assignments as a global."""
@@ -400,9 +394,7 @@ class Call(Expression, Statement):
         """Generate code for arguments."""
         args = []
         for param, arg in zip(self.parameters, self.arguments):
-            target = arg.reduce(emitter)
-            conv = param.type.convert(emitter, target, arg.type)
-            args.append(conv)
+            args.append(param.type.convert(emitter, arg.reduce(emitter), arg.type))
         self.move_arguments(emitter, args)
 
     def move_arguments(self, emitter, targets):
@@ -410,7 +402,7 @@ class Call(Expression, Statement):
         for i, (target, arg) in enumerate(zip(targets[:REG_ARGS], self.arguments[:REG_ARGS])):
             emitter.emit_left_move(arg.width, Reg(i), target)
         for target in reversed(targets[REG_ARGS:]):
-            emitter.emit_push([target])  # TODO test
+            emitter.emit_push([target])
 
     def reduce(self, emitter):
         """Generate code for function call (as an expression)."""
@@ -431,9 +423,7 @@ class VariadicCall(Call):
         """Generate code for arguments."""
         args = []
         for i, (param, arg) in enumerate(zip(self.parameters, self.arguments)):
-            target = arg.reduce(emitter)
-            conv = param.type.convert(emitter, target, arg.type)
-            args.append(conv)
+            args.append(param.type.convert(emitter, arg.reduce(emitter), arg.type))
         for i, arg in enumerate(self.arguments[len(self.parameters):]):
             args.append(arg.reduce(emitter))
         self.move_arguments(emitter, args)
@@ -441,7 +431,7 @@ class VariadicCall(Call):
     def adjust_stack(self, emitter):
         """Remove remaining arguments from stack."""
         if len(self.arguments) > REG_ARGS:
-            emitter.emit_stack_deallocation(len(self.arguments[REG_ARGS:]) * Size.WORD)  # TODO test
+            emitter.emit_stack_deallocation(len(self.arguments[REG_ARGS:]) * Size.WORD)
 
     def reduce(self, emitter):
         """Generate code for variadic function call (as an expression)."""

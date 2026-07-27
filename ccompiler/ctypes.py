@@ -86,12 +86,8 @@ class Value(Type):
         """Generate code for storing to generic type."""
         return emitter.emit_store(self.width, source, base, var.offset, var.marked, var.name)
 
-    def reduce_pre(self, emitter, op, source):
+    def reduce_pre_post(self, emitter, op, source):
         """Generate code for pre operator."""
-        return emitter.emit_binary(op, self.width, source, self.interval)
-
-    def reduce_post(self, emitter, op, source):
-        """Generate code for post operator."""
         return emitter.emit_binary(op, self.width, source, self.interval)
 
     def reduce_binary(self, emitter, op, left, right):
@@ -320,15 +316,9 @@ class Float(Numeric):
         """Convert integer to float."""
         return source
 
-    def reduce_pre(self, emitter, op, source):
-        """Generate code for pre operator."""
-        interval = emitter.emit_unary(Op.ITF, Size.WORD, 1)  # ITF A, 1
-        return emitter.emit_binary(op, self.width, source, interval)
-
-    def reduce_post(self, emitter, op, source):
-        """Generate code for post operator."""
-        interval = emitter.emit_unary(Op.ITF, Size.WORD, 1)
-        return emitter.emit_binary(op, self.width, source, interval)
+    def reduce_pre_post(self, emitter, op, source):
+        """Generate code for pre or post operator."""
+        return emitter.emit_binary(op, self.width, source, emitter.emit_unary(Op.ITF, Size.WORD, 1))
 
     def reduce_binary(self, emitter, op, left, right):
         """Generate code for binary operator."""
@@ -356,7 +346,7 @@ class Pointer(Int):
 
     def __init__(self, ctype, volatile=False, const=False):
         super().__init__(False)
-        self.volatile = volatile        
+        self.volatile = volatile
         self.const = const
         self.to = self.of = ctype
         self.interval = max(int(ctype.size()), 1)
@@ -364,7 +354,7 @@ class Pointer(Int):
     def reduce_binary(self, emitter, op, left, right):
         """Generate code for binary operator."""
         if right.is_constant():
-            offset = right.fold().evaluate()
+            offset = right.evaluate()
             if op is Op.ADD:
                 return emitter.emit_address(left.reduce(emitter), offset * self.interval, False, f'+{offset}')
             return emitter.emit_binary(op, Size.WORD, left.reduce(emitter), offset * self.interval)
@@ -410,7 +400,6 @@ class List:
 
     def list_generate(self, emitter, source, base, offset):
         """Generate code for initialization lists."""
-        # base = emitter.emit_binary(Op.ADD, Size.WORD, base, offset)
         base = emitter.emit_address(base, offset)
         for (ctype, offset), element in zip(self, source):
             ctype.list_generate(emitter, element, base, offset)
@@ -448,6 +437,7 @@ class Array(List, Value):
         return self.global_address(emitter, glob)
 
     def global_data(self, emitter, source, data):
+        """Generate this array as global data."""
         super().global_data(emitter, source, data)
         if len(source) < self.length:
             data.append((None, (self.length - len(source)) * self.of.size()))

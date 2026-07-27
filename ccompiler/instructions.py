@@ -109,6 +109,7 @@ class Physical(Register):
         """Color this physical register if not already."""
         self.precolor(colors)
 
+
 Registers = [Physical(reg) for reg in Reg]
 
 
@@ -159,6 +160,7 @@ class Virtual(Register):
         if self.virtual:
             self.value = reg.value
             reg.devirtualize(self)
+
 
 class Object:
     """Base class for bit32 objects."""
@@ -429,14 +431,15 @@ class Unary(Operation):
 class CMov(Unary):
     """Class for conditional move instruction objects."""
 
-    def __init__(self, labels, condition, target, source):
-        super().__init__(labels, Op.MOV, Size.WORD, target, source)  # TODO I think these should have a size
+    def __init__(self, labels, size, condition, target, source):
+        super().__init__(labels, Op.MOV, size, target, source)
         self.condition = condition
 
     @property
     def op_str(self):
         """Get the formatted op string for cmovs."""
         return f'{self.op.name}{self.condition}'.ljust(JUST)
+
 
 class Move(Unary):
     """Base class for coalescable Move instructions."""
