@@ -106,9 +106,9 @@ class CLexer(Lexer):
         r'(0[Xx][0-9A-Fa-f]+|0[Bb][01]+|0[0-7]+|\d+)[LUlu]?'
         if group.endswith(('L', 'U', 'l', 'u')):
             group = group[:-1]
-        if group.startswith(('0X','0x')):
+        if group.startswith(('0X', '0x')):
             return int(group, base=16)
-        if group.startswith(('0B','0b')):
+        if group.startswith(('0B', '0b')):
             return int(group, base=2)
         if group.startswith('0'):
             return int(group, base=8)
