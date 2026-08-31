@@ -187,9 +187,9 @@ class Assembler:
             return name
         if self.peek(Lex.NUMBER):
             number = next(self).lexeme
-            if number.startswith(('0X','0x')):
+            if number.startswith(('0X', '0x')):
                 return int(number, base=16)
-            if number.startswith(('0B','0b')):
+            if number.startswith(('0B', '0b')):
                 return int(number, base=2)
             if number.startswith('0'):
                 return int(number, base=8)
